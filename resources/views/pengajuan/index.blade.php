@@ -1,0 +1,368 @@
+<!-- pengajuan/index.blade.php -->
+@extends('layouts.app')
+@section('header', 'Manajemen Pengajuan Perbaikan')
+@section('content')
+<div class="container mx-auto">
+    <!-- Date Filter Section -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <form action="{{ route('pengajuan.index') }}" method="GET" class="grid grid-cols-4 gap-6">
+            <div>
+                <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
+                <input type="date" id="start_date" name="start_date" value="{{ request('start_date') }}" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+            </div>
+            
+            <div>
+                <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Akhir</label>
+                <input type="date" id="end_date" name="end_date" value="{{ request('end_date') }}" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+            </div>
+            
+            <div>
+                <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
+                <select id="lokasi" name="lokasi" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                    <option value="">Semua Lokasi</option>
+                    @foreach($locations as $location)
+                        <option value="{{ $location }}" {{ request('lokasi') == $location ? 'selected' : '' }}>{{ $location }}</option>
+                    @endforeach
+                </select>
+            </div>
+            
+            <div class="flex items-end space-x-2">
+                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    Filter
+                </button>
+                
+                <a href="{{ route('pengajuan.index') }}" class="px-4 py-2 bg-gray-500 text-white rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Enhanced Stats Cards (All in One Row) -->
+    <div class="grid grid-cols-4 gap-6 mb-6">
+        <!-- Completed Tasks -->
+        <div class="bg-white rounded-lg shadow p-6 flex items-center">
+            <div class="p-3 rounded-full bg-green-100 text-green-500 mr-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-gray-500 text-sm">Selesai</p>
+                <p class="text-2xl font-bold">{{ $stats['completed'] ?? 0 }}</p>
+            </div>
+        </div>
+        
+        <!-- In Progress -->
+        <div class="bg-white rounded-lg shadow p-6 flex items-center">
+            <div class="p-3 rounded-full bg-yellow-100 text-yellow-500 mr-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-gray-500 text-sm">Dikerjakan</p>
+                <p class="text-2xl font-bold">{{ $stats['in_progress'] ?? 0 }}</p>
+            </div>
+        </div>
+        
+        <!-- Received -->
+        <div class="bg-white rounded-lg shadow p-6 flex items-center">
+            <div class="p-3 rounded-full bg-blue-100 text-blue-500 mr-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l-4-4m4 4l4-4" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-gray-500 text-sm">Diterima</p>
+                <p class="text-2xl font-bold">{{ $stats['received'] ?? 0 }}</p>
+            </div>
+        </div>
+        
+        <!-- Total Expenditure -->
+        <div class="bg-white rounded-lg shadow p-6 flex items-center">
+            <div class="p-3 rounded-full bg-purple-100 text-purple-500 mr-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-gray-500 text-sm">Pengeluaran</p>
+                <p class="text-2xl font-bold text-purple-600">Rp {{ number_format($stats['total_expenditure'] ?? 0, 0, ',', '.') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Maintenance Requests Table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <!-- Table Header with Actions -->
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                Daftar Perbaikan Aset
+                <a href="{{ route('pengajuan.detailed') }}" class="ml-2 text-blue-600 hover:text-blue-800 transition-colors duration-150" title="Lihat Detail">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                </a>
+            </h3>
+        </div>
+        
+        <x-table>
+            <x-slot name="thead">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        ID Perbaikan
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Nama Aset
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Lokasi
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tanggal Pengajuan
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Teknisi
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Aksi
+                    </th>
+                </tr>
+            </x-slot>
+            
+            @forelse ($maintenanceRequests as $request)
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {{ $request->maintenance_id }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ $request->asset->nama_asset }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ $request->asset->lokasi }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    @php
+                        $status = $request->status;
+                        $statusClasses = [
+                            'Menunggu Persetujuan' => 'bg-yellow-100 text-yellow-800',
+                            'Diterima' => 'bg-blue-100 text-blue-800',
+                            'Dikerjakan' => 'bg-yellow-100 text-yellow-800', 
+                            'Selesai' => 'bg-green-100 text-green-800',
+                            'Ditolak' => 'bg-red-100 text-red-800'
+                        ];
+                        $class = $statusClasses[$status] ?? 'bg-gray-100 text-gray-800';
+                    @endphp
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $class }}">
+                        {{ $status }}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ $request->tanggal_pengajuan ? $request->tanggal_pengajuan->format('d/m/Y') : '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ $request->teknisi ?? '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div class="flex justify-end space-x-2">
+                    <a href="{{ route('pengajuan.show', $request->id) }}" class="text-blue-600 hover:text-blue-900" title="Lihat Detail">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current">
+                            <path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"/>
+                        </svg>
+                    </a>
+                        
+                        @if($request->status == 'Menunggu Persetujuan' && $request->requested_by == Auth::id())
+                            <form action="{{ route('pengajuan.destroy', $request->id) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengajuan ini?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="text-red-600 hover:text-red-900" title="Hapus">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+                </td>
+            </tr>
+            @empty
+            <tr>
+                <td colspan="{{ Auth::user()->canApprove() ? '8' : '7' }}" class="px-6 py-10 text-center">
+                    <div class="flex flex-col items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p class="text-gray-500 text-lg font-medium">Tidak Ada Data Pengajuan</p>
+                        <p class="text-gray-400 text-sm mt-1">Belum ada pengajuan perbaikan yang dibuat.</p>
+                    </div>
+                </td>
+            </tr>
+            @endforelse
+        </x-table>
+        
+        <!-- Pagination -->
+        @if($maintenanceRequests->hasPages())
+        <div class="px-6 py-3 border-t flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                @if($maintenanceRequests->onFirstPage())
+                    <span class="px-3 py-1 border border-gray-300 rounded text-sm text-gray-400 cursor-not-allowed">Previous</span>
+                @else
+                    <a href="{{ $maintenanceRequests->appends(request()->query())->previousPageUrl() }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Previous</a>
+                @endif
+                
+                <span class="px-3 py-1 bg-blue-500 text-white rounded text-sm">{{ $maintenanceRequests->currentPage() }}</span>
+                
+                @if($maintenanceRequests->hasMorePages())
+                    <a href="{{ $maintenanceRequests->appends(request()->query())->nextPageUrl() }}" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Next</a>
+                @else
+                    <span class="px-3 py-1 border border-gray-300 rounded text-sm text-gray-400 cursor-not-allowed">Next</span>
+                @endif
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-700">
+                    Menampilkan {{ $maintenanceRequests->firstItem() ?? 0 }} - {{ $maintenanceRequests->lastItem() ?? 0 }} 
+                    dari {{ $maintenanceRequests->total() }} data
+                </span>
+            </div>
+        </div>
+        @endif
+    </div>
+</div>
+
+<!-- Approval Modal -->
+<!-- @if(Auth::user()->canApprove())
+<div id="approvalModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" aria-hidden="true"></div>
+        
+        <div class="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Persetujuan Pengajuan Perbaikan</h3>
+            
+            <form id="approvalForm" method="POST">
+                @csrf
+                <input type="hidden" id="maintenanceId" name="maintenance_id">
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tindakan</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="radio" name="action" value="approve" class="mr-2 text-green-600 focus:ring-green-500" checked>
+                            <span class="text-sm">Setujui Pengajuan</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="action" value="reject" class="mr-2 text-red-600 focus:ring-red-500">
+                            <span class="text-sm">Tolak Pengajuan</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Catatan (Opsional)</label>
+                    <textarea id="notes" name="notes" rows="3" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                              placeholder="Tambahkan catatan jika diperlukan..."></textarea>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeApprovalModal()" 
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        Batal
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Pengajuan page loaded');
+    
+    // Auto-hide success/error messages after 5 seconds
+    const alerts = document.querySelectorAll('.alert-message');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 500);
+        }, 5000);
+    });
+    
+    // Auto-submit form when filters change
+    document.getElementById('lokasi').addEventListener('change', function() {
+        this.form.submit();
+    });
+});
+
+@if(Auth::user()->canApprove())
+function openApprovalModal(maintenanceId) {
+    document.getElementById('maintenanceId').value = maintenanceId;
+    document.getElementById('approvalModal').classList.remove('hidden');
+}
+
+function closeApprovalModal() {
+    document.getElementById('approvalModal').classList.add('hidden');
+    document.getElementById('approvalForm').reset();
+}
+
+// Handle approval form submission
+document.getElementById('approvalForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const maintenanceId = formData.get('maintenance_id');
+    
+    try {
+        const response = await fetch(`/pengajuan/${maintenanceId}/approve`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show success message
+            alert(data.message);
+            closeApprovalModal();
+            // Reload page to reflect changes
+            window.location.reload();
+        } else {
+            alert(data.message || 'Terjadi kesalahan');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat memproses persetujuan');
+    }
+});
+
+// Close modal when clicking outside
+document.getElementById('approvalModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeApprovalModal();
+    }
+});
+@endif
+</script>
+@endsection

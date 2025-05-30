@@ -24,6 +24,7 @@ class RoleSeeder extends Seeder
         Permission::create(['name' => 'create_criteria']);
         Permission::create(['name' => 'create_excel']);
         Permission::create(['name' => 'create_payment']);
+        Permission::create(['name' => 'mark_payment_as_paid']);
         Permission::create(['name' => 'pay_invoice']);
         Permission::create(['name' => 'show_payment']);
         Permission::create(['name' => 'edit_payment']);
@@ -71,7 +72,8 @@ class RoleSeeder extends Seeder
         $stafKeuangan->givePermissionTo([
             'create_payment',
             'show_payment',
-            'pay_invoice'
+            'pay_invoice',
+            'mark_payment_as_paid',
         ]);
     }
 }

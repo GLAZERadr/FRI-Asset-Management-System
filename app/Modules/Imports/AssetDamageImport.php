@@ -8,6 +8,7 @@ use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AssetDamageImport implements ToModel, WithHeadingRow, WithValidation
 {
@@ -32,10 +33,12 @@ class AssetDamageImport implements ToModel, WithHeadingRow, WithValidation
             ]);
         }
         
-        // Generate a unique damage ID
-        $latestDamage = DamagedAsset::latest()->first();
-        $damageNumber = $latestDamage ? intval(substr($latestDamage->damage_id, 4)) + 1 : 1;
-        $damageId = 'DMG-' . str_pad($damageNumber, 5, '0', STR_PAD_LEFT);
+        // Generate a unique damage ID with thread-safe approach
+        $damageId = DB::transaction(function() {
+            $latestDamage = DamagedAsset::latest('id')->lockForUpdate()->first();
+            $damageNumber = $latestDamage ? intval(substr($latestDamage->damage_id, 4)) + 1 : 1;
+            return 'DMG-' . str_pad($damageNumber, 5, '0', STR_PAD_LEFT);
+        });
         
         // Create the damaged asset record
         return new DamagedAsset([
@@ -43,6 +46,7 @@ class AssetDamageImport implements ToModel, WithHeadingRow, WithValidation
             'asset_id' => $asset->asset_id,
             'tingkat_kerusakan' => $row['tingkat_kerusakan'],
             'estimasi_biaya' => $row['estimasi_biaya'],
+            'deskripsi_kerusakan' => $row['deskripsi_kerusakan'] ?? 'Imported from Excel',
             'tanggal_pelaporan' => now(),
             'pelapor' => Auth::user()->name,
         ]);
@@ -60,6 +64,25 @@ class AssetDamageImport implements ToModel, WithHeadingRow, WithValidation
             'tingkat_kerusakan' => 'required|in:Ringan,Sedang,Berat',
             'estimasi_biaya' => 'required|numeric|min:0',
             'tingkat_kepentingan_asset' => 'required|in:Ringan,Sedang,Berat',
+        ];
+    }
+    
+    /**
+     * Custom error messages
+     */
+    public function customValidationMessages()
+    {
+        return [
+            'id_aset.required' => 'ID Aset harus diisi',
+            'nama_aset.required' => 'Nama Aset harus diisi',
+            'lokasi.required' => 'Lokasi harus diisi',
+            'tingkat_kerusakan.required' => 'Tingkat Kerusakan harus diisi',
+            'tingkat_kerusakan.in' => 'Tingkat Kerusakan harus salah satu dari: Ringan, Sedang, Berat',
+            'estimasi_biaya.required' => 'Estimasi Biaya harus diisi',
+            'estimasi_biaya.numeric' => 'Estimasi Biaya harus berupa angka',
+            'estimasi_biaya.min' => 'Estimasi Biaya tidak boleh negatif',
+            'tingkat_kepentingan_asset.required' => 'Tingkat Kepentingan Aset harus diisi',
+            'tingkat_kepentingan_asset.in' => 'Tingkat Kepentingan Aset harus salah satu dari: Ringan, Sedang, Berat',
         ];
     }
 }

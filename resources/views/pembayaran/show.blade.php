@@ -4,18 +4,6 @@
 <div class="container mx-auto max-w-4xl">
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
         <div class="p-6">
-            @if(session('error'))
-                <div class="bg-red-100 text-red-700 p-4 rounded-md mb-4">
-                    {{ session('error') }}
-                </div>
-            @endif
-
-            @if(session('info'))
-                <div class="bg-blue-100 text-blue-700 p-4 rounded-md mb-4">
-                    {{ session('info') }}
-                </div>
-            @endif
-
             <!-- Payment Details -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <!-- Left Column -->
@@ -132,6 +120,18 @@
                             </button>
                         </form>
                     @endif
+
+                    @can('mark_payment_as_paid')
+                        @if($payment->status !== 'sudah_dibayar')
+                            <form action="{{ route('pembayaran.mark-paid', $payment) }}" method="POST" class="inline">
+                                @csrf
+                                @method('PATCH')
+                                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50" onclick="return confirm('Apakah Anda yakin membayar invoice ini?')">
+                                    Bayar
+                                </button>
+                            </form>
+                        @endif
+                    @endcan
 
                     @can('edit_payment')
                         @if($payment->status !== 'sudah_dibayar')

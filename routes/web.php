@@ -96,6 +96,8 @@ Route::middleware('auth')->group(function () {
         // POST routes
         Route::post('/', [PengajuanController::class, 'store'])->name('store');
         Route::post('/selected', [PengajuanController::class, 'storeSelected'])->name('store.selected');
+        Route::post('/bulk-approve', [PengajuanController::class, 'bulkApprove'])->name('bulk-approve');
+
         
         // Dynamic routes MUST come last
         Route::get('/{id}', [PengajuanController::class, 'show'])->name('show');

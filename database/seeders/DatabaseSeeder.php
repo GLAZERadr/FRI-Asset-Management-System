@@ -60,8 +60,8 @@ class DatabaseSeeder extends Seeder
 
         $user5 = User::create([
             'name' => 'Staf Keuangan',
-            'username' => 'stafkeu',
-            'email' => 'stafkeu@example.com',
+            'username' => 'staffkeu',
+            'email' => 'staffkeu@example.com',
             'division' => 'Keuangan',
             'password' => Hash::make('password')
         ]);

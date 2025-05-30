@@ -344,4 +344,71 @@ class TopsisService
             }
         }
     }
+
+    public function triggerTopsisCalculation(Request $request)
+    {
+        $user = Auth::user();
+        
+        // Only allow kaur roles to trigger TOPSIS calculation
+        if (!$user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki izin untuk melakukan kalkulasi prioritas.'
+            ], 403);
+        }
+        
+        try {
+            // Get AHP weights from session
+            $ahpWeights = session('ahp_weights');
+            
+            if (!$ahpWeights) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bobot kriteria AHP belum tersedia. Silakan lakukan kalkulasi AHP terlebih dahulu.'
+                ]);
+            }
+            
+            // Get all pending maintenance assets
+            $pendingAssets = MaintenanceAsset::with(['asset', 'damagedAsset'])
+                ->where('status', 'Menunggu Persetujuan')
+                ->get();
+            
+            if ($pendingAssets->count() === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada pengajuan yang perlu dikalkulasi prioritasnya.'
+                ]);
+            }
+            
+            // Calculate TOPSIS scores with AHP weights
+            $priorityScores = $this->topsisService->calculatePriorityWithWeights($pendingAssets, $ahpWeights);
+            
+            // Update all maintenance assets with new scores
+            $updatedCount = 0;
+            foreach ($pendingAssets as $asset) {
+                if (isset($priorityScores[$asset->id])) {
+                    $asset->update([
+                        'priority_score' => $priorityScores[$asset->id]['score'],
+                        'priority_calculated_at' => now(),
+                        'priority_method' => 'TOPSIS_AHP'
+                    ]);
+                    $updatedCount++;
+                }
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => "Berhasil menghitung prioritas untuk {$updatedCount} pengajuan menggunakan metode TOPSIS dengan bobot AHP.",
+                'updated_count' => $updatedCount
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('TOPSIS calculation error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat menghitung prioritas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

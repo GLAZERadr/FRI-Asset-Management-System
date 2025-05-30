@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Log;
 use App\Modules\Imports\AssetDamageImport;
 use App\Modules\Exports\AssetTemplateExport;
 
@@ -44,8 +45,7 @@ class PengajuanController extends Controller
                 $q->where('lokasi', 'NOT LIKE', '%Laboratorium%');
             });
         }
-        // For wakil_dekan_2, show all data (no filter needed)
-        
+
         // Apply filters
         if ($request->has('start_date') && $request->start_date) {
             $query->whereDate('tanggal_pengajuan', '>=', $request->start_date);
@@ -116,6 +116,41 @@ class PengajuanController extends Controller
                 ->whereNull('kaur_lab_approved_at')
                 ->where('status', 'Menunggu Persetujuan');
                 
+            // Apply filters BEFORE getting the data
+            if ($request->has('lokasi') && $request->lokasi) {
+                $query->whereHas('asset', function($q) use ($request) {
+                    $q->where('lokasi', $request->lokasi);
+                });
+            }
+            
+            if ($request->has('tingkat_kerusakan') && $request->tingkat_kerusakan) {
+                $query->whereHas('damagedAsset', function($q) use ($request) {
+                    $q->where('tingkat_kerusakan', $request->tingkat_kerusakan);
+                });
+            }
+            
+            // Apply sorting BEFORE getting the data
+            $sortField = $request->get('sort', 'created_at');
+            $sortDirection = $request->get('direction', 'desc');
+            
+            if (!in_array($sortDirection, ['asc', 'desc'])) {
+                $sortDirection = 'desc';
+            }
+            
+            switch ($sortField) {
+                case 'estimasi_biaya':
+                    $query->leftJoin('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
+                        ->orderBy('damaged_assets.estimasi_biaya', $sortDirection)
+                        ->select('maintenance_assets.*');
+                    break;
+                case 'priority':
+                    $query->orderBy('priority_score', $sortDirection);
+                    break;
+                default:
+                    $query->orderBy('created_at', $sortDirection);
+                    break;
+            }
+            
             $damagedAssets = $query->get();
             
         } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
@@ -132,43 +167,177 @@ class PengajuanController extends Controller
                       ->whereNotNull('kaur_lab_approved_at')
                       ->whereNull('kaur_keuangan_approved_at');
                 });
-                
+            
+            // Apply filters BEFORE getting the data
+            if ($request->has('lokasi') && $request->lokasi) {
+                $query->whereHas('asset', function($q) use ($request) {
+                    $q->where('lokasi', $request->lokasi);
+                });
+            }
+            
+            if ($request->has('tingkat_kerusakan') && $request->tingkat_kerusakan) {
+                $query->whereHas('damagedAsset', function($q) use ($request) {
+                    $q->where('tingkat_kerusakan', $request->tingkat_kerusakan);
+                });
+            }
+            
+            // Apply sorting BEFORE getting the data
+            $sortField = $request->get('sort', 'created_at');
+            $sortDirection = $request->get('direction', 'desc');
+            
+            if (!in_array($sortDirection, ['asc', 'desc'])) {
+                $sortDirection = 'desc';
+            }
+            
+            switch ($sortField) {
+                case 'estimasi_biaya':
+                    $query->leftJoin('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
+                        ->orderBy('damaged_assets.estimasi_biaya', $sortDirection)
+                        ->select('maintenance_assets.*');
+                    break;
+                case 'priority':
+                    $query->orderBy('priority_score', $sortDirection);
+                    break;
+                default:
+                    $query->orderBy('created_at', $sortDirection);
+                    break;
+            }
+            
             $damagedAssets = $query->get();
+            
         } elseif ($user->hasRole('wakil_dekan_2')) {
             // Wakil Dekan 2 sees all maintenance requests that need approval
             $query = MaintenanceAsset::with(['asset', 'damagedAsset'])
                 ->where('status', 'Menunggu Persetujuan');
-                
+            
+            // Apply filters BEFORE getting the data
+            if ($request->has('lokasi') && $request->lokasi) {
+                $query->whereHas('asset', function($q) use ($request) {
+                    $q->where('lokasi', $request->lokasi);
+                });
+            }
+            
+            if ($request->has('tingkat_kerusakan') && $request->tingkat_kerusakan) {
+                $query->whereHas('damagedAsset', function($q) use ($request) {
+                    $q->where('tingkat_kerusakan', $request->tingkat_kerusakan);
+                });
+            }
+            
+            // Apply sorting BEFORE getting the data
+            $sortField = $request->get('sort', 'created_at');
+            $sortDirection = $request->get('direction', 'desc');
+            
+            if (!in_array($sortDirection, ['asc', 'desc'])) {
+                $sortDirection = 'desc';
+            }
+            
+            switch ($sortField) {
+                case 'estimasi_biaya':
+                    $query->leftJoin('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
+                        ->orderBy('damaged_assets.estimasi_biaya', $sortDirection)
+                        ->select('maintenance_assets.*');
+                    break;
+                case 'priority':
+                    $query->orderBy('priority_score', $sortDirection);
+                    break;
+                default:
+                    $query->orderBy('created_at', $sortDirection);
+                    break;
+            }
+            
             $damagedAssets = $query->get();
+            
         } else {
             // Default empty collection for other roles
             $damagedAssets = collect();
         }
-
-        // Apply filters
-        if ($request->has('lokasi') && $request->lokasi) {
-            if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
+    
+        // Apply filters for staff roles only (since other roles already applied filters above)
+        if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
+            if ($request->has('lokasi') && $request->lokasi) {
                 $damagedAssets = $damagedAssets->filter(function($item) use ($request) {
                     return $item->asset->lokasi == $request->lokasi;
                 });
-            } else {
-                $query->whereHas('asset', function($q) use ($request) {
-                    $q->where('lokasi', $request->lokasi);
-                });
-                $damagedAssets = $query->get();
             }
-        }
-        
-        if ($request->has('tingkat_kerusakan') && $request->tingkat_kerusakan) {
-            if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
+            
+            if ($request->has('tingkat_kerusakan') && $request->tingkat_kerusakan) {
                 $damagedAssets = $damagedAssets->filter(function($item) use ($request) {
                     return $item->tingkat_kerusakan == $request->tingkat_kerusakan;
                 });
+            }
+        }
+        
+        // Calculate and store priority scores consistently
+        $priorityScores = [];
+        if ($user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']) && $damagedAssets->count() > 0) {
+            
+            if ($user->hasRole('wakil_dekan_2')) {
+                // For Wakil Dekan 2, ALWAYS use stored priority scores - don't recalculate
+                $priorityScores = $this->getStoredPriorityScores($damagedAssets);
             } else {
-                $query->whereHas('damagedAsset', function($q) use ($request) {
-                    $q->where('tingkat_kerusakan', $request->tingkat_kerusakan);
-                });
-                $damagedAssets = $query->get();
+                // For other roles, calculate if needed
+                // Check if we should use TOPSIS with AHP weights
+                $ahpWeights = session('ahp_weights');
+                $useTopsis = $request->has('with_topsis') && $ahpWeights;
+                
+                if ($useTopsis) {
+                    // Use TOPSIS with AHP weights
+                    $priorityScores = $this->topsisService->calculatePriorityWithWeights($damagedAssets, $ahpWeights);
+                } else {
+                    // Use default TOPSIS calculation or stored scores
+                    $priorityScores = $this->getStoredPriorityScores($damagedAssets);
+                    
+                    // Only calculate new scores if no stored scores exist
+                    if (empty($priorityScores)) {
+                        $priorityScores = $this->calculateDamagedAssetPriority($damagedAssets);
+                    }
+                }
+                
+                // Store priority scores in maintenance assets (for MaintenanceAsset objects)
+                if ($useTopsis) {
+                    foreach ($damagedAssets as $asset) {
+                        if ($asset instanceof MaintenanceAsset && isset($priorityScores[$asset->id])) {
+                            $asset->update([
+                                'priority_score' => $priorityScores[$asset->id]['score'],
+                                'priority_calculated_at' => now(),
+                                'priority_method' => 'TOPSIS_AHP'
+                            ]);
+                        }
+                    }
+                    
+                    // If this is a TOPSIS calculation request, also recalculate for all pending maintenance assets
+                    if ($user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm'])) {
+                        $this->recalculateAllPriorityScores($ahpWeights);
+                    }
+                }
+            }
+        }
+        
+        // Handle sorting for staff roles only (other roles already sorted above)
+        if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
+            $sortField = $request->get('sort', 'created_at');
+            $sortDirection = $request->get('direction', 'desc');
+            
+            // Validate sort direction
+            if (!in_array($sortDirection, ['asc', 'desc'])) {
+                $sortDirection = 'desc';
+            }
+            
+            // Apply sorting for collections
+            switch ($sortField) {
+                case 'estimasi_biaya':
+                    $damagedAssets = $sortDirection === 'asc' 
+                        ? $damagedAssets->sortBy('estimasi_biaya')
+                        : $damagedAssets->sortByDesc('estimasi_biaya');
+                    break;
+                case 'priority':
+                    if (!empty($priorityScores)) {
+                        $damagedAssets = $damagedAssets->sortBy(function($item) use ($priorityScores, $sortDirection) {
+                            $score = $priorityScores[$item->id]['score'] ?? 0;
+                            return $sortDirection === 'asc' ? $score : -$score;
+                        });
+                    }
+                    break;
             }
         }
         
@@ -181,20 +350,8 @@ class PengajuanController extends Controller
             $damagedAssets->count(),
             $perPage,
             $page,
-            ['path' => $request->url()]
+            ['path' => $request->url(), 'query' => $request->query()]
         );
-        
-        // Calculate priority scores using TOPSIS if weights are available and user can approve
-        $priorityScores = [];
-        if (Auth::user()->canApprove() && $maintenanceAssets->count() > 0) {
-            $ahpWeights = session('ahp_weights');
-            
-            if ($ahpWeights && $request->has('with_topsis')) {
-                $priorityScores = $this->topsisService->calculatePriorityWithWeights($maintenanceAssets, $ahpWeights);
-            } else {
-                $priorityScores = $this->calculateDamagedAssetPriority($maintenanceAssets);
-            }
-        }
         
         $locations = Asset::distinct()->pluck('lokasi');
         $tingkatKerusakanOptions = ['Ringan', 'Sedang', 'Berat'];
@@ -386,12 +543,64 @@ class PengajuanController extends Controller
             $user = Auth::user();
             $createdAssets = [];
             
+            // Get all damaged assets that should be available to this user
+            $availableDamagedAssets = collect();
+            
+            if ($user->hasRole('staff_laboratorium')) {
+                $availableDamagedAssets = DamagedAsset::with(['asset', 'maintenanceAsset'])
+                    ->whereDoesntHave('maintenanceAsset')
+                    ->orWhereHas('maintenanceAsset', function($q) {
+                        $q->whereIn('status', ['Ditolak']);
+                    })
+                    ->whereHas('asset', function($q) {
+                        $q->where('lokasi', 'LIKE', '%Laboratorium%');
+                    })
+                    ->get();
+            } elseif ($user->hasRole('staff_logistik')) {
+                $availableDamagedAssets = DamagedAsset::with(['asset', 'maintenanceAsset'])
+                    ->whereDoesntHave('maintenanceAsset')
+                    ->orWhereHas('maintenanceAsset', function($q) {
+                        $q->whereIn('status', ['Ditolak']);
+                    })
+                    ->whereHas('asset', function($q) {
+                        $q->where('lokasi', 'NOT LIKE', '%Laboratorium%');
+                    })
+                    ->get();
+            }
+            
+            // Get IDs of unchecked damaged assets
+            $checkedDamagedAssetIds = $validated['damaged_asset_ids'];
+            $allAvailableIds = $availableDamagedAssets->pluck('id')->toArray();
+            $uncheckedDamagedAssetIds = array_diff($allAvailableIds, $checkedDamagedAssetIds);
+            
+            // Delete unchecked damaged assets that don't have active maintenance requests
+            if (!empty($uncheckedDamagedAssetIds)) {
+                $damagedAssetsToDelete = DamagedAsset::whereIn('id', $uncheckedDamagedAssetIds)
+                    ->whereDoesntHave('maintenanceAsset', function($q) {
+                        $q->whereNotIn('status', ['Ditolak', 'Selesai']);
+                    })
+                    ->get();
+                
+                foreach ($damagedAssetsToDelete as $damagedAsset) {
+                    // Delete related rejected maintenance requests first
+                    $damagedAsset->maintenanceAsset()->where('status', 'Ditolak')->delete();
+                    // Then delete the damaged asset
+                    $damagedAsset->delete();
+                }
+            }
+            
+            // Process checked damaged assets
             foreach ($validated['damaged_asset_ids'] as $damagedAssetId) {
                 $damagedAsset = DamagedAsset::findOrFail($damagedAssetId);
                 
-                // Check if already has maintenance request
-                if ($damagedAsset->maintenanceAsset) {
+                // Check if already has active maintenance request
+                if ($damagedAsset->maintenanceAsset && !in_array($damagedAsset->maintenanceAsset->status, ['Ditolak'])) {
                     continue;
+                }
+                
+                // Delete existing rejected maintenance request if exists
+                if ($damagedAsset->maintenanceAsset && $damagedAsset->maintenanceAsset->status === 'Ditolak') {
+                    $damagedAsset->maintenanceAsset->delete();
                 }
                 
                 // Generate maintenance ID
@@ -425,7 +634,7 @@ class PengajuanController extends Controller
             
             // Send notification to approver
             $approver = $user->getApprover();
-            if ($approver) {
+            if ($approver && !empty($createdAssets)) {
                 foreach ($createdAssets as $asset) {
                     $this->notificationService->sendApprovalRequest(
                         $asset,
@@ -482,44 +691,61 @@ class PengajuanController extends Controller
                         );
                     }
                 } else {
-                    // Rejected by kaur lab
-                    $maintenanceAsset->update(['status' => 'Ditolak']);
+                    // Rejected by kaur lab - delete maintenance request and damaged asset
+                    $damagedAsset = $maintenanceAsset->damagedAsset;
+                    $maintenanceAsset->delete();
+                    if ($damagedAsset) {
+                        $damagedAsset->delete();
+                    }
                 }
                 
             } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
                 // Kaur keuangan final approval
-                $maintenanceAsset->update([
-                    'kaur_keuangan_approved_at' => now(),
-                    'kaur_keuangan_approved_by' => $user->username,
-                    'status' => $status
+                if ($action === 'approve') {
+                    $maintenanceAsset->update([
+                        'kaur_keuangan_approved_at' => now(),
+                        'kaur_keuangan_approved_by' => $user->username,
+                        'status' => $status
+                    ]);
+                } else {
+                    // Rejected by kaur keuangan - delete maintenance request and damaged asset
+                    $damagedAsset = $maintenanceAsset->damagedAsset;
+                    $maintenanceAsset->delete();
+                    if ($damagedAsset) {
+                        $damagedAsset->delete();
+                    }
+                }
+            }
+            
+            // Log the approval action (only if not deleted)
+            if ($action === 'approve' || MaintenanceAsset::find($id)) {
+                ApprovalLog::create([
+                    'maintenance_asset_id' => $maintenanceAsset->id,
+                    'action' => $action === 'approve' ? 'approved' : 'rejected',
+                    'performed_by' => $user->username,
+                    'role' => $user->roles->first()->name,
+                    'notes' => $validated['notes'] ?? null
                 ]);
             }
             
-            // Log the approval action
-            ApprovalLog::create([
-                'maintenance_asset_id' => $maintenanceAsset->id,
-                'action' => $action === 'approve' ? 'approved' : 'rejected',
-                'performed_by' => $user->username,
-                'role' => $user->roles->first()->name,
-                'notes' => $validated['notes'] ?? null
-            ]);
-            
-            // Send notification to original requester
-            $requester = User::find($maintenanceAsset->requested_by);
-            if ($requester) {
-                $this->notificationService->sendApprovalResult(
-                    $maintenanceAsset,
-                    $requester,
-                    $status,
-                    $user->roles->first()->name
-                );
+            // Send notification to original requester (only if maintenance asset still exists)
+            if ($action === 'approve') {
+                $requester = User::find($maintenanceAsset->requested_by);
+                if ($requester) {
+                    $this->notificationService->sendApprovalResult(
+                        $maintenanceAsset,
+                        $requester,
+                        $status,
+                        $user->roles->first()->name
+                    );
+                }
             }
             
             DB::commit();
             
             return response()->json([
                 'success' => true,
-                'message' => $action === 'approve' ? 'Pengajuan berhasil disetujui' : 'Pengajuan ditolak'
+                'message' => $action === 'approve' ? 'Pengajuan berhasil disetujui' : 'Pengajuan ditolak dan data terkait dihapus'
             ]);
             
         } catch (\Exception $e) {
@@ -530,6 +756,137 @@ class PengajuanController extends Controller
             ], 500);
         }
     }
+
+    public function bulkApprove(Request $request)
+{
+    $validated = $request->validate([
+        'maintenance_ids' => 'required|array|min:1',
+        'maintenance_ids.*' => 'exists:maintenance_assets,id',
+        'action' => 'required|in:approve,reject',
+        'notes' => 'nullable|string|max:500'
+    ]);
+    
+    DB::beginTransaction();
+    
+    try {
+        $user = Auth::user();
+        $action = $validated['action'];
+        $processedCount = 0;
+        $deletedCount = 0;
+        
+        // Get all maintenance assets that should be available to this user for approval
+        $availableMaintenanceAssets = collect();
+        
+        if ($user->hasRole('kaur_laboratorium')) {
+            $availableMaintenanceAssets = MaintenanceAsset::where('requested_by_role', 'staff_laboratorium')
+                ->whereNull('kaur_lab_approved_at')
+                ->where('status', 'Menunggu Persetujuan')
+                ->get();
+        } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
+            $availableMaintenanceAssets = MaintenanceAsset::where('status', 'Menunggu Persetujuan')
+                ->where(function($q) {
+                    $q->where('requested_by_role', 'staff_logistik')
+                      ->whereNull('kaur_keuangan_approved_at');
+                })->orWhere(function($q) {
+                    $q->where('requested_by_role', 'staff_laboratorium')
+                      ->whereNotNull('kaur_lab_approved_at')
+                      ->whereNull('kaur_keuangan_approved_at');
+                })->get();
+        }
+        
+        // Get IDs of unchecked maintenance assets
+        $checkedMaintenanceIds = $validated['maintenance_ids'];
+        $allAvailableIds = $availableMaintenanceAssets->pluck('id')->toArray();
+        $uncheckedMaintenanceIds = array_diff($allAvailableIds, $checkedMaintenanceIds);
+        
+        // Delete unchecked maintenance assets and their damaged assets
+        if (!empty($uncheckedMaintenanceIds)) {
+            $maintenanceAssetsToDelete = MaintenanceAsset::whereIn('id', $uncheckedMaintenanceIds)->get();
+            
+            foreach ($maintenanceAssetsToDelete as $maintenanceAsset) {
+                $damagedAsset = $maintenanceAsset->damagedAsset;
+                $maintenanceAsset->delete();
+                if ($damagedAsset) {
+                    $damagedAsset->delete();
+                    $deletedCount++;
+                }
+            }
+        }
+        
+        // Process checked maintenance assets
+        foreach ($validated['maintenance_ids'] as $maintenanceId) {
+            $maintenanceAsset = MaintenanceAsset::find($maintenanceId);
+            if (!$maintenanceAsset) continue;
+            
+            if ($user->hasRole('kaur_laboratorium')) {
+                if ($action === 'approve') {
+                    $maintenanceAsset->update([
+                        'kaur_lab_approved_at' => now(),
+                        'kaur_lab_approved_by' => $user->username,
+                        'status' => 'Menunggu Persetujuan'
+                    ]);
+                } else {
+                    // Rejected - delete maintenance and damaged asset
+                    $damagedAsset = $maintenanceAsset->damagedAsset;
+                    $maintenanceAsset->delete();
+                    if ($damagedAsset) {
+                        $damagedAsset->delete();
+                    }
+                }
+            } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
+                if ($action === 'approve') {
+                    $maintenanceAsset->update([
+                        'kaur_keuangan_approved_at' => now(),
+                        'kaur_keuangan_approved_by' => $user->username,
+                        'status' => 'Diterima'
+                    ]);
+                } else {
+                    // Rejected - delete maintenance and damaged asset
+                    $damagedAsset = $maintenanceAsset->damagedAsset;
+                    $maintenanceAsset->delete();
+                    if ($damagedAsset) {
+                        $damagedAsset->delete();
+                    }
+                }
+            }
+            
+            // Log the action (only if maintenance asset still exists)
+            if ($action === 'approve' || MaintenanceAsset::find($maintenanceId)) {
+                ApprovalLog::create([
+                    'maintenance_asset_id' => $maintenanceAsset->id,
+                    'action' => $action === 'approve' ? 'approved' : 'rejected',
+                    'performed_by' => $user->username,
+                    'role' => $user->roles->first()->name,
+                    'notes' => $validated['notes'] ?? 'Bulk action'
+                ]);
+            }
+            
+            $processedCount++;
+        }
+        
+        DB::commit();
+        
+        $message = $action === 'approve' 
+            ? "Berhasil menyetujui {$processedCount} pengajuan"
+            : "Berhasil menolak {$processedCount} pengajuan";
+            
+        if ($deletedCount > 0) {
+            $message .= " dan menghapus {$deletedCount} data yang tidak dipilih";
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => $message
+        ]);
+        
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+        ], 500);
+    }
+}
     
     // Add method to store AHP weights in session
     public function storeWeights(Request $request)
@@ -576,27 +933,86 @@ class PengajuanController extends Controller
     
     private function calculateStats($user)
     {
-        $query = MaintenanceAsset::query();
+        $stats = [];
         
-        // Filter based on user role for stats
-        if ($user->hasRole(['staff_laboratorium', 'kaur_laboratorium'])) {
-            $query->whereHas('asset', function($q) {
-                $q->where('lokasi', 'LIKE', '%Laboratorium%');
-            });
-        } elseif ($user->hasRole(['staff_logistik', 'kaur_keuangan_logistik_sdm'])) {
-            $query->whereHas('asset', function($q) {
-                $q->where('lokasi', 'NOT LIKE', '%Laboratorium%');
+        if ($user->hasRole('wakil_dekan_2')) {
+            // Wakil Dekan 2 has access to all data across departments
+            $allMaintenanceRequests = MaintenanceAsset::with(['asset', 'damagedAsset']);
+            
+            // Basic status counts
+            $stats['completed'] = (clone $allMaintenanceRequests)->where('status', 'Selesai')->count();
+            $stats['in_progress'] = (clone $allMaintenanceRequests)->where('status', 'Dikerjakan')->count();
+            $stats['received'] = (clone $allMaintenanceRequests)->where('status', 'Diterima')->count();
+            $stats['rejected'] = (clone $allMaintenanceRequests)->where('status', 'Ditolak')->count();
+            
+            // Total expenditure from completed repairs
+            $stats['total_expenditure'] = (clone $allMaintenanceRequests)
+                ->where('status', 'Selesai')
+                ->whereHas('damagedAsset')
+                ->with('damagedAsset')
+                ->get()
+                ->sum(function($maintenance) {
+                    return $maintenance->damagedAsset->estimasi_biaya ?? 0;
+                });
+            
+            // Highest repair cost and asset
+            $highestCostMaintenance = (clone $allMaintenanceRequests)
+                ->whereHas('damagedAsset')
+                ->with(['damagedAsset', 'asset'])
+                ->get()
+                ->sortByDesc(function($maintenance) {
+                    return $maintenance->damagedAsset->estimasi_biaya ?? 0;
+                })
+                ->first();
+                
+            $stats['highest_repair_cost'] = $highestCostMaintenance ? 
+                ($highestCostMaintenance->damagedAsset->estimasi_biaya ?? 0) : 0;
+            $stats['highest_cost_asset'] = $highestCostMaintenance ? 
+                $highestCostMaintenance->asset->nama_asset : '-';
+            
+            // Department-wise repair requests
+            $stats['lab_requests'] = (clone $allMaintenanceRequests)
+                ->whereHas('asset', function($q) {
+                    $q->where('lokasi', 'LIKE', '%Laboratorium%');
+                })->count();
+                
+            $stats['logistic_requests'] = (clone $allMaintenanceRequests)
+                ->whereHas('asset', function($q) {
+                    $q->where('lokasi', 'NOT LIKE', '%Laboratorium%');
+                })->count();
+                
+        } else {
+            // Original stats calculation for other roles
+            $query = MaintenanceAsset::with(['asset', 'damagedAsset']);
+            
+            // Apply role-based filtering
+            if ($user->hasRole(['staff_laboratorium', 'kaur_laboratorium'])) {
+                $query->whereHas('asset', function($q) {
+                    $q->where('lokasi', 'LIKE', '%Laboratorium%');
+                });
+            } elseif ($user->hasRole(['staff_logistik', 'kaur_keuangan_logistik_sdm'])) {
+                $query->whereHas('asset', function($q) {
+                    $q->where('lokasi', 'NOT LIKE', '%Laboratorium%');
+                });
+            }
+            
+            $stats['completed'] = (clone $query)->where('status', 'Selesai')->count();
+            $stats['in_progress'] = (clone $query)->where('status', 'Dikerjakan')->count();
+            $stats['received'] = (clone $query)->where('status', 'Diterima')->count();
+            
+            // Calculate total expenditure from completed repairs
+            $completedRepairs = (clone $query)
+                ->where('status', 'Selesai')
+                ->whereHas('damagedAsset')
+                ->with('damagedAsset')
+                ->get();
+                
+            $stats['total_expenditure'] = $completedRepairs->sum(function($maintenance) {
+                return $maintenance->damagedAsset->estimasi_biaya ?? 0;
             });
         }
         
-        return [
-            'completed' => (clone $query)->where('status', 'Selesai')->count(),
-            'in_progress' => (clone $query)->where('status', 'Dikerjakan')->count(),
-            'received' => (clone $query)->where('status', 'Diterima')->count(),
-            'total_expenditure' => (clone $query)->where('status', 'Selesai')
-                ->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
-                ->sum('damaged_assets.estimasi_biaya') ?? 0
-        ];
+        return $stats;
     }
     
     public function show($id)
@@ -712,8 +1128,22 @@ class PengajuanController extends Controller
     
     public function detailed(Request $request)
     {
+        $user = Auth::user();
         $query = MaintenanceAsset::with(['asset', 'damagedAsset']);
         
+        // Filter based on user role according to the new rules
+        if ($user->hasRole(['staff_laboratorium', 'kaur_laboratorium'])) {
+            // Show only lab assets (approved or not approved by kaur keuangan)
+            $query->whereHas('asset', function($q) {
+                $q->where('lokasi', 'LIKE', '%Laboratorium%');
+            });
+        } elseif ($user->hasRole(['staff_logistik', 'kaur_keuangan_logistik_sdm'])) {
+            // Show only logistic assets (approved or not approved by kaur keuangan)
+            $query->whereHas('asset', function($q) {
+                $q->where('lokasi', 'NOT LIKE', '%Laboratorium%');
+            });
+        }
+
         // Apply filters
         if ($request->filled('lokasi')) {
             $query->whereHas('asset', function($q) use ($request) {
@@ -796,6 +1226,114 @@ class PengajuanController extends Controller
         }
         
         return back()->with('error', 'Status tidak dapat diubah.');
+    }
+
+    public function downloadTemplate()
+    {
+        try {
+            return Excel::download(new AssetTemplateExport, 'template_data_kerusakan_aset.xlsx');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal mengunduh template: ' . $e->getMessage());
+        }
+    }
+
+    public function uploadTemplate(Request $request)
+    {
+        $validated = $request->validate([
+            'excel_file' => 'required|file|mimes:xlsx,xls|max:10240', // 10MB max
+        ], [
+            'excel_file.required' => 'File Excel wajib diunggah.',
+            'excel_file.mimes' => 'File harus berformat Excel (.xlsx atau .xls).',
+            'excel_file.max' => 'Ukuran file maksimal 10MB.',
+        ]);
+
+        DB::beginTransaction();
+        
+        try {
+            $file = $request->file('excel_file');
+            
+            // Import the Excel file
+            $import = new AssetDamageImport();
+            Excel::import($import, $file);
+            
+            DB::commit();
+            
+            return redirect()->route('pengajuan.create')
+                ->with('success', 'File Excel berhasil diproses. Data kerusakan aset telah ditambahkan.');
+                
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            DB::rollBack();
+            
+            $failures = $e->failures();
+            $errorMessages = [];
+            
+            foreach ($failures as $failure) {
+                $errorMessages[] = "Baris {$failure->row()}: " . implode(', ', $failure->errors());
+            }
+            
+            return back()->with('error', 'Validasi gagal: ' . implode('<br>', $errorMessages));
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            // Log the error for debugging
+            \Log::error('Excel import error: ' . $e->getMessage());
+            
+            return back()->with('error', 'Terjadi kesalahan saat memproses file: ' . $e->getMessage());
+        }
+    }
+
+    private function recalculateAllPriorityScores($ahpWeights)
+    {
+        // Get all pending maintenance assets
+        $allPendingAssets = MaintenanceAsset::with(['asset', 'damagedAsset'])
+            ->where('status', 'Menunggu Persetujuan')
+            ->get();
+        
+        if ($allPendingAssets->count() > 0) {
+            // Calculate TOPSIS scores with AHP weights
+            $allPriorityScores = $this->topsisService->calculatePriorityWithWeights($allPendingAssets, $ahpWeights);
+            
+            // Update all maintenance assets with new scores
+            foreach ($allPendingAssets as $asset) {
+                if (isset($allPriorityScores[$asset->id])) {
+                    $asset->update([
+                        'priority_score' => $allPriorityScores[$asset->id]['score'],
+                        'priority_calculated_at' => now(),
+                        'priority_method' => 'TOPSIS_AHP'
+                    ]);
+                }
+            }
+        }
+    }
+
+    private function getStoredPriorityScores($damagedAssets)
+    {
+        $priorityScores = [];
+        
+        foreach ($damagedAssets as $asset) {
+            if ($asset instanceof MaintenanceAsset && $asset->priority_score !== null) {
+                $priorityScores[$asset->id] = [
+                    'score' => $asset->priority_score,
+                    'rank' => 1 // Will be recalculated based on current dataset
+                ];
+            }
+        }
+        
+        // Recalculate ranks based on current scores
+        if (!empty($priorityScores)) {
+            $sortedScores = $priorityScores;
+            uasort($sortedScores, function($a, $b) {
+                return $b['score'] <=> $a['score'];
+            });
+            
+            $rank = 1;
+            foreach ($sortedScores as $id => $data) {
+                $priorityScores[$id]['rank'] = $rank++;
+            }
+        }
+        
+        return $priorityScores;
     }
     
     public function destroy($id)

@@ -52,12 +52,14 @@
     <!-- Main Content Section -->
     <div class="bg-white rounded-lg shadow overflow-hidden">
         <!-- Header -->
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 class="text-lg font-medium text-gray-900">Daftar Pembayaran Perbaikan</h3>
-            <a href="{{ route('pembayaran.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                Tambah Pembayaran
-            </a>
-        </div>
+        @if(Auth::user()->hasRole(['staff_logistik', 'staff_laboratorium']))
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-medium text-gray-900">Daftar Pembayaran Perbaikan</h3>
+                <a href="{{ route('pembayaran.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                    Tambah Pembayaran
+                </a>
+            </div>
+        @endif
 
         @if(session('error'))
             <div class="bg-red-100 text-red-700 p-4 mx-6 mt-4 rounded-md">
@@ -126,7 +128,7 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php
                                 $statusClasses = [
-                                    'belum_dibayar' => 'bg-yellow-100 text-yellow-800',
+                                    'belum_dibayar' => 'bg-red-100 text-red-800',
                                     'sudah_dibayar' => 'bg-green-100 text-green-800',
                                     'terlambat' => 'bg-red-100 text-red-800',
                                     'dibatalkan' => 'bg-gray-100 text-gray-800'

@@ -2,21 +2,36 @@
 @extends('layouts.app')
 @section('header', 'Manajemen Aset')
 @section('content')
+
+@php
+    // Define sort variables at the top level to avoid undefined variable errors
+    $currentSort = request('sort');
+    $currentDirection = request('direction');
+@endphp
+
 <div class="container mx-auto">
     <!-- Filter Section -->
     <div class="bg-white rounded-lg shadow p-6 mb-6">
         <form action="{{ route('pengajuan.baru') }}" method="GET" id="filter-form">
+            <!-- Preserve sort parameters -->
+            @if(request('sort'))
+                <input type="hidden" name="sort" value="{{ request('sort') }}">
+            @endif
+            @if(request('direction'))
+                <input type="hidden" name="direction" value="{{ request('direction') }}">
+            @endif
+            
             <div class="grid grid-cols-3 gap-6 items-end">
                 <div>
                     <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">
-                        @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                        @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
                             Pilih Departemen
                         @else
                             Pilih Lokasi Aset
                         @endif
                     </label>
                     <select id="lokasi" name="lokasi" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                        @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                        @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
                             <option value="">Semua Departemen</option>
                         @else
                             <option value="">Semua Lokasi</option>
@@ -92,7 +107,7 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                @if(Auth::user()->hasRole(['staff_laboratorium', 'staff_logistik', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                                @if(Auth::user()->hasRole(['staff_laboratorium', 'staff_logistik', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
                                 <th scope="col" class="px-6 py-3 text-center">
                                     @if(Auth::user()->hasRole(['staff_laboratorium', 'staff_logistik']))
                                         <input type="checkbox" id="select-all" class="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500">
@@ -110,7 +125,7 @@
                                     Nama Aset
                                 </th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                                    @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
                                         Departemen
                                     @else
                                         Lokasi
@@ -121,11 +136,51 @@
                                 </th>
                                 @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']) && !empty($priorityScores))
                                 <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Nilai Prioritas
+                                    <a href="{{ request()->fullUrlWithQuery(['sort' => 'priority', 'direction' => request('sort') == 'priority' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" 
+                                    class="flex items-center justify-center hover:text-gray-700 group">
+                                        Nilai Prioritas
+                                        <div class="ml-1 flex flex-col">
+                                            @php
+                                                $isPrioritySort = $currentSort === 'priority';
+                                            @endphp
+                                            
+                                            <!-- Up Arrow -->
+                                            <svg class="w-3 h-3 {{ $isPrioritySort && $currentDirection === 'asc' ? 'text-blue-600' : 'text-gray-400' }} group-hover:text-gray-600" 
+                                                fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                                            </svg>
+                                            
+                                            <!-- Down Arrow -->
+                                            <svg class="w-3 h-3 -mt-1 {{ $isPrioritySort && $currentDirection === 'desc' ? 'text-blue-600' : 'text-gray-400' }} group-hover:text-gray-600" 
+                                                fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                    </a>
                                 </th>
                                 @endif
                                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Estimasi Biaya
+                                    <a href="{{ request()->fullUrlWithQuery(['sort' => 'estimasi_biaya', 'direction' => request('sort') == 'estimasi_biaya' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" 
+                                    class="flex items-center justify-end hover:text-gray-700 group">
+                                        Estimasi Biaya
+                                        <div class="ml-1 flex flex-col">
+                                            @php
+                                                $isBiayaSort = $currentSort === 'estimasi_biaya';
+                                            @endphp
+                                            
+                                            <!-- Up Arrow -->
+                                            <svg class="w-3 h-3 {{ $isBiayaSort && $currentDirection === 'asc' ? 'text-blue-600' : 'text-gray-400' }} group-hover:text-gray-600" 
+                                                fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                                            </svg>
+                                            
+                                            <!-- Down Arrow -->
+                                            <svg class="w-3 h-3 -mt-1 {{ $isBiayaSort && $currentDirection === 'desc' ? 'text-blue-600' : 'text-gray-400' }} group-hover:text-gray-600" 
+                                                fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                    </a>
                                 </th>
                                 @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
                                 <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -157,7 +212,7 @@
                                 }
                             @endphp
                             <tr class="hover:bg-gray-50">
-                                @if(Auth::user()->hasRole(['staff_laboratorium', 'staff_logistik', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                                @if(Auth::user()->hasRole(['staff_laboratorium', 'staff_logistik', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                     @if(Auth::user()->hasRole(['staff_laboratorium', 'staff_logistik']))
                                         <input type="checkbox" name="damaged_asset_ids[]" value="{{ $damagedAsset->id }}" 
@@ -165,7 +220,8 @@
                                     @else
                                         <input type="checkbox" 
                                             class="asset-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                            data-maintenance-id="{{ $maintenanceId }}">
+                                            data-maintenance-id="{{ $maintenanceId }}"
+                                            data-cost="{{ $damagedAsset->estimasi_biaya }}">
                                     @endif
                                 </td>
                                 @endif
@@ -178,7 +234,7 @@
                                     {{ $asset->nama_asset }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                                    @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
                                         {{ $department }}
                                     @else
                                         {{ $asset->lokasi }}
@@ -229,31 +285,37 @@
                 </div>
 
                 <!-- Bottom Actions -->
-                @if(!$maintenanceAssets->isEmpty())
-                <div class="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
-                    <div>
-                        @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
-                        <p class="text-sm text-gray-600">
-                            <span class="font-medium">Aset Terpilih:</span> 
-                            <span id="selected-count" class="font-bold">0</span>
-                        </p>
-                        <p class="text-sm text-gray-600">
-                            <span class="font-medium">Total Estimasi Biaya:</span> 
-                            <span id="total-cost" class="font-bold text-blue-600">Rp 0</span>
-                        </p>
-                        @endif
-                    </div>
-                    
-                    <div>
-                        @if(Auth::user()->hasRole('kaur_laboratorium'))
-                            <button type="button" onclick="approveSelected()" class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
-                                Setujui dan Ajukan ke Kaur Keuangan Logistik SDM
-                            </button>
-                        @elseif(Auth::user()->hasRole('kaur_keuangan_logistik_sdm'))
-                            <button type="button" onclick="approveSelected()" class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
-                                Setujui Pengajuan Perbaikan
-                            </button>
-                        @endif
+                @if(!$maintenanceAssets->isEmpty() && Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                <div class="px-6 py-4 bg-gray-50 border-t flex justify-end items-center">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 min-w-64">
+                        <div class="space-y-3">
+                            <!-- Asset Count -->
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-600">Aset Terpilih</span>
+                                <span id="selected-count" class="text-lg font-bold text-gray-900">0</span>
+                            </div>
+                            
+                            <!-- Total Cost -->
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium text-gray-600 mr-3">Total Estimasi Biaya</span>
+                                <span id="total-cost" class="text-lg font-bold text-blue-600">Rp 0</span>
+                            </div>
+                            
+                            <!-- Action Button -->
+                            @if(Auth::user()->hasRole('kaur_laboratorium'))
+                                <button type="button" onclick="approveSelected()" class="w-full px-4 py-3 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors duration-200">
+                                    Setujui dan Ajukan ke Kaur Keuangan Logistik SDM
+                                </button>
+                            @elseif(Auth::user()->hasRole('kaur_keuangan_logistik_sdm'))
+                                <button type="button" onclick="approveSelected()" class="w-full px-4 py-3 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors duration-200">
+                                    Setujui Pengajuan Perbaikan
+                                </button>
+                            @elseif(Auth::user()->hasRole('wakil_dekan_2'))
+                                <button type="button" onclick="approveSelected()" class="w-full px-4 py-3 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors duration-200">
+                                    Setujui Pengajuan Perbaikan
+                                </button>
+                            @endif
+                        </div>
                     </div>
                 </div>
                 @endif
@@ -482,38 +544,42 @@ async function approveSelected() {
         return;
     }
     
-    const maintenanceIds = Array.from(checkboxes).map(cb => cb.dataset.maintenanceId);
+    const maintenanceIds = Array.from(checkboxes).map(cb => cb.dataset.maintenanceId).filter(id => id);
     
-    if (!confirm(`Apakah Anda yakin ingin menyetujui ${maintenanceIds.length} pengajuan?`)) {
+    if (maintenanceIds.length === 0) {
+        alert('Tidak ada pengajuan yang valid untuk disetujui');
+        return;
+    }
+    
+    if (!confirm(`Apakah Anda yakin ingin menyetujui ${maintenanceIds.length} pengajuan? Data yang tidak dipilih akan dihapus.`)) {
         return;
     }
     
     try {
-        // Process each selected maintenance request
-        for (const maintenanceId of maintenanceIds) {
-            const formData = new FormData();
-            formData.append('action', 'approve');
-            formData.append('notes', 'Disetujui melalui bulk action');
-            
-            const response = await fetch(`/pengajuan/${maintenanceId}/approve`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json',
-                },
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (!data.success) {
-                throw new Error(data.message || 'Terjadi kesalahan');
-            }
-        }
+        const formData = new FormData();
+        formData.append('action', 'approve');
+        formData.append('notes', 'Disetujui melalui bulk action');
+        maintenanceIds.forEach(id => {
+            formData.append('maintenance_ids[]', id);
+        });
         
-        // Show success message and reload
-        alert(`Berhasil menyetujui ${maintenanceIds.length} pengajuan`);
-        window.location.reload();
+        const response = await fetch('/pengajuan/bulk-approve', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            window.location.reload();
+        } else {
+            throw new Error(data.message || 'Terjadi kesalahan');
+        }
         
     } catch (error) {
         console.error('Error:', error);

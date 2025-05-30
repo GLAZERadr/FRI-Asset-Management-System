@@ -46,59 +46,112 @@
         </form>
     </div>
 
-    <!-- Enhanced Stats Cards (All in One Row) -->
-    <div class="grid grid-cols-4 gap-6 mb-6">
-        <!-- Completed Tasks -->
-        <div class="bg-white rounded-lg shadow p-6 flex items-center">
-            <div class="p-3 rounded-full bg-green-100 text-green-500 mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
+    <!-- Enhanced Stats Cards - Role-based display -->
+    @if(Auth::user()->hasRole('wakil_dekan_2'))
+        <div class="grid grid-cols-3 gap-6 mb-6">
+            <!-- Highest Repair Cost -->
+            <div class="bg-white rounded-lg shadow p-6 flex items-center">
+                <div class="p-3 rounded-full bg-red-100 text-red-500 mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Biaya Perbaikan Tertinggi</p>
+                    <p class="text-2xl font-bold text-red-600">Rp{{ number_format($stats['highest_repair_cost'] ?? 0, 0, ',', '.') }}</p>
+                    <p class="text-xs text-gray-400">{{ $stats['highest_cost_asset'] ?? '-' }}</p>
+                </div>
             </div>
-            <div>
-                <p class="text-gray-500 text-sm">Selesai</p>
-                <p class="text-2xl font-bold">{{ $stats['completed'] ?? 0 }}</p>
+            
+            <!-- Repair Requests by Department -->
+            <div class="bg-white rounded-lg shadow p-6 flex items-center">
+                <div class="p-3 rounded-full bg-blue-100 text-blue-500 mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Pengajuan Perbaikan</p>
+                    <div class="flex flex-col">
+                        <span class="text-sm text-gray-600">Laboratorium ({{ $stats['lab_requests'] ?? 0 }})</span>
+                        <span class="text-sm text-gray-600">Logistik dan SDM ({{ $stats['logistic_requests'] ?? 0 }})</span>
+                    </div>
+                </div>
             </div>
-        </div>
-        
-        <!-- In Progress -->
-        <div class="bg-white rounded-lg shadow p-6 flex items-center">
-            <div class="p-3 rounded-full bg-yellow-100 text-yellow-500 mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            </div>
-            <div>
-                <p class="text-gray-500 text-sm">Dikerjakan</p>
-                <p class="text-2xl font-bold">{{ $stats['in_progress'] ?? 0 }}</p>
-            </div>
-        </div>
-        
-        <!-- Received -->
-        <div class="bg-white rounded-lg shadow p-6 flex items-center">
-            <div class="p-3 rounded-full bg-blue-100 text-blue-500 mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l-4-4m4 4l4-4" />
-                </svg>
-            </div>
-            <div>
-                <p class="text-gray-500 text-sm">Diterima</p>
-                <p class="text-2xl font-bold">{{ $stats['received'] ?? 0 }}</p>
-            </div>
-        </div>
-        
-        <!-- Total Expenditure -->
-        <div class="bg-white rounded-lg shadow p-6 flex items-center">
-            <div class="p-3 rounded-full bg-purple-100 text-purple-500 mr-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            </div>
-            <div>
-                <p class="text-gray-500 text-sm">Pengeluaran</p>
-                <p class="text-2xl font-bold text-purple-600">Rp {{ number_format($stats['total_expenditure'] ?? 0, 0, ',', '.') }}</p>
+            
+            <!-- Repair Status Overview -->
+            <div class="bg-white rounded-lg shadow p-6 flex items-center">
+                <div class="p-3 rounded-full bg-orange-100 text-orange-500 mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Status Perbaikan</p>
+                    <div class="grid grid-cols-2 gap-1 text-xs">
+                        <span class="text-green-600">Selesai ({{ $stats['completed'] ?? 0 }})</span>
+                        <span class="text-yellow-600">Dikerjakan ({{ $stats['in_progress'] ?? 0 }})</span>
+                        <span class="text-blue-600">Diterima ({{ $stats['received'] ?? 0 }})</span>
+                        <span class="text-red-600">Ditolak ({{ $stats['rejected'] ?? 0 }})</span>
+                    </div>
+                </div>
             </div>
         </div>
+    @else
+        <div class="grid grid-cols-4 gap-6 mb-6">
+            <!-- Original Stats Cards for other roles -->
+            <!-- Completed Tasks -->
+            <div class="bg-white rounded-lg shadow p-6 flex items-center">
+                <div class="p-3 rounded-full bg-green-100 text-green-500 mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Selesai</p>
+                    <p class="text-2xl font-bold">{{ $stats['completed'] ?? 0 }}</p>
+                </div>
+            </div>
+            
+            <!-- In Progress -->
+            <div class="bg-white rounded-lg shadow p-6 flex items-center">
+                <div class="p-3 rounded-full bg-yellow-100 text-yellow-500 mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Dikerjakan</p>
+                    <p class="text-2xl font-bold">{{ $stats['in_progress'] ?? 0 }}</p>
+                </div>
+            </div>
+            
+            <!-- Received -->
+            <div class="bg-white rounded-lg shadow p-6 flex items-center">
+                <div class="p-3 rounded-full bg-blue-100 text-blue-500 mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l-4-4m4 4l4-4" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Diterima</p>
+                    <p class="text-2xl font-bold">{{ $stats['received'] ?? 0 }}</p>
+                </div>
+            </div>
+            
+            <!-- Total Expenditure -->
+            <div class="bg-white rounded-lg shadow p-6 flex items-center">
+                <div class="p-3 rounded-full bg-purple-100 text-purple-500 mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-gray-500 text-sm">Pengeluaran</p>
+                    <p class="text-2xl font-bold text-purple-600">Rp {{ number_format($stats['total_expenditure'] ?? 0, 0, ',', '.') }}</p>
+                </div>
+            </div>
+        @endif
     </div>
 
     <!-- Enhanced Maintenance Requests Table -->
@@ -241,56 +294,6 @@
         @endif
     </div>
 </div>
-
-<!-- Approval Modal -->
-<!-- @if(Auth::user()->canApprove())
-<div id="approvalModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
-    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" aria-hidden="true"></div>
-        
-        <div class="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Persetujuan Pengajuan Perbaikan</h3>
-            
-            <form id="approvalForm" method="POST">
-                @csrf
-                <input type="hidden" id="maintenanceId" name="maintenance_id">
-                
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Tindakan</label>
-                    <div class="space-y-2">
-                        <label class="flex items-center">
-                            <input type="radio" name="action" value="approve" class="mr-2 text-green-600 focus:ring-green-500" checked>
-                            <span class="text-sm">Setujui Pengajuan</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="action" value="reject" class="mr-2 text-red-600 focus:ring-red-500">
-                            <span class="text-sm">Tolak Pengajuan</span>
-                        </label>
-                    </div>
-                </div>
-                
-                <div class="mb-4">
-                    <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Catatan (Opsional)</label>
-                    <textarea id="notes" name="notes" rows="3" 
-                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
-                              placeholder="Tambahkan catatan jika diperlukan..."></textarea>
-                </div>
-                
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="closeApprovalModal()" 
-                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                        Batal
-                    </button>
-                    <button type="submit" 
-                            class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                        Simpan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-@endif -->
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

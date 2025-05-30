@@ -26,6 +26,8 @@ class MaintenanceAsset extends Model
         'kaur_keuangan_approved_at',
         'kaur_keuangan_approved_by',
         'priority_score',
+        'priority_calculated_at',
+        'priority_method',
     ];
 
     protected $casts = [
@@ -34,6 +36,7 @@ class MaintenanceAsset extends Model
         'tanggal_selesai' => 'datetime',
         'kaur_lab_approved_at' => 'datetime',
         'kaur_keuangan_approved_at' => 'datetime',
+        'priority_calculated_at' => 'datetime',
         'priority_score' => 'float'
     ];
 
@@ -67,6 +70,22 @@ class MaintenanceAsset extends Model
     public function approvalLogs()
     {
         return $this->hasMany(ApprovalLog::class)->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Check if priority score needs recalculation
+     */
+    public function needsPriorityRecalculation($lastAhpCalculation = null)
+    {
+        if (!$this->priority_calculated_at) {
+            return true;
+        }
+        
+        if ($lastAhpCalculation && $this->priority_calculated_at < $lastAhpCalculation) {
+            return true;
+        }
+        
+        return false;
     }
 
     /**
@@ -150,5 +169,29 @@ class MaintenanceAsset extends Model
     public function scopeApproved($query)
     {
         return $query->where('status', 'Diterima');
+    }
+
+    /**
+     * Scope for items with priority scores
+     */
+    public function scopeWithPriorityScore($query)
+    {
+        return $query->whereNotNull('priority_score');
+    }
+
+    /**
+     * Scope for items that need priority recalculation
+     */
+    public function scopeNeedsPriorityRecalculation($query, $lastAhpCalculation = null)
+    {
+        $query->where(function($q) use ($lastAhpCalculation) {
+            $q->whereNull('priority_calculated_at');
+            
+            if ($lastAhpCalculation) {
+                $q->orWhere('priority_calculated_at', '<', $lastAhpCalculation);
+            }
+        });
+        
+        return $query;
     }
 }

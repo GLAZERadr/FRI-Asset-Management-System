@@ -19,6 +19,12 @@ class RoleSeeder extends Seeder
         $stafKeuangan = Role::create(['name' => 'staff_keuangan']);
         
         // Create permissions
+        Permission::create(['name' => 'show_asset']);
+        Permission::create(['name' => 'show_monitoring_verification_report']);
+        Permission::create(['name' => 'scan_monitoring_qr_code']);
+        Permission::create(['name' => 'show_monitoring_report']);
+        Permission::create(['name' => 'show_monitoring_report_validation']);
+
         Permission::create(['name' => 'show_maintenance_request']);
         Permission::create(['name' => 'create_maintenance_request']);
         Permission::create(['name' => 'create_criteria']);
@@ -33,6 +39,8 @@ class RoleSeeder extends Seeder
         
         // Assign permissions to roles
         $staffLogistik->givePermissionTo([
+            'show_asset',
+            'show_monitoring_verification_report',
             'show_maintenance_request',
             'create_maintenance_request',
             'create_excel',
@@ -43,6 +51,9 @@ class RoleSeeder extends Seeder
         ]);
 
         $staffLab->givePermissionTo([
+            'show_asset',
+            'scan_monitoring_qr_code',
+            'show_monitoring_report',
             'show_maintenance_request',
             'create_maintenance_request',
             'create_excel',
@@ -53,18 +64,23 @@ class RoleSeeder extends Seeder
         ]);
         
         $kaurLab->givePermissionTo([
+            'show_monitoring_report',
+            'show_monitoring_report_validation',
             'show_maintenance_request',
             'create_maintenance_request',
             'create_criteria',
         ]);
         
         $kaurKeuangan->givePermissionTo([
+            'show_monitoring_report',
+            'show_monitoring_report_validation',
             'show_maintenance_request',
             'create_maintenance_request',
             'create_criteria',
         ]);
         
         $wakilDekan->givePermissionTo([
+            'show_monitoring_report',
             'show_maintenance_request',
             'create_maintenance_request',
         ]);

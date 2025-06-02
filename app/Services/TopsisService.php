@@ -1,72 +1,47 @@
 <?php
-
 namespace App\Services;
 
 use App\Models\MaintenanceAsset;
 use App\Models\Criteria;
 use App\Models\CriteriaComparison;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class TopsisService
 {
     /**
-     * Calculate TOPSIS for maintenance assets using AHP weights
+     * Calculate TOPSIS for maintenance assets using AHP weights (Dynamic)
      */
-    public function calculatePriorityWithWeights(Collection $damagedAssets, array $ahpWeights)
-    {
-        if ($damagedAssets->isEmpty()) {
-            return [];
-        }
-
-        // Build decision matrix
-        $decisionMatrix = $this->buildDecisionMatrixFromDamaged($damagedAssets);
-        
-        // Normalize the matrix
-        $normalizedMatrix = $this->normalizeMatrix($decisionMatrix);
-        
-        // Map AHP weights to criteria (assume mapping based on criteria order)
-        $criteriaWeights = $this->mapAhpWeightsToCriteria($ahpWeights);
-        
-        // Apply weights
-        $weightedMatrix = $this->applyWeights($normalizedMatrix, $criteriaWeights);
-        
-        // Determine ideal solutions
-        $idealPositive = $this->getIdealPositive($weightedMatrix);
-        $idealNegative = $this->getIdealNegative($weightedMatrix);
-        
-        // Calculate distances
-        $distances = $this->calculateDistances($weightedMatrix, $idealPositive, $idealNegative);
-        
-        // Calculate relative closeness
-        $scores = $this->calculateRelativeCloseness($distances);
-        
-        return $this->formatScoresWithRanks($scores);
-    }
-
-    /**
-     * Calculate TOPSIS for maintenance assets with default weights
-     */
-    public function calculatePriority(Collection $maintenanceAssets)
+    public function calculatePriorityWithWeights(Collection $maintenanceAssets, array $ahpCriteriaWeights)
     {
         if ($maintenanceAssets->isEmpty()) {
             return [];
         }
-
-        // Get criteria and their weights from AHP
-        $criteriaWeights = $this->getCriteriaWeights();
-        
+    
+        Log::info('Starting TOPSIS calculation with AHP weights', [
+            'assets_count' => $maintenanceAssets->count(),
+            'criteria_weights' => $ahpCriteriaWeights
+        ]);
+    
         // Build decision matrix
-        $decisionMatrix = $this->buildDecisionMatrix($maintenanceAssets);
+        $decisionMatrix = $this->buildDynamicDecisionMatrix($maintenanceAssets);
+        
+        if (empty($decisionMatrix)) {
+            Log::warning('Empty decision matrix generated');
+            return [];
+        }
         
         // Normalize the matrix
         $normalizedMatrix = $this->normalizeMatrix($decisionMatrix);
         
-        // Apply weights
-        $weightedMatrix = $this->applyWeights($normalizedMatrix, $criteriaWeights);
+        // Apply AHP weights dynamically
+        $weightedMatrix = $this->applyDynamicWeights($normalizedMatrix, $ahpCriteriaWeights);
         
-        // Determine ideal solutions
-        $idealPositive = $this->getIdealPositive($weightedMatrix);
-        $idealNegative = $this->getIdealNegative($weightedMatrix);
+        // Determine ideal solutions based on criteria types
+        $idealPositive = $this->getDynamicIdealPositive($weightedMatrix, $ahpCriteriaWeights);
+        $idealNegative = $this->getDynamicIdealNegative($weightedMatrix, $ahpCriteriaWeights);
         
         // Calculate distances
         $distances = $this->calculateDistances($weightedMatrix, $idealPositive, $idealNegative);
@@ -74,78 +49,141 @@ class TopsisService
         // Calculate relative closeness
         $scores = $this->calculateRelativeCloseness($distances);
         
-        // Update assets with scores and rankings
-        $this->updateAssetsWithScores($maintenanceAssets, $scores);
+        // Format scores with ranks
+        $rankedScores = $this->formatScoresWithRanks($scores);
         
-        return $scores;
+        // Update maintenance assets with scores
+        foreach ($maintenanceAssets as $asset) {
+            if (isset($rankedScores[$asset->id])) {
+                $asset->update([
+                    'priority_score' => $rankedScores[$asset->id]['score'],
+                    'priority_calculated_at' => now(),
+                    'priority_method' => 'TOPSIS_AHP_Dynamic'
+                ]);
+            }
+        }
+        
+        return $rankedScores;
     }
 
     /**
-     * Map AHP weights to TOPSIS criteria
+     * Build decision matrix dynamically based on available criteria
      */
-    private function mapAhpWeightsToCriteria($ahpWeights)
+    private function buildDynamicDecisionMatrix(Collection $assets)
     {
-        // Default mapping - adjust based on your criteria structure
-        return [
-            'tingkat_kerusakan' => $ahpWeights[0] ?? 0.5,
-            'kepentingan_asset' => $ahpWeights[1] ?? 0.3,
-            'estimasi_biaya' => $ahpWeights[2] ?? 0.2
-        ];
-    }
-
-    /**
-     * Build decision matrix from damaged assets
-     */
-    private function buildDecisionMatrixFromDamaged(Collection $damagedAssets)
-    {
+        $criteria = Criteria::all();
         $matrix = [];
         
-        foreach ($damagedAssets as $index => $asset) {
-            $matrix[$index] = [
-                'id' => $asset->id,
-                'tingkat_kerusakan' => $this->getTingkatKerusakanScore($asset->tingkat_kerusakan),
-                'kepentingan_asset' => $asset->asset->tingkat_kepentingan_asset,
-                'estimasi_biaya' => $asset->estimasi_biaya
-            ];
+        Log::info('Building dynamic decision matrix', [
+            'criteria_count' => $criteria->count(),
+            'assets_count' => $assets->count()
+        ]);
+        
+        foreach ($assets as $index => $item) {
+            // Handle both MaintenanceAsset and DamagedAsset
+            if ($item instanceof \App\Models\MaintenanceAsset) {
+                $asset = $item->damagedAsset;
+                $rowId = $item->id; // Use maintenance asset ID
+            } else {
+                $asset = $item;
+                $rowId = $item->id; // Use damaged asset ID
+            }
+            
+            $row = ['id' => $rowId];
+            
+            foreach ($criteria as $criterion) {
+                $value = $this->extractCriteriaValue($asset, $criterion);
+                $row[$criterion->kriteria_id] = $value;
+                
+                Log::debug('Extracted criteria value', [
+                    'asset_id' => $rowId,
+                    'criteria_id' => $criterion->kriteria_id,
+                    'criteria_name' => $criterion->nama_kriteria,
+                    'value' => $value
+                ]);
+            }
+            
+            $matrix[$index] = $row;
         }
+        
+        Log::info('Dynamic decision matrix built', [
+            'matrix_sample' => array_slice($matrix, 0, 2),
+            'criteria_count' => $criteria->count()
+        ]);
         
         return $matrix;
     }
 
     /**
-     * Get criteria weights from AHP calculation
+     * Extract criteria value from asset based on criteria name and type
      */
-    private function getCriteriaWeights()
+    private function extractCriteriaValue($asset, $criterion)
     {
-        // Get weights from the latest AHP calculation or use defaults
-        return [
-            'tingkat_kerusakan' => 0.5,
-            'kepentingan_asset' => 0.3,
-            'estimasi_biaya' => 0.2
-        ];
-    }
-
-    /**
-     * Build decision matrix from maintenance assets
-     */
-    private function buildDecisionMatrix(Collection $maintenanceAssets)
-    {
-        $matrix = [];
+        $criteriaNameLower = strtolower($criterion->nama_kriteria);
         
-        foreach ($maintenanceAssets as $index => $asset) {
-            $matrix[$index] = [
-                'id' => $asset->id,
-                'tingkat_kerusakan' => $this->getTingkatKerusakanScore($asset->damagedAsset->tingkat_kerusakan),
-                'kepentingan_asset' => $asset->asset->tingkat_kepentingan_asset,
-                'estimasi_biaya' => $asset->damagedAsset->estimasi_biaya
-            ];
+        // Handle specific criteria based on name patterns
+        if (str_contains($criteriaNameLower, 'kerusakan')) {
+            return $this->getTingkatKerusakanScore($asset->tingkat_kerusakan);
         }
         
-        return $matrix;
+        if (str_contains($criteriaNameLower, 'biaya')) {
+            return floatval($asset->estimasi_biaya);
+        }
+        
+        if (str_contains($criteriaNameLower, 'kepentingan')) {
+            $kepentingan = $asset->asset->tingkat_kepentingan_asset ?? 'Sedang';
+            return $this->getKepentinganScore($kepentingan);
+        }
+        
+        if (str_contains($criteriaNameLower, 'waktu')) {
+            // Try to get from maintenance asset if available
+            $waktu = '1 hari'; // default
+            if (isset($asset->estimasi_waktu_perbaikan)) {
+                $waktu = $asset->estimasi_waktu_perbaikan;
+            }
+            return $this->getWaktuScore($waktu);
+        }
+        
+        if (str_contains($criteriaNameLower, 'kompleksitas')) {
+            $kompleksitas = $asset->kompleksitas ?? 'Sedang';
+            return $this->getKompleksitasScore($kompleksitas);
+        }
+        
+        if (str_contains($criteriaNameLower, 'urgensi')) {
+            $urgensi = $asset->tingkat_urgensi ?? 'Sedang';
+            return $this->getUrgensiScore($urgensi);
+        }
+        
+        if (str_contains($criteriaNameLower, 'dampak')) {
+            $dampak = $asset->dampak_operasional ?? 'Sedang';
+            return $this->getDampakScore($dampak);
+        }
+        
+        // Check if there's additional criteria data stored as JSON
+        if (isset($asset->additional_criteria)) {
+            $additionalData = json_decode($asset->additional_criteria, true);
+            if (isset($additionalData[$criterion->kriteria_id])) {
+                $value = $additionalData[$criterion->kriteria_id]['value'];
+                return $this->normalizeCustomValue($value, $criterion);
+            }
+        }
+        
+        // Try to extract from asset relationship if available
+        if ($asset->asset && property_exists($asset->asset, $criteriaNameLower)) {
+            $value = $asset->asset->{$criteriaNameLower};
+            return $this->normalizeCustomValue($value, $criterion);
+        }
+        
+        // Default scoring based on criteria type
+        if ($criterion->tipe_kriteria === 'cost') {
+            return 100000; // Default cost value
+        } else {
+            return 5; // Default benefit score (1-9 scale)
+        }
     }
 
     /**
-     * Convert tingkat kerusakan to numeric score
+     * Convert tingkat kerusakan to numeric score (Higher is worse, so higher score for benefit type)
      */
     private function getTingkatKerusakanScore($tingkat)
     {
@@ -155,26 +193,141 @@ class TopsisService
             'Berat' => 9
         ];
         
-        return $scores[$tingkat] ?? 1;
+        return $scores[$tingkat] ?? 5;
     }
 
     /**
-     * Normalize the decision matrix
+     * Convert kepentingan to numeric score (Higher is more important)
+     */
+    private function getKepentinganScore($kepentingan)
+    {
+        $scores = [
+            'Rendah' => 3,
+            'Sedang' => 6,
+            'Tinggi' => 9
+        ];
+        
+        return $scores[$kepentingan] ?? 5;
+    }
+
+    /**
+     * Convert waktu estimation to numeric score (For cost criteria - lower time is better)
+     */
+    private function getWaktuScore($waktu)
+    {
+        // Extract number from time string
+        preg_match('/(\d+)/', $waktu, $matches);
+        $days = isset($matches[1]) ? intval($matches[1]) : 1;
+        
+        // Return actual days for cost criteria (lower is better)
+        return $days;
+    }
+
+    /**
+     * Convert kompleksitas to numeric score
+     */
+    private function getKompleksitasScore($kompleksitas)
+    {
+        $scores = [
+            'Rendah' => 3,
+            'Sedang' => 6,
+            'Tinggi' => 9
+        ];
+        
+        return $scores[$kompleksitas] ?? 5;
+    }
+
+    /**
+     * Convert urgensi to numeric score
+     */
+    private function getUrgensiScore($urgensi)
+    {
+        $scores = [
+            'Rendah' => 3,
+            'Sedang' => 6,
+            'Tinggi' => 9
+        ];
+        
+        return $scores[$urgensi] ?? 5;
+    }
+
+    /**
+     * Convert dampak to numeric score
+     */
+    private function getDampakScore($dampak)
+    {
+        $scores = [
+            'Rendah' => 3,
+            'Sedang' => 6,
+            'Tinggi' => 9
+        ];
+        
+        return $scores[$dampak] ?? 5;
+    }
+
+    /**
+     * Normalize custom criteria values
+     */
+    private function normalizeCustomValue($value, $criterion)
+    {
+        if (is_numeric($value)) {
+            return floatval($value);
+        }
+        
+        if (is_null($value) || $value === '') {
+            return $criterion->tipe_kriteria === 'cost' ? 0 : 1;
+        }
+        
+        // For text values, try to map to numeric scale
+        $valueLower = strtolower(trim($value));
+        
+        // Common low values
+        if (in_array($valueLower, ['rendah', 'low', 'ringan', 'mudah', 'cepat', 'murah'])) {
+            return 3;
+        } 
+        // Common medium values
+        elseif (in_array($valueLower, ['sedang', 'medium', 'tengah', 'normal', 'standar'])) {
+            return 6;
+        } 
+        // Common high values
+        elseif (in_array($valueLower, ['tinggi', 'high', 'berat', 'sulit', 'lama', 'mahal'])) {
+            return 9;
+        }
+        
+        // Try to extract numbers from mixed text
+        preg_match('/(\d+)/', $value, $matches);
+        if (isset($matches[1])) {
+            return floatval($matches[1]);
+        }
+        
+        // Default value based on criteria type
+        return $criterion->tipe_kriteria === 'cost' ? 1000 : 5;
+    }
+
+    /**
+     * Normalize the decision matrix using Euclidean normalization
      */
     private function normalizeMatrix($matrix)
     {
+        if (empty($matrix)) {
+            return [];
+        }
+
         $normalized = [];
         $columnSums = [];
         
-        // Calculate column sums for normalization
+        // Get all criteria keys (excluding 'id')
+        $criteriaKeys = array_filter(array_keys($matrix[0]), function($key) {
+            return $key !== 'id';
+        });
+        
+        // Calculate column sums for normalization (sum of squares)
         foreach ($matrix as $row) {
-            foreach ($row as $key => $value) {
-                if ($key === 'id') continue;
-                
+            foreach ($criteriaKeys as $key) {
                 if (!isset($columnSums[$key])) {
                     $columnSums[$key] = 0;
                 }
-                $columnSums[$key] += pow($value, 2);
+                $columnSums[$key] += pow($row[$key], 2);
             }
         }
         
@@ -183,14 +336,16 @@ class TopsisService
             $columnSums[$key] = sqrt($sum);
         }
         
+        Log::info('Matrix normalization', [
+            'column_sums' => $columnSums
+        ]);
+        
         // Normalize values
         foreach ($matrix as $index => $row) {
             $normalized[$index] = ['id' => $row['id']];
             
-            foreach ($row as $key => $value) {
-                if ($key === 'id') continue;
-                
-                $normalized[$index][$key] = $columnSums[$key] > 0 ? $value / $columnSums[$key] : 0;
+            foreach ($criteriaKeys as $key) {
+                $normalized[$index][$key] = $columnSums[$key] > 0 ? $row[$key] / $columnSums[$key] : 0;
             }
         }
         
@@ -198,11 +353,15 @@ class TopsisService
     }
 
     /**
-     * Apply weights to normalized matrix
+     * Apply AHP weights dynamically to normalized matrix
      */
-    private function applyWeights($matrix, $weights)
+    private function applyDynamicWeights($matrix, $ahpCriteriaWeights)
     {
         $weighted = [];
+        
+        Log::info('Applying dynamic weights', [
+            'weights_available' => array_keys($ahpCriteriaWeights)
+        ]);
         
         foreach ($matrix as $index => $row) {
             $weighted[$index] = ['id' => $row['id']];
@@ -210,7 +369,15 @@ class TopsisService
             foreach ($row as $key => $value) {
                 if ($key === 'id') continue;
                 
-                $weighted[$index][$key] = $value * ($weights[$key] ?? 1);
+                $weight = $ahpCriteriaWeights[$key]['weight'] ?? 0;
+                $weighted[$index][$key] = $value * $weight;
+                
+                Log::debug('Applied weight', [
+                    'criteria' => $key,
+                    'original_value' => $value,
+                    'weight' => $weight,
+                    'weighted_value' => $weighted[$index][$key]
+                ]);
             }
         }
         
@@ -218,67 +385,85 @@ class TopsisService
     }
 
     /**
-     * Get ideal positive solution
+     * Get ideal positive solution dynamically based on criteria types
      */
-    private function getIdealPositive($matrix)
+    private function getDynamicIdealPositive($matrix, $ahpCriteriaWeights)
     {
+        if (empty($matrix)) {
+            return [];
+        }
+
         $ideal = [];
-        $criteria = ['tingkat_kerusakan', 'kepentingan_asset', 'estimasi_biaya'];
+        $criteriaKeys = array_filter(array_keys($matrix[0]), function($key) {
+            return $key !== 'id';
+        });
         
-        foreach ($criteria as $criterion) {
-            $values = array_column($matrix, $criterion);
+        foreach ($criteriaKeys as $criteriaId) {
+            $values = array_column($matrix, $criteriaId);
+            $criteriaInfo = $ahpCriteriaWeights[$criteriaId] ?? ['tipe_kriteria' => 'benefit'];
             
-            if ($criterion === 'estimasi_biaya') {
-                // Cost criteria - lower is better
-                $ideal[$criterion] = min($values);
+            if ($criteriaInfo['tipe_kriteria'] === 'cost') {
+                // Cost criteria - lower is better (minimum is ideal)
+                $ideal[$criteriaId] = min($values);
             } else {
-                // Benefit criteria - higher is better
-                $ideal[$criterion] = max($values);
+                // Benefit criteria - higher is better (maximum is ideal)
+                $ideal[$criteriaId] = max($values);
             }
         }
+        
+        Log::info('Ideal positive solution calculated', ['ideal_positive' => $ideal]);
         
         return $ideal;
     }
 
     /**
-     * Get ideal negative solution
+     * Get ideal negative solution dynamically based on criteria types
      */
-    private function getIdealNegative($matrix)
+    private function getDynamicIdealNegative($matrix, $ahpCriteriaWeights)
     {
+        if (empty($matrix)) {
+            return [];
+        }
+
         $ideal = [];
-        $criteria = ['tingkat_kerusakan', 'kepentingan_asset', 'estimasi_biaya'];
+        $criteriaKeys = array_filter(array_keys($matrix[0]), function($key) {
+            return $key !== 'id';
+        });
         
-        foreach ($criteria as $criterion) {
-            $values = array_column($matrix, $criterion);
+        foreach ($criteriaKeys as $criteriaId) {
+            $values = array_column($matrix, $criteriaId);
+            $criteriaInfo = $ahpCriteriaWeights[$criteriaId] ?? ['tipe_kriteria' => 'benefit'];
             
-            if ($criterion === 'estimasi_biaya') {
-                // Cost criteria - lower is better
-                $ideal[$criterion] = max($values);
+            if ($criteriaInfo['tipe_kriteria'] === 'cost') {
+                // Cost criteria - lower is better, so max is worst (negative ideal)
+                $ideal[$criteriaId] = max($values);
             } else {
-                // Benefit criteria - higher is better
-                $ideal[$criterion] = min($values);
+                // Benefit criteria - higher is better, so min is worst (negative ideal)
+                $ideal[$criteriaId] = min($values);
             }
         }
+        
+        Log::info('Ideal negative solution calculated', ['ideal_negative' => $ideal]);
         
         return $ideal;
     }
 
     /**
-     * Calculate distances to ideal solutions
+     * Calculate Euclidean distances to ideal solutions
      */
     private function calculateDistances($matrix, $idealPositive, $idealNegative)
     {
         $distances = [];
         
-        foreach ($matrix as $index => $row) {
+        foreach ($matrix as $row) {
             $distancePositive = 0;
             $distanceNegative = 0;
             
             foreach ($row as $key => $value) {
                 if ($key === 'id') continue;
                 
-                $distancePositive += pow($value - $idealPositive[$key], 2);
-                $distanceNegative += pow($value - $idealNegative[$key], 2);
+                $distancePositive += pow($value - ($idealPositive[$key] ?? 0), 2);
+                $distanceNegative += pow($value - ($idealNegative[$key] ?? 0), 2);
             }
             
             $distances[$row['id']] = [
@@ -287,11 +472,13 @@ class TopsisService
             ];
         }
         
+        Log::info('Distances calculated for ' . count($distances) . ' alternatives');
+        
         return $distances;
     }
 
     /**
-     * Calculate relative closeness
+     * Calculate relative closeness (similarity to ideal solution)
      */
     private function calculateRelativeCloseness($distances)
     {
@@ -299,11 +486,17 @@ class TopsisService
         
         foreach ($distances as $id => $distance) {
             $totalDistance = $distance['positive'] + $distance['negative'];
+            
+            // Relative closeness coefficient
             $scores[$id] = $totalDistance > 0 ? $distance['negative'] / $totalDistance : 0;
         }
         
-        // Sort by score descending
+        // Sort by score descending (higher score = higher priority)
         arsort($scores);
+        
+        Log::info('Relative closeness calculated', [
+            'scores_sample' => array_slice($scores, 0, 5, true)
+        ]);
         
         return $scores;
     }
@@ -318,7 +511,7 @@ class TopsisService
         
         foreach ($scores as $id => $score) {
             $rankedScores[$id] = [
-                'score' => $score,
+                'score' => round($score, 6),
                 'rank' => $rank++
             ];
         }
@@ -327,24 +520,117 @@ class TopsisService
     }
 
     /**
-     * Update assets with scores and rankings
+     * Update maintenance assets with scores and rankings
      */
     private function updateAssetsWithScores($maintenanceAssets, $scores)
     {
-        $rank = 1;
+        $updatedCount = 0;
         
-        foreach ($scores as $id => $score) {
-            $asset = $maintenanceAssets->firstWhere('id', $id);
-            if ($asset) {
-                $asset->update([
-                    'priority_score' => $score,
-                    'priority_rank' => $rank
+        foreach ($scores as $damagedAssetId => $scoreData) {
+            // Find maintenance asset by damaged asset ID
+            $maintenanceAsset = $maintenanceAssets->firstWhere('damage_id', function($value) use ($damagedAssetId) {
+                // Find by damaged asset relationship
+                return $value === $damagedAssetId;
+            });
+            
+            if (!$maintenanceAsset) {
+                // Try alternative approach - find by damaged asset ID directly
+                $maintenanceAsset = $maintenanceAssets->filter(function($asset) use ($damagedAssetId) {
+                    return $asset->damagedAsset && $asset->damagedAsset->id === $damagedAssetId;
+                })->first();
+            }
+            
+            if ($maintenanceAsset) {
+                $maintenanceAsset->update([
+                    'priority_score' => $scoreData['score'],
+                    'priority_calculated_at' => now(),
+                    'priority_method' => 'TOPSIS_AHP_Dynamic'
                 ]);
-                $rank++;
+                $updatedCount++;
+                
+                Log::info('Updated maintenance asset with TOPSIS score', [
+                    'maintenance_id' => $maintenanceAsset->maintenance_id,
+                    'damaged_asset_id' => $damagedAssetId,
+                    'score' => $scoreData['score'],
+                    'rank' => $scoreData['rank']
+                ]);
+            } else {
+                Log::warning('Could not find maintenance asset for damaged asset', [
+                    'damaged_asset_id' => $damagedAssetId
+                ]);
             }
         }
+        
+        return $updatedCount;
     }
 
+    /**
+     * Legacy method for backward compatibility
+     */
+    public function calculatePriority(Collection $maintenanceAssets)
+    {
+        if ($maintenanceAssets->isEmpty()) {
+            return [];
+        }
+
+        // Try to get AHP weights from session
+        $ahpCriteriaWeights = session('ahp_criteria_weights');
+        
+        if ($ahpCriteriaWeights) {
+            // Use dynamic calculation with AHP weights
+            $damagedAssets = $maintenanceAssets->map(function($asset) {
+                return $asset->damagedAsset;
+            })->filter();
+            
+            $scores = $this->calculatePriorityWithWeights($damagedAssets, $ahpCriteriaWeights);
+            
+            // Update the maintenance assets
+            $this->updateAssetsWithScores($maintenanceAssets, $scores);
+            
+            return $scores;
+        }
+        
+        // Fallback to default weights
+        $defaultWeights = $this->getDefaultCriteriaWeights();
+        $damagedAssets = $maintenanceAssets->map(function($asset) {
+            return $asset->damagedAsset;
+        })->filter();
+        
+        $scores = $this->calculatePriorityWithWeights($damagedAssets, $defaultWeights);
+        $this->updateAssetsWithScores($maintenanceAssets, $scores);
+        
+        return $scores;
+    }
+
+    /**
+     * Get default criteria weights when AHP is not available
+     */
+    private function getDefaultCriteriaWeights()
+    {
+        $criteria = Criteria::all();
+        $defaultWeights = [];
+        
+        $weightPerCriteria = 1.0 / max(1, $criteria->count());
+        
+        foreach ($criteria as $criterion) {
+            $defaultWeights[$criterion->kriteria_id] = [
+                'weight' => $weightPerCriteria,
+                'nama_kriteria' => $criterion->nama_kriteria,
+                'tipe_kriteria' => $criterion->tipe_kriteria
+            ];
+        }
+        
+        Log::info('Using default criteria weights', [
+            'criteria_count' => $criteria->count(),
+            'weight_per_criteria' => $weightPerCriteria
+        ]);
+        
+        return $defaultWeights;
+    }
+
+    /**
+     * Trigger TOPSIS calculation (can be called from controller)
+     */
     public function triggerTopsisCalculation(Request $request)
     {
         $user = Auth::user();
@@ -359,9 +645,9 @@ class TopsisService
         
         try {
             // Get AHP weights from session
-            $ahpWeights = session('ahp_weights');
+            $ahpCriteriaWeights = session('ahp_criteria_weights');
             
-            if (!$ahpWeights) {
+            if (!$ahpCriteriaWeights) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bobot kriteria AHP belum tersedia. Silakan lakukan kalkulasi AHP terlebih dahulu.'
@@ -381,25 +667,19 @@ class TopsisService
             }
             
             // Calculate TOPSIS scores with AHP weights
-            $priorityScores = $this->topsisService->calculatePriorityWithWeights($pendingAssets, $ahpWeights);
+            $priorityScores = $this->calculatePriorityWithWeights(
+                $pendingAssets->pluck('damagedAsset'), 
+                $ahpCriteriaWeights
+            );
             
             // Update all maintenance assets with new scores
-            $updatedCount = 0;
-            foreach ($pendingAssets as $asset) {
-                if (isset($priorityScores[$asset->id])) {
-                    $asset->update([
-                        'priority_score' => $priorityScores[$asset->id]['score'],
-                        'priority_calculated_at' => now(),
-                        'priority_method' => 'TOPSIS_AHP'
-                    ]);
-                    $updatedCount++;
-                }
-            }
+            $updatedCount = $this->updateAssetsWithScores($pendingAssets, $priorityScores);
             
             return response()->json([
                 'success' => true,
                 'message' => "Berhasil menghitung prioritas untuk {$updatedCount} pengajuan menggunakan metode TOPSIS dengan bobot AHP.",
-                'updated_count' => $updatedCount
+                'updated_count' => $updatedCount,
+                'total_criteria' => count($ahpCriteriaWeights)
             ]);
             
         } catch (\Exception $e) {
@@ -410,5 +690,30 @@ class TopsisService
                 'message' => 'Terjadi kesalahan saat menghitung prioritas: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Get detailed calculation report for debugging/analysis
+     */
+    public function getCalculationReport(Collection $damagedAssets, array $ahpCriteriaWeights)
+    {
+        $decisionMatrix = $this->buildDynamicDecisionMatrix($damagedAssets);
+        $normalizedMatrix = $this->normalizeMatrix($decisionMatrix);
+        $weightedMatrix = $this->applyDynamicWeights($normalizedMatrix, $ahpCriteriaWeights);
+        $idealPositive = $this->getDynamicIdealPositive($weightedMatrix, $ahpCriteriaWeights);
+        $idealNegative = $this->getDynamicIdealNegative($weightedMatrix, $ahpCriteriaWeights);
+        $distances = $this->calculateDistances($weightedMatrix, $idealPositive, $idealNegative);
+        $scores = $this->calculateRelativeCloseness($distances);
+        
+        return [
+            'decision_matrix' => $decisionMatrix,
+            'normalized_matrix' => $normalizedMatrix,
+            'weighted_matrix' => $weightedMatrix,
+            'ideal_positive' => $idealPositive,
+            'ideal_negative' => $idealNegative,
+            'distances' => $distances,
+            'final_scores' => $this->formatScoresWithRanks($scores),
+            'criteria_weights' => $ahpCriteriaWeights
+        ];
     }
 }

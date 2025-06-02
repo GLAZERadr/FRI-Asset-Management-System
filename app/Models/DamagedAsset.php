@@ -22,7 +22,8 @@ class DamagedAsset extends Model
 
     protected $casts = [
         'tanggal_pelaporan' => 'datetime',
-        'estimasi_biaya' => 'decimal:2'
+        'estimasi_biaya' => 'decimal:2',
+        'additional_criteria' => 'array'
     ];
 
     /**

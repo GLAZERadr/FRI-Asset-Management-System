@@ -57,14 +57,42 @@
                     $disabled = true; // or based on logic like Auth::user()->cannot('access-pemantauan')
                 @endphp
 
-                <a 
-                    @unless($disabled) href="{{ route('pemantauan') }}" @endunless
-                    class="flex items-center py-3 px-4 text-gray-700 hover:bg-gray-100 {{ request()->routeIs('pemantauan') ? 'bg-gray-100' : '' }} {{ $disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : '' }}">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    Pemantauan
-                </a>
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" class="flex items-center w-full py-3 px-4 text-gray-700 hover:bg-gray-100 {{ request()->routeIs('pengajuan.*') ? 'bg-gray-100' : '' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Pemantauan
+                        <svg x-show="!open" class="ml-auto h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                        <svg x-show="open" class="ml-auto h-5 w-5" viewBox="0 0 20 20" fill="currentColor" style="display: none;">
+                            <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <div x-show="open" class="pl-4" style="display: none;">
+                        @can('show_asset')
+                            <a href="{{ route('pemantauan.index') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pengajuan.daftar') ? 'bg-gray-100' : '' }}">
+                                Data Aset
+                            </a>
+                        @endcan
+                        @can('show_monitoring_verification_report')
+                            <a href="{{ route('pengajuan.daftar') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pengajuan.daftar') ? 'bg-gray-100' : '' }}">
+                                Verifikasi Laporan
+                            </a>
+                        @endcan
+                        @can('show_monitoring_report_validation')
+                            <a href="{{ route('pengajuan.daftar') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pengajuan.daftar') ? 'bg-gray-100' : '' }}">
+                                Validasi Laporan
+                            </a>
+                        @endcan
+                        @can('show_monitoring_report')
+                            <a href="{{ route('pengajuan.daftar') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pengajuan.daftar') ? 'bg-gray-100' : '' }}">
+                                Laporan Pemantauan
+                            </a>
+                        @endcan
+                    </div>
+                </div>
 
                 <a 
                     @unless($disabled) href="{{ route('perbaikan.aset') }}" @endunless
@@ -211,12 +239,6 @@
                                             </div>
                                         </div>
                                     </template>
-                                </div>
-                                
-                                <div class="py-2 px-4 bg-gray-50 border-t">
-                                    <a href="{{ route('notifications.index') }}" class="text-sm text-blue-600 hover:text-blue-800">
-                                        Lihat semua notifikasi
-                                    </a>
                                 </div>
                             </div>
                         </div>

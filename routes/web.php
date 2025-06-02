@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\MonitoringController;
 use App\Http\Controllers\DamagedAssetController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\PaymentController;
@@ -53,6 +54,20 @@ Route::middleware('guest')->group(function () {
 
 // Auth routes
 Route::middleware('auth')->group(function () {
+    Route::prefix('mobile')->name('mobile.')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/asset-stats', [DashboardController::class, 'getAssetStats'])->name('asset.stats');
+        Route::get('/damage-stats', [DashboardController::class, 'getDamageStats'])->name('damage.stats');
+    });
+
+    Route::post('/qr/process', [AssetController::class, 'processQR'])->name('qr.process');
+    
+    // Force mobile view for testing (optional)
+    Route::get('/dashboard/mobile', function() {
+        request()->merge(['mobile' => true]);
+        return app(DashboardController::class)->index(request());
+    })->name('dashboard.mobile.force');
+
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/data/expenditure', [DashboardController::class, 'getMonthlyExpenditure'])->name('dashboard.expenditure');
@@ -60,13 +75,25 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/data/completion-time', [DashboardController::class, 'getCompletionTime'])->name('dashboard.completion.time');
     
     // Asset Management
-    Route::prefix('pemantauan')->group(function () {
-        Route::get('/', [AssetController::class, 'index'])->name('pemantauan');
-        Route::get('/create', [AssetController::class, 'create'])->name('pemantauan.create');
-        Route::post('/', [AssetController::class, 'store'])->name('pemantauan.store');
-        Route::get('/{id}', [AssetController::class, 'show'])->name('pemantauan.show');
-        Route::get('/{id}/edit', [AssetController::class, 'edit'])->name('pemantauan.edit');
-        Route::put('/{id}', [AssetController::class, 'update'])->name('pemantauan.update');
+    Route::prefix('pemantauan')->name('pemantauan.')->group(function () {
+        Route::get('/', [AssetController::class, 'index'])->name('index');
+        Route::get('/create', [AssetController::class, 'create'])->name('create');
+        Route::post('/', [AssetController::class, 'store'])->name('store');
+        Route::get('/export-pdf', [AssetController::class, 'exportPdf'])->name('export-pdf');
+        Route::get('/qr-download/{kodeRuangan}', [AssetController::class, 'downloadQrCode'])->name('qr-download');
+        
+        // Monitoring routes - put these BEFORE the generic /{id} route
+        Route::get('/monitoring/{kodeRuangan}', [MonitoringController::class, 'showMonitoring'])->name('monitoring.form');
+        Route::post('/monitoring/store', [MonitoringController::class, 'storeMonitoring'])->name('monitoring.store');
+        
+        // Optional monitoring management routes
+        Route::get('/monitoring-history', [MonitoringController::class, 'index'])->name('monitoring.index');
+        Route::get('/monitoring-report/{id}', [MonitoringController::class, 'show'])->name('monitoring.show');
+        
+        // Generic asset routes - put these LAST
+        Route::get('/{id}', [AssetController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [AssetController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [AssetController::class, 'update'])->name('update');
     });
     
     // Damaged Assets
@@ -93,6 +120,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/template/download', [PengajuanController::class, 'downloadTemplate'])->name('template.download');
         Route::post('/template/upload', [PengajuanController::class, 'uploadTemplate'])->name('template.upload');
         
+        Route::post('/topsis/calculate', [PengajuanController::class, 'triggerTopsisCalculation'])->name('topsis.calculate');
+        Route::get('/topsis/status', [PengajuanController::class, 'getTopsisStatus'])->name('topsis.status');
+        Route::get('/topsis/results', [PengajuanController::class, 'getTopsisResults'])->name('topsis.results');
+
         // POST routes
         Route::post('/', [PengajuanController::class, 'store'])->name('store');
         Route::post('/selected', [PengajuanController::class, 'storeSelected'])->name('store.selected');

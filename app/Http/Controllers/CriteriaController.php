@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Http\Controllers;
-
 use App\Models\Criteria;
 use App\Models\CriteriaComparison;
 use Illuminate\Http\Request;
@@ -29,10 +27,8 @@ class CriteriaController extends Controller
             'tipe_kriteria' => 'required|in:benefit,cost'
         ]);
 
-        // Generate kriteria_id
-        $lastCriteria = Criteria::latest()->first();
-        $number = $lastCriteria ? (intval(substr($lastCriteria->kriteria_id, 1)) + 1) : 1;
-        $kriteriaId = 'C' . str_pad($number, 3, '0', STR_PAD_LEFT);
+        // Generate unique kriteria_id by finding the next available number
+        $kriteriaId = $this->generateUniqueKriteriaId();
 
         Criteria::create([
             'kriteria_id' => $kriteriaId,
@@ -44,6 +40,27 @@ class CriteriaController extends Controller
             'success' => true,
             'message' => 'Kriteria berhasil ditambahkan'
         ]);
+    }
+
+    /**
+     * Generate unique kriteria_id by finding next available number
+     */
+    private function generateUniqueKriteriaId()
+    {
+        $existingIds = Criteria::pluck('kriteria_id')->toArray();
+        
+        // Extract numbers from existing IDs
+        $existingNumbers = array_map(function($id) {
+            return intval(substr($id, 1));
+        }, $existingIds);
+        
+        // Find the first available number starting from 1
+        $nextNumber = 1;
+        while (in_array($nextNumber, $existingNumbers)) {
+            $nextNumber++;
+        }
+        
+        return 'C' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
     }
 
     public function calculate(Request $request)
@@ -88,7 +105,7 @@ class CriteriaController extends Controller
         try {
             // Clear existing comparisons
             CriteriaComparison::truncate();
-
+            
             foreach ($comparisons as $comparison) {
                 \Log::info('Saving comparison', $comparison);
                 
@@ -97,7 +114,7 @@ class CriteriaController extends Controller
                     'criteria_2' => $comparison['criteria_2'],
                     'comparison_value' => $comparison['value']
                 ]);
-
+                
                 // Save inverse comparison only if it's not a self-comparison
                 if ($comparison['criteria_1'] !== $comparison['criteria_2']) {
                     CriteriaComparison::create([
@@ -140,9 +157,9 @@ class CriteriaController extends Controller
                     }
                 }
             }
-
+            
             \Log::info('Comparison matrix built', ['matrix' => $matrix]);
-
+            
             // Calculate column sums
             $columnSums = [];
             for ($j = 0; $j < $n; $j++) {
@@ -152,9 +169,9 @@ class CriteriaController extends Controller
                 }
                 $columnSums[$j] = $sum;
             }
-
+            
             \Log::info('Column sums calculated', ['column_sums' => $columnSums]);
-
+            
             // Normalize matrix
             $normalizedMatrix = [];
             for ($i = 0; $i < $n; $i++) {
@@ -162,9 +179,9 @@ class CriteriaController extends Controller
                     $normalizedMatrix[$i][$j] = $matrix[$i][$j] / $columnSums[$j];
                 }
             }
-
+            
             \Log::info('Normalized matrix calculated');
-
+            
             // Calculate priority weights (row averages)
             $weights = [];
             for ($i = 0; $i < $n; $i++) {
@@ -174,14 +191,13 @@ class CriteriaController extends Controller
                 }
                 $weights[$i] = $sum / $n;
             }
-
+            
             \Log::info('Weights calculated', ['weights' => $weights]);
-
+            
             // Calculate consistency
             $consistency = $this->calculateConsistency($matrix, $weights, $n);
-
             \Log::info('Consistency calculated', ['consistency' => $consistency]);
-
+            
             return [
                 'matrix' => $matrix,
                 'normalized_matrix' => $normalizedMatrix,
@@ -194,6 +210,7 @@ class CriteriaController extends Controller
                     return [
                         'kriteria_id' => $item->kriteria_id,
                         'nama_kriteria' => $item->nama_kriteria,
+                        'tipe_kriteria' => $item->tipe_kriteria,
                         'weight' => $weights[$index] ?? 0
                     ];
                 })
@@ -203,35 +220,6 @@ class CriteriaController extends Controller
             \Log::error('Error in calculateAHP', ['error' => $e->getMessage()]);
             throw $e;
         }
-    }
-    
-    private function buildComparisonMatrix($comparisons, $criteria)
-    {
-        $n = $criteria->count();
-        $matrix = array_fill(0, $n, array_fill(0, $n, 1));
-        
-        // Create mapping of criteria ID to index
-        $criteriaMap = [];
-        foreach ($criteria as $index => $criterion) {
-            $criteriaMap[$criterion->kriteria_id] = $index;
-        }
-        
-        // Fill matrix based on comparisons
-        foreach ($comparisons as $comparison) {
-            $i = $criteriaMap[$comparison['criteria_1']] ?? null;
-            $j = $criteriaMap[$comparison['criteria_2']] ?? null;
-            
-            if ($i !== null && $j !== null) {
-                if ($i == $j) {
-                    $matrix[$i][$j] = 1; // Diagonal
-                } else {
-                    $matrix[$i][$j] = $comparison['value'];
-                    $matrix[$j][$i] = 1 / $comparison['value']; // Reciprocal
-                }
-            }
-        }
-        
-        return $matrix;
     }
 
     private function calculateConsistency($matrix, $weights, $n)
@@ -252,14 +240,14 @@ class CriteriaController extends Controller
                 }
             }
             $lambdaMax = $lambdaMax / $n;
-
+            
             // Calculate Consistency Index
             $ci = ($lambdaMax - $n) / ($n - 1);
-
+            
             // Calculate Consistency Ratio
             $ri = $randomIndex[$n] ?? 1.49;
             $cr = $ri > 0 ? $ci / $ri : 0;
-
+            
             return [
                 'lambda_max' => $lambdaMax,
                 'ci' => $ci,
@@ -281,10 +269,20 @@ class CriteriaController extends Controller
                 'consistency_ratio' => 'required|numeric'
             ]);
             
-            // Store weights in session for use in TOPSIS
+            // Store weights in session for use in TOPSIS with criteria mapping
+            $criteriaWeightMapping = [];
+            foreach ($validated['criteria'] as $index => $criterion) {
+                $criteriaWeightMapping[$criterion['kriteria_id']] = [
+                    'weight' => $validated['weights'][$index],
+                    'nama_kriteria' => $criterion['nama_kriteria'],
+                    'tipe_kriteria' => $criterion['tipe_kriteria']
+                ];
+            }
+            
             session([
                 'ahp_weights' => $validated['weights'],
                 'ahp_criteria' => $validated['criteria'],
+                'ahp_criteria_weights' => $criteriaWeightMapping,
                 'ahp_consistency_ratio' => $validated['consistency_ratio'],
                 'ahp_calculation_time' => now()->toDateTimeString()
             ]);
@@ -323,7 +321,7 @@ class CriteriaController extends Controller
             ->delete();
             
         $criteria->delete();
-
+        
         return response()->json([
             'success' => true,
             'message' => 'Kriteria berhasil dihapus'

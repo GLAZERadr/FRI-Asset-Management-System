@@ -519,16 +519,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Continue Button - Store AHP weights and redirect to pengajuan/create
+    // Continue Button - Store AHP weights and trigger TOPSIS calculation
     document.getElementById('continueBtn').addEventListener('click', async () => {
         if (!calculationResult) {
             alert('No calculation result available');
             return;
         }
-
+        
         try {
+            // Show loading state
+            const btn = document.getElementById('continueBtn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan bobot...';
+            
             // Store the AHP weights in session/database
-            const response = await fetch('{{ route("kriteria.store-weights") }}', {
+            const storeResponse = await fetch('{{ route("kriteria.store-weights") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -540,16 +546,41 @@ document.addEventListener('DOMContentLoaded', function() {
                     consistency_ratio: calculationResult.consistency_ratio
                 })
             });
-
-            if (response.ok) {
-                // Redirect to pengajuan create page with TOPSIS calculation
-                window.location.href = '{{ route("pengajuan.create") }}?with_topsis=1';
-            } else {
-                alert('Error storing weights');
+            
+            if (!storeResponse.ok) {
+                throw new Error('Failed to store weights');
             }
+            
+            btn.textContent = 'Menghitung prioritas TOPSIS...';
+            
+            // Trigger TOPSIS calculation
+            const topsisResponse = await fetch('{{ route("pengajuan.topsis.calculate") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                }
+            });
+            
+            const topsisData = await topsisResponse.json();
+            
+            if (topsisData.success) {
+                // Show success message
+                alert('Bobot AHP berhasil disimpan dan prioritas TOPSIS telah dihitung!');
+                
+                // Redirect to pengajuan create page
+                window.location.href = '{{ route("pengajuan.create") }}';
+            } else {
+                throw new Error(topsisData.message || 'Failed to calculate TOPSIS');
+            }
+            
         } catch (error) {
             console.error('Error:', error);
-            alert('Error storing weights');
+            alert('Error: ' + error.message);
+            
+            // Reset button state
+            document.getElementById('continueBtn').disabled = false;
+            document.getElementById('continueBtn').textContent = 'Lanjut';
         }
     });
 

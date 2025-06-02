@@ -59,7 +59,7 @@ class DatabaseSeeder extends Seeder
         $user4->assignRole('wakil_dekan_2');
 
         $user5 = User::create([
-            'name' => 'Staf Keuangan',
+            'name' => 'Staff Keuangan',
             'username' => 'staffkeu',
             'email' => 'staffkeu@example.com',
             'division' => 'Keuangan',
@@ -69,7 +69,7 @@ class DatabaseSeeder extends Seeder
         $user5->assignRole('staff_keuangan');
 
         $user6 = User::create([
-            'name' => 'Staf Laboratorium',
+            'name' => 'Staff Laboratorium',
             'username' => 'stafflab',
             'email' => 'stafflab@example.com',
             'division' => 'Laboratorium',

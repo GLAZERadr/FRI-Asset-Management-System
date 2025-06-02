@@ -17,6 +17,11 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         
+        // Check if user is staff_laboratorium and accessing from mobile
+        if ($user->hasRole('staff_laboratorium') && $this->isMobileRequest($request)) {
+            return $this->mobileStaffLaboratoriumDashboard($request);
+        }
+        
         // Debug info
         Log::info('Dashboard accessed by user:', [
             'user_id' => $user->id,
@@ -141,6 +146,133 @@ class DashboardController extends Controller
         $totalMaintenanceAssets = MaintenanceAsset::count();
         
         return view('dashboard.dashboard', compact('stats', 'recentRequests', 'role'));
+    }
+
+    /**
+     * Mobile dashboard for staff_laboratorium
+     */
+    private function mobileStaffLaboratoriumDashboard(Request $request)
+    {
+        $user = Auth::user();
+        
+        // Get asset statistics for staff_laboratorium
+        $assetStats = [
+            'total_assets' => Asset::count(),
+            'layak' => Asset::where('status_kelayakan', 'Layak')->count(),
+            'tidak_layak' => Asset::where('status_kelayakan', 'Tidak Layak')->count(),
+        ];
+        
+        // Get damage statistics
+        $damageStats = [
+            'total_damaged' => DamagedAsset::count(),
+            'ringan' => DamagedAsset::where('tingkat_kerusakan', 'Ringan')->count(),
+            'sedang' => DamagedAsset::where('tingkat_kerusakan', 'Sedang')->count(),
+            'berat' => DamagedAsset::where('tingkat_kerusakan', 'Berat')->count(),
+        ];
+        
+        // Get upcoming maintenance schedule
+        $upcomingMaintenance = MaintenanceAsset::with(['asset', 'damagedAsset'])
+            ->whereIn('status', ['Diterima', 'Dikerjakan'])
+            ->orderBy('tanggal_pengajuan', 'asc')
+            ->take(5)
+            ->get();
+        
+        // Get recent activities
+        $recentActivities = $this->getRecentActivities();
+        
+        return view('dashboard.mobile', compact(
+            'assetStats', 
+            'damageStats', 
+            'upcomingMaintenance', 
+            'recentActivities'
+        ));
+    }
+
+    /**
+     * Get recent activities for mobile dashboard
+     */
+    private function getRecentActivities()
+    {
+        $activities = [];
+        
+        // Recent asset additions
+        $recentAssets = Asset::latest()->take(3)->get();
+        foreach ($recentAssets as $asset) {
+            $activities[] = [
+                'type' => 'asset_added',
+                'message' => "Aset {$asset->asset_id} berhasil ditambahkan",
+                'time' => $asset->created_at,
+                'color' => 'green'
+            ];
+        }
+        
+        // Recent maintenance requests
+        $recentMaintenance = MaintenanceAsset::latest()->take(3)->get();
+        foreach ($recentMaintenance as $maintenance) {
+            $activities[] = [
+                'type' => 'maintenance_request',
+                'message' => "Pengajuan perbaikan {$maintenance->asset_id} menunggu persetujuan",
+                'time' => $maintenance->created_at,
+                'color' => 'yellow'
+            ];
+        }
+        
+        // Recent damage reports
+        $recentDamages = DamagedAsset::latest()->take(2)->get();
+        foreach ($recentDamages as $damage) {
+            $activities[] = [
+                'type' => 'damage_report',
+                'message' => "Laporan monitoring telah dikirim",
+                'time' => $damage->created_at,
+                'color' => 'blue'
+            ];
+        }
+        
+        // Sort by time and take latest 5
+        usort($activities, function($a, $b) {
+            return $b['time']->timestamp - $a['time']->timestamp;
+        });
+        
+        return array_slice($activities, 0, 5);
+    }
+
+    /**
+     * Check if request is from mobile device
+     */
+    private function isMobileRequest(Request $request)
+    {
+        $userAgent = $request->header('User-Agent');
+        return preg_match('/Mobile|Android|iPhone|iPad|BlackBerry|Opera Mini/', $userAgent) || 
+               $request->header('Accept') === 'application/mobile' ||
+               $request->has('mobile') ||
+               $request->has('force-mobile');
+    }
+
+    /**
+     * Get asset statistics data for mobile dashboard
+     */
+    public function getAssetStats()
+    {
+        $stats = [
+            'layak' => Asset::where('status_kelayakan', 'Layak')->count(),
+            'tidak_layak' => Asset::where('status_kelayakan', 'Tidak Layak')->count(),
+        ];
+        
+        return response()->json($stats);
+    }
+
+    /**
+     * Get damage statistics data for mobile dashboard
+     */
+    public function getDamageStats()
+    {
+        $stats = [
+            'ringan' => DamagedAsset::where('tingkat_kerusakan', 'Ringan')->count(),
+            'sedang' => DamagedAsset::where('tingkat_kerusakan', 'Sedang')->count(),
+            'berat' => DamagedAsset::where('tingkat_kerusakan', 'Berat')->count(),
+        ];
+        
+        return response()->json($stats);
     }
 
     /**

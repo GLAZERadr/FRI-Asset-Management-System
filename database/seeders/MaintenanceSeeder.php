@@ -36,42 +36,156 @@ class MaintenanceSeeder extends Seeder
     }
 
     /**
-     * Create sample assets
+     * Create sample assets with proper structure
      */
     private function createAssets(): array
     {
         $assetData = [
-            // Computers
-            ['asset_id' => 'AST001', 'nama_asset' => 'Computer Dell OptiPlex 7070', 'lokasi' => 'Laboratorium R3', 'tingkat_kepentingan_asset' => 8, 'kategori' => 'Computer'],
-            ['asset_id' => 'AST002', 'nama_asset' => 'Computer HP EliteDesk 800', 'lokasi' => 'Laboratorium R3', 'tingkat_kepentingan_asset' => 7, 'kategori' => 'Computer'],
-            ['asset_id' => 'AST003', 'nama_asset' => 'Computer Lenovo ThinkCentre', 'lokasi' => 'Laboratorium R4', 'tingkat_kepentingan_asset' => 8, 'kategori' => 'Computer'],
-            ['asset_id' => 'AST004', 'nama_asset' => 'Computer ASUS VivoPC', 'lokasi' => 'Laboratorium R4', 'tingkat_kepentingan_asset' => 6, 'kategori' => 'Computer'],
-            ['asset_id' => 'AST005', 'nama_asset' => 'Computer Acer Veriton', 'lokasi' => 'Laboratorium R5', 'tingkat_kepentingan_asset' => 7, 'kategori' => 'Computer'],
+            // Computers/Electronics
+            [
+                'asset_id' => 'T0901-ELE-001',
+                'nama_asset' => 'Computer Dell OptiPlex 7070',
+                'kategori' => 'Elektronik',
+                'spesifikasi' => 'Intel Core i5-9500, 8GB RAM, 256GB SSD, Windows 11 Pro',
+                'lokasi' => 'TULT-0901',
+                'kode_ruangan' => 'TULT-0901',
+                'tgl_perolehan' => '2022-01-15',
+                'masa_pakai_maksimum' => Carbon::parse('2022-01-15')->addMonths(48), // 4 years
+                'nilai_perolehan' => 8500000,
+                'sumber_perolehan' => 'Yayasan Universitas Telkom',
+                'status_kelayakan' => 'Layak',
+                'tingkat_kepentingan_asset' => '8'
+            ],
+            [
+                'asset_id' => 'T0901-ELE-002',
+                'nama_asset' => 'Computer HP EliteDesk 800',
+                'kategori' => 'Elektronik',
+                'spesifikasi' => 'Intel Core i5-8500, 8GB RAM, 1TB HDD, Windows 10 Pro',
+                'lokasi' => 'TULT-0901',
+                'kode_ruangan' => 'TULT-0901',
+                'tgl_perolehan' => '2021-08-20',
+                'masa_pakai_maksimum' => Carbon::parse('2021-08-20')->addMonths(48),
+                'nilai_perolehan' => 7500000,
+                'sumber_perolehan' => 'Bantuan Pemerintah',
+                'status_kelayakan' => 'Layak',
+                'tingkat_kepentingan_asset' => '7'
+            ],
+            [
+                'asset_id' => 'T0901-ELE-003',
+                'nama_asset' => 'Printer Canon imageCLASS LBP6030',
+                'kategori' => 'Elektronik',
+                'spesifikasi' => 'Laser Monochrome, USB 2.0, A4 Size',
+                'lokasi' => 'TULT-0902',
+                'kode_ruangan' => 'TULT-0902',
+                'tgl_perolehan' => '2021-03-10',
+                'masa_pakai_maksimum' => Carbon::parse('2021-03-10')->addMonths(60), // 5 years
+                'nilai_perolehan' => 1200000,
+                'sumber_perolehan' => 'Hibah',
+                'status_kelayakan' => 'Tidak Layak',
+                'tingkat_kepentingan_asset' => '6'
+            ],
+            [
+                'asset_id' => 'T0901-ELE-004',
+                'nama_asset' => 'Projector Epson EB-X41',
+                'kategori' => 'Elektronik',
+                'spesifikasi' => '3600 Lumens, XGA Resolution, HDMI, VGA',
+                'lokasi' => 'GACUK-101',
+                'kode_ruangan' => 'GACUK-101',
+                'tgl_perolehan' => '2020-09-05',
+                'masa_pakai_maksimum' => Carbon::parse('2020-09-05')->addMonths(72), // 6 years
+                'nilai_perolehan' => 4500000,
+                'sumber_perolehan' => 'Yayasan Universitas Telkom',
+                'status_kelayakan' => 'Layak',
+                'tingkat_kepentingan_asset' => '9'
+            ],
+            [
+                'asset_id' => 'T0901-ELE-005',
+                'nama_asset' => 'Router Cisco ISR 4331',
+                'kategori' => 'Elektronik',
+                'spesifikasi' => 'Integrated Services Router, 4-port Gigabit Ethernet',
+                'lokasi' => 'TULT-0903',
+                'kode_ruangan' => 'TULT-0903',
+                'tgl_perolehan' => '2022-06-12',
+                'masa_pakai_maksimum' => Carbon::parse('2022-06-12')->addMonths(84), // 7 years
+                'nilai_perolehan' => 25000000,
+                'sumber_perolehan' => 'Bantuan Pemerintah',
+                'status_kelayakan' => 'Layak',
+                'tingkat_kepentingan_asset' => '10'
+            ],
             
-            // Printers
-            ['asset_id' => 'AST006', 'nama_asset' => 'Printer Canon imageCLASS LBP6030', 'lokasi' => 'Ruang Dosen', 'tingkat_kepentingan_asset' => 6, 'kategori' => 'Printer'],
-            ['asset_id' => 'AST007', 'nama_asset' => 'Printer HP LaserJet Pro M404n', 'lokasi' => 'Ruang Admin', 'tingkat_kepentingan_asset' => 8, 'kategori' => 'Printer'],
-            ['asset_id' => 'AST008', 'nama_asset' => 'Printer Epson EcoTank L3210', 'lokasi' => 'Laboratorium R3', 'tingkat_kepentingan_asset' => 5, 'kategori' => 'Printer'],
+            // Furniture
+            [
+                'asset_id' => 'T0901-FUR-001',
+                'nama_asset' => 'Meja Kantor',
+                'kategori' => 'Furnitur',
+                'spesifikasi' => 'Kayu Jati, 120cm x 60cm x 75cm, Finishing Natural',
+                'lokasi' => 'TULT-0901',
+                'kode_ruangan' => 'TULT-0901',
+                'tgl_perolehan' => '2020-01-15',
+                'masa_pakai_maksimum' => Carbon::parse('2020-01-15')->addMonths(120), // 10 years
+                'nilai_perolehan' => 1500000,
+                'sumber_perolehan' => 'Yayasan Universitas Telkom',
+                'status_kelayakan' => 'Layak',
+                'tingkat_kepentingan_asset' => '6'
+            ],
+            [
+                'asset_id' => 'T0901-FUR-002',
+                'nama_asset' => 'Kursi Kantor',
+                'kategori' => 'Furnitur',
+                'spesifikasi' => 'Kursi Putar, Busa Memory Foam, Adjustable Height',
+                'lokasi' => 'TULT-0901',
+                'kode_ruangan' => 'TULT-0901',
+                'tgl_perolehan' => '2020-01-15',
+                'masa_pakai_maksimum' => Carbon::parse('2020-01-15')->addMonths(84), // 7 years
+                'nilai_perolehan' => 800000,
+                'sumber_perolehan' => 'Yayasan Universitas Telkom',
+                'status_kelayakan' => 'Layak',
+                'tingkat_kepentingan_asset' => '5'
+            ],
+            [
+                'asset_id' => 'T0901-FUR-003',
+                'nama_asset' => 'Lemari Arsip',
+                'kategori' => 'Furnitur',
+                'spesifikasi' => 'Besi, 4 Laci, Sistem Kunci, 180cm x 40cm x 60cm',
+                'lokasi' => 'TULT-0902',
+                'kode_ruangan' => 'TULT-0902',
+                'tgl_perolehan' => '2019-11-20',
+                'masa_pakai_maksimum' => Carbon::parse('2019-11-20')->addMonths(180), // 15 years
+                'nilai_perolehan' => 2200000,
+                'sumber_perolehan' => 'Hibah',
+                'status_kelayakan' => 'Layak',
+                'tingkat_kepentingan_asset' => '7'
+            ],
             
-            // Projectors
-            ['asset_id' => 'AST009', 'nama_asset' => 'Projector Epson EB-X41', 'lokasi' => 'Ruang Kelas A', 'tingkat_kepentingan_asset' => 9, 'kategori' => 'Projector'],
-            ['asset_id' => 'AST010', 'nama_asset' => 'Projector BenQ MX535', 'lokasi' => 'Ruang Kelas B', 'tingkat_kepentingan_asset' => 9, 'kategori' => 'Projector'],
-            ['asset_id' => 'AST011', 'nama_asset' => 'Projector Acer X1126AH', 'lokasi' => 'Auditorium', 'tingkat_kepentingan_asset' => 10, 'kategori' => 'Projector'],
-            
-            // Network Equipment
-            ['asset_id' => 'AST012', 'nama_asset' => 'Router Cisco ISR 4331', 'lokasi' => 'Server Room', 'tingkat_kepentingan_asset' => 10, 'kategori' => 'Network'],
-            ['asset_id' => 'AST013', 'nama_asset' => 'Switch HP Aruba 2530', 'lokasi' => 'Server Room', 'tingkat_kepentingan_asset' => 9, 'kategori' => 'Network'],
-            ['asset_id' => 'AST014', 'nama_asset' => 'Access Point Ubiquiti UniFi', 'lokasi' => 'Laboratorium R3', 'tingkat_kepentingan_asset' => 7, 'kategori' => 'Network'],
-            ['asset_id' => 'AST015', 'nama_asset' => 'Access Point TP-Link EAP225', 'lokasi' => 'Laboratorium R4', 'tingkat_kepentingan_asset' => 7, 'kategori' => 'Network'],
-            
-            // Air Conditioners
-            ['asset_id' => 'AST016', 'nama_asset' => 'AC Daikin Split 1.5 PK', 'lokasi' => 'Laboratorium R3', 'tingkat_kepentingan_asset' => 8, 'kategori' => 'AC'],
-            ['asset_id' => 'AST017', 'nama_asset' => 'AC LG Dual Cool 2 PK', 'lokasi' => 'Laboratorium R4', 'tingkat_kepentingan_asset' => 8, 'kategori' => 'AC'],
-            ['asset_id' => 'AST018', 'nama_asset' => 'AC Panasonic Inverter 1 PK', 'lokasi' => 'Ruang Dosen', 'tingkat_kepentingan_asset' => 6, 'kategori' => 'AC'],
-            
-            // Laboratory Equipment
-            ['asset_id' => 'AST019', 'nama_asset' => 'Oscilloscope Tektronix TBS1052B', 'lokasi' => 'Laboratorium R5', 'tingkat_kepentingan_asset' => 9, 'kategori' => 'Lab Equipment'],
-            ['asset_id' => 'AST020', 'nama_asset' => 'Multimeter Fluke 175', 'lokasi' => 'Laboratorium R5', 'tingkat_kepentingan_asset' => 7, 'kategori' => 'Lab Equipment'],
+            // Machines
+            [
+                'asset_id' => 'T0901-MES-001',
+                'nama_asset' => 'AC Daikin Split',
+                'kategori' => 'Mesin',
+                'spesifikasi' => '1.5 PK, Inverter Technology, R32 Refrigerant',
+                'lokasi' => 'TULT-0901',
+                'kode_ruangan' => 'TULT-0901',
+                'tgl_perolehan' => '2021-07-25',
+                'masa_pakai_maksimum' => Carbon::parse('2021-07-25')->addMonths(120), // 10 years
+                'nilai_perolehan' => 4200000,
+                'sumber_perolehan' => 'Yayasan Universitas Telkom',
+                'status_kelayakan' => 'Layak',
+                'tingkat_kepentingan_asset' => '8'
+            ],
+            [
+                'asset_id' => 'T0901-MES-002',
+                'nama_asset' => 'Generator Listrik',
+                'kategori' => 'Mesin',
+                'spesifikasi' => '5000W, Bensin, Portable, Auto Start',
+                'lokasi' => 'GACUK-101',
+                'kode_ruangan' => 'GACUK-101',
+                'tgl_perolehan' => '2020-12-10',
+                'masa_pakai_maksimum' => Carbon::parse('2020-12-10')->addMonths(96), // 8 years
+                'nilai_perolehan' => 12000000,
+                'sumber_perolehan' => 'Bantuan Pemerintah',
+                'status_kelayakan' => 'Tidak Layak',
+                'tingkat_kepentingan_asset' => '9'
+            ],
         ];
 
         $assets = [];
@@ -125,8 +239,8 @@ class MaintenanceSeeder extends Seeder
         
         $damagedAssets = [];
         
-        // Create damage reports for 15 random assets
-        $selectedAssets = collect($assets)->random(15);
+        // Create damage reports for 6 assets (more manageable number)
+        $selectedAssets = collect($assets)->random(min(6, count($assets)));
         
         foreach ($selectedAssets as $index => $asset) {
             $damageId = 'DMG' . str_pad($index + 1, 3, '0', STR_PAD_LEFT);
@@ -142,13 +256,13 @@ class MaintenanceSeeder extends Seeder
             
             // Determine reporter based on asset location
             $pelapor = 'Logistik dan SDM';
-            if (str_contains($asset->lokasi, 'Laboratorium')) {
+            if (str_contains($asset->lokasi, 'TULT-090')) {
                 $pelapor = 'Laboratorium';
             }
             
             // Determine cost based on damage level and asset importance
             $damageLevel = $damageLevels[array_rand($damageLevels)];
-            $baseCost = $asset->tingkat_kepentingan_asset * 100000; // Base cost
+            $baseCost = intval($asset->tingkat_kepentingan_asset) * 100000; // Base cost
             
             switch ($damageLevel) {
                 case 'Ringan':
@@ -205,10 +319,8 @@ class MaintenanceSeeder extends Seeder
             $q->where('name', 'kaur_keuangan_logistik_sdm');
         })->first();
         
-        // Create only 10 maintenance requests from the 15 damaged assets
-        $selectedDamagedAssets = collect($damagedAssets)->random(10);
-        
-        foreach ($selectedDamagedAssets as $index => $damagedAsset) {
+        // Create maintenance requests for all damaged assets
+        foreach ($damagedAssets as $index => $damagedAsset) {
             $maintenanceId = 'MNT' . str_pad($index + 1, 4, '0', STR_PAD_LEFT);
             
             // Check if maintenance request already exists
@@ -234,6 +346,7 @@ class MaintenanceSeeder extends Seeder
             // Create with different approval states
             $approvalScenario = rand(1, 5);
             $status = 'Menunggu Persetujuan';
+
             $maintenanceData = [
                 'maintenance_id' => $maintenanceId,
                 'damage_id' => $damagedAsset->damage_id,

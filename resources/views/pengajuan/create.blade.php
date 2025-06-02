@@ -78,7 +78,22 @@
                 </button>
                 @endif
             @else
-                <h3 class="text-lg font-medium text-gray-900">Daftar Pengajuan Perbaikan</h3>
+                <div class="flex items-center justify-between w-full">
+                    <h3 class="text-lg font-medium text-gray-900">Daftar Pengajuan Perbaikan</h3>
+                    @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']) && !empty($priorityScores))
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Prioritas TOPSIS telah dihitung</span>
+                        </div>
+                        <a href="{{ route('kriteria.create') }}" class="text-blue-600 hover:text-blue-800 text-sm">
+                            Ubah Kriteria AHP
+                        </a>
+                    </div>
+                    @endif
+                </div>
             @endif
         </div>
 
@@ -231,7 +246,9 @@
                                 </td>
                                 @endif
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ $asset->nama_asset }}
+                                    <div class="flex items-center">
+                                        {{ $asset->nama_asset }}
+                                    </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
@@ -257,9 +274,11 @@
                                 @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']) && !empty($priorityScores))
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                     @if(isset($priorityScores[$item->id]))
-                                        <span class="text-sm font-medium text-gray-900">
-                                            {{ number_format($priorityScores[$item->id]['score'], 4) }}
-                                        </span>
+                                        <div class="flex flex-col items-center">
+                                            <span class="text-sm font-medium text-gray-900">
+                                                {{ number_format($priorityScores[$item->id]['score'], 4) }}
+                                            </span>
+                                        </div>
                                     @else
                                         <span class="text-gray-400">-</span>
                                     @endif
@@ -371,7 +390,7 @@
                             <a href="{{ route('pengajuan.template.download') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                                 Download Template
                             </a>
-                            <p class="text-xs text-gray-500 mt-2">Template file excel</p>
+                            <p class="text-xs text-gray-500 mt-2">Template file excel dengan kriteria dinamis</p>
                         </div>
                     </div>
 
@@ -387,7 +406,7 @@
                             <button type="button" onclick="openModal()" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                                 Upload File
                             </button>
-                            <p class="text-xs text-gray-500 mt-2">Hanya file excel</p>
+                            <p class="text-xs text-gray-500 mt-2">Hanya file excel dengan kriteria yang sesuai</p>
                         </div>
                     </div>
                 </div>

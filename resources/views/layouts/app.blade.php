@@ -58,7 +58,7 @@
                 @endphp
 
                 <div class="relative" x-data="{ open: false }">
-                    <button @click="open = !open" class="flex items-center w-full py-3 px-4 text-gray-700 hover:bg-gray-100 {{ request()->routeIs('pengajuan.*') ? 'bg-gray-100' : '' }}">
+                    <button @click="open = !open" class="flex items-center w-full py-3 px-4 text-gray-700 hover:bg-gray-100 {{ request()->routeIs('pemantauan.*') ? 'bg-gray-100' : '' }}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
@@ -72,12 +72,12 @@
                     </button>
                     <div x-show="open" class="pl-4" style="display: none;">
                         @can('show_asset')
-                            <a href="{{ route('pemantauan.index') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pengajuan.daftar') ? 'bg-gray-100' : '' }}">
+                            <a href="{{ route('pemantauan.index') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pemantauan.index') ? 'bg-gray-100' : '' }}">
                                 Data Aset
                             </a>
                         @endcan
                         @can('show_monitoring_verification_report')
-                            <a href="{{ route('pengajuan.daftar') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pengajuan.daftar') ? 'bg-gray-100' : '' }}">
+                            <a href="{{ route('pemantauan.monitoring.verify') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pemantauan.monitoring.verify') ? 'bg-gray-100' : '' }}">
                                 Verifikasi Laporan
                             </a>
                         @endcan
@@ -87,7 +87,7 @@
                             </a>
                         @endcan
                         @can('show_monitoring_report')
-                            <a href="{{ route('pengajuan.daftar') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pengajuan.daftar') ? 'bg-gray-100' : '' }}">
+                            <a href="{{ route('pemantauan.monitoring.index') }}" class="flex items-center py-2 px-4 text-gray-600 hover:bg-gray-100 {{ request()->routeIs('pemantauan.monitoring.index') ? 'bg-gray-100' : '' }}">
                                 Laporan Pemantauan
                             </a>
                         @endcan

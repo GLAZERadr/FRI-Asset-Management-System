@@ -24,6 +24,7 @@ class RoleSeeder extends Seeder
         Permission::create(['name' => 'scan_monitoring_qr_code']);
         Permission::create(['name' => 'show_monitoring_report']);
         Permission::create(['name' => 'show_monitoring_report_validation']);
+        Permission::create(['name' => 'verify_monitoring_report']);
 
         Permission::create(['name' => 'show_maintenance_request']);
         Permission::create(['name' => 'create_maintenance_request']);

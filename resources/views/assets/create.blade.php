@@ -207,9 +207,9 @@
                     </div>
                 </div>
                 
-                <div class="mt-6 flex justify-end space-x-2">
-                    <a href="{{ route('pemantauan.index') }}" class="px-4 py-2 bg-red-600 text-white rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">
-                        Hapus
+                <div class="mt-6 flex justify-between space-x-2">
+                    <a href="{{ route('pemantauan.index') }}" class="px-4 py-2 bg-gray-600 text-white rounded-md shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
+                        Kembali
                     </a>
                     <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
                         Simpan

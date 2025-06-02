@@ -18,7 +18,7 @@ class DashboardController extends Controller
         $user = Auth::user();
         
         // Check if user is staff_laboratorium and accessing from mobile
-        if ($user->hasRole('staff_laboratorium') && $this->isMobileRequest($request)) {
+        if ($user->hasRole(['staff_laboratorium', 'staff_logistik']) && $this->isMobileRequest($request)) {
             return $this->mobileStaffLaboratoriumDashboard($request);
         }
         

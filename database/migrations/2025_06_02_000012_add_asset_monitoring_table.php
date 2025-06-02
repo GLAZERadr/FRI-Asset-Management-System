@@ -9,13 +9,19 @@ return new class extends Migration
     public function up()
     {
         Schema::create('asset_monitorings', function (Blueprint $table) {
-            $table->id();
+            $table->id(); // Auto-increment primary key
+            $table->string('id_laporan')->unique(); // Your custom report ID
             $table->string('kode_ruangan');
             $table->string('nama_pelapor');
             $table->date('tanggal_laporan');
-            $table->json('monitoring_data'); // Store array of asset monitoring data
+            $table->json('monitoring_data');
             $table->foreignId('user_id')->constrained();
             $table->timestamps();
+            
+            // Add indexes for better performance
+            $table->index('kode_ruangan');
+            $table->index('tanggal_laporan');
+            $table->index('id_laporan');
         });
     }
 

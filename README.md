@@ -11,6 +11,108 @@ Welcome to the **FRI Asset Management System** – a Laravel-based web applicati
 - Node.js & NPM
 - Laravel 12+
 - XAMPP or any LAMP stack with MySQL
+- ImageMagick + PHP Imagick extension
+
+---
+
+## 🛠️ Installing ImageMagick and the Imagick PHP Extension
+
+The application uses the Imagick extension for image processing. Below are the steps to install it on both Linux (Ubuntu/Debian) and Windows (XAMPP).
+
+### Ubuntu / Debian (LAMP)
+
+1. Update package lists
+
+```bash
+sudo apt update
+```
+
+2. Install ImageMagick and the PHP Imagick extension
+
+```bash
+sudo apt install imagemagick php-imagick
+```
+
+3. Verify installation
+
+```bash
+php -m | grep imagick
+```
+
+You should see imagick listed in the output.
+
+4. Restart your web server
+
+    * If you’re using Apache:
+
+    ```bash
+    sudo service apache2 restart
+    ```
+
+    * If you’re using Nginx + PHP-FPM:
+
+    ```bash
+    sudo service php8.1-fpm restart
+    sudo service nginx restart
+    ```
+
+---
+
+### Windows (XAMPP)
+
+1. Download ImageMagick
+
+    * Go to: https://imagemagick.org/script/download.php#windows
+
+    * Download the dynamic Win64 (or Win32) binary that matches your PHP architecture (e.g., Q16 HDRI DLL).
+
+    * Install ImageMagick (e.g., to C:\Program Files\ImageMagick-7.1.0-Q16-HDRI).
+
+2. Add ImageMagick to PATH
+
+    * Open System Properties → Environment Variables → under “System variables” find and edit Path.
+
+    * Add the directory where convert.exe is located. For example:
+
+    ```bash
+    C:\Program Files\ImageMagick-7.1.0-Q16-HDRI\
+    ```
+
+3. Enable php_imagick.dll in XAMPP
+
+    * Locate your PHP folder inside XAMPP (e.g., C:\xampp\php\ext).
+
+    * Copy the correct php_imagick.dll into C:\xampp\php\ext.
+        * You can download the matching DLL from PECL: https://pecl.php.net/package/imagick
+        
+        * Choose the DLL that matches your PHP version (e.g., php_imagick-3.7.0-8.1-ts-win64.zip → unzip → copy php_imagick.dll).
+    
+    * Open C:\xampp\php\php.ini and add (or uncomment) the following line:
+
+    ```bash
+    extension=imagick
+    ```
+
+    * Save php.ini.
+
+4. Restart Apache
+
+    * Open the XAMPP Control Panel.
+
+    * Stop and then Start Apache.
+
+5. Verify installation
+
+    * Create a phpinfo.php in your htdocs folder with:
+
+    ```bash
+    <?php
+    phpinfo();
+    ```
+
+    * Visit http://localhost/phpinfo.php in your browser.
+
+    * Search for “imagick” on that page; if installed correctly, you’ll see an “Imagick” section.
 
 ---
 

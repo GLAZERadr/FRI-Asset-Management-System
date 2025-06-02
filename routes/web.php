@@ -83,6 +83,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/qr-download/{kodeRuangan}', [AssetController::class, 'downloadQrCode'])->name('qr-download');
         
         // Monitoring routes - put these BEFORE the generic /{id} route
+        Route::get('/monitoring', [MonitoringController::class, 'index'])->name('monitoring.index');
+        Route::get('/monitoring/verify', [MonitoringController::class, 'verify'])->name('monitoring.verify');
+
         Route::get('/monitoring/{kodeRuangan}', [MonitoringController::class, 'showMonitoring'])->name('monitoring.form');
         Route::post('/monitoring/store', [MonitoringController::class, 'storeMonitoring'])->name('monitoring.store');
         

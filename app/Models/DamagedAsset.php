@@ -18,6 +18,7 @@ class DamagedAsset extends Model
         'tanggal_pelaporan',
         'pelapor',
         'vendor',
+        'id_laporan',
     ];
 
     protected $casts = [
@@ -32,6 +33,11 @@ class DamagedAsset extends Model
     public function asset()
     {
         return $this->belongsTo(Asset::class, 'asset_id', 'asset_id');
+    }
+
+    public function assetMonitoring()
+    {
+        return $this->belongsTo(AssetMonitoring::class, 'id_laporan', 'id_laporan');
     }
 
     /**

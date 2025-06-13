@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class DamagedAsset extends Model
 {
@@ -14,15 +15,25 @@ class DamagedAsset extends Model
         'asset_id',
         'tingkat_kerusakan',
         'estimasi_biaya',
+        'estimasi_waktu_perbaikan',
         'deskripsi_kerusakan',
         'tanggal_pelaporan',
         'pelapor',
+        'reporter_name',
+        'reporter_role',
         'vendor',
+        'damaged_image',
+        'status',
         'id_laporan',
+        'alasan_penolakan',
+        'verified',
+        'verified_at'
     ];
 
     protected $casts = [
         'tanggal_pelaporan' => 'datetime',
+        'estimasi_waktu_perbaikan' => 'datetime',
+        'verified_at' => 'datetime',
         'estimasi_biaya' => 'decimal:2',
         'additional_criteria' => 'array'
     ];

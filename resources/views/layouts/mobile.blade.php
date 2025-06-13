@@ -315,9 +315,6 @@
         <div class="qr-scanner-footer">
             <p class="text-sm mb-2">Arahkan kamera ke QR code pada aset</p>
             <div class="flex justify-center space-x-4">
-                <button @click="toggleFlashlight()" x-show="hasFlashlight" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm">
-                    <span x-text="flashlightOn ? 'Matikan Flash' : 'Nyalakan Flash'"></span>
-                </button>
                 <button @click="switchCamera()" x-show="hasMultipleCameras" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm">
                     Ganti Kamera
                 </button>
@@ -337,7 +334,7 @@
             </a>
 
             <!-- Riwayat -->
-            <a href="{{ route('pengajuan.daftar') }}" class="flex flex-col items-center p-2 {{ request()->routeIs('pengajuan.*') ? 'text-green-600' : 'text-gray-500' }}">
+            <a href="#" class="flex flex-col items-center p-2 {{ request()->routeIs('pengajuan.*') ? 'text-green-600' : 'text-gray-500' }}">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -483,8 +480,6 @@
                 scanner: null,
                 result: '',
                 loading: false,
-                hasFlashlight: false,
-                flashlightOn: false,
                 hasMultipleCameras: false,
                 currentCameraId: null,
                 cameras: [],
@@ -535,9 +530,6 @@
                                 preferredCamera: this.currentCameraId ? 'user' : 'environment'
                             }
                         );
-                        
-                        // Check for flashlight support
-                        this.hasFlashlight = await QrScanner.hasFlash();
                         
                         // Start scanning
                         await this.scanner.start();
@@ -636,22 +628,6 @@
                     document.getElementById('qr-scanner-modal').style.display = 'none';
                     this.result = '';
                     this.loading = false;
-                    this.flashlightOn = false;
-                },
-                
-                async toggleFlashlight() {
-                    if (this.scanner && this.hasFlashlight) {
-                        try {
-                            if (this.flashlightOn) {
-                                await this.scanner.turnFlashOff();
-                            } else {
-                                await this.scanner.turnFlashOn();
-                            }
-                            this.flashlightOn = !this.flashlightOn;
-                        } catch (error) {
-                            console.error('Failed to toggle flashlight:', error);
-                        }
-                    }
                 },
                 
                 async switchCamera() {

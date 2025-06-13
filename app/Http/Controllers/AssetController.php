@@ -64,27 +64,27 @@ class AssetController extends Controller
         return $pdf->download('data-aset.pdf');
     }
     
-    public function downloadQrCode($kodeRuangan)
+    public function downloadQrCode($asset_id)
     {
-        // Validate that kodeRuangan is not empty
-        if (empty($kodeRuangan)) {
-            abort(404, 'Kode ruangan tidak ditemukan');
+        // Validate that asset_id is not empty
+        if (empty($asset_id)) {
+            abort(404, 'Asset ID tidak ditemukan');
         }
-
+    
         try {
-            // Get the first asset with this room code to get asset info
-            $asset = Asset::where('kode_ruangan', $kodeRuangan)->first();
+            // Get the asset by asset_id
+            $asset = Asset::where('asset_id', $asset_id)->first();
             
             if (!$asset) {
-                abort(404, 'Asset tidak ditemukan untuk kode ruangan ini');
+                abort(404, 'Asset tidak ditemukan');
             }
-
-            // Generate QR code
+    
+            // Generate QR code with asset_id
             $qrCode = QrCode::format('png')
                            ->size(300)
                            ->margin(10)
-                           ->generate($kodeRuangan);
-
+                           ->generate($asset_id);
+    
             // Create image canvas with text
             $canvas = imagecreatetruecolor(400, 450);
             $white = imagecolorallocate($canvas, 255, 255, 255);
@@ -117,13 +117,13 @@ class AssetController extends Controller
             imagestring($canvas, $font, $textX, $textY + 20, $assetNameText, $black);
             
             // Room Code
-            $roomCodeText = "Kode Ruangan: " . $kodeRuangan;
+            $roomCodeText = "Kode Ruangan: " . $asset->kode_ruangan;
             $textWidth = strlen($roomCodeText) * imagefontwidth($font);
             $textX = (400 - $textWidth) / 2;
             imagestring($canvas, $font, $textX, $textY + 40, $roomCodeText, $black);
             
             // Generate filename
-            $filename = "qr-" . $asset->asset_id . "-" . $kodeRuangan . ".png";
+            $filename = "qr-" . $asset->asset_id . "-" . $asset->kode_ruangan . ".png";
             
             // Output image
             ob_start();

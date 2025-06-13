@@ -26,6 +26,15 @@ class RoleSeeder extends Seeder
         Permission::create(['name' => 'show_monitoring_report_validation']);
         Permission::create(['name' => 'verify_monitoring_report']);
 
+        Permission::create(['name' => 'show_fix_verification_report']);
+        Permission::create(['name' => 'show_fix_verification_history']);
+        Permission::create(['name' => 'show_fix_periodic_maintenance']);
+        Permission::create(['name' => 'show_fix_status']);
+        Permission::create(['name' => 'show_fix_damaged_report_validation']);
+        Permission::create(['name' => 'show_fix_damaged_report_validation_history']);
+        Permission::create(['name' => 'show_fix_periodic_maintenance_report']);
+        Permission::create(['name' => 'show_fix_final_report']);
+
         Permission::create(['name' => 'show_maintenance_request']);
         Permission::create(['name' => 'create_maintenance_request']);
         Permission::create(['name' => 'create_criteria']);
@@ -42,6 +51,10 @@ class RoleSeeder extends Seeder
         $staffLogistik->givePermissionTo([
             'show_asset',
             'show_monitoring_verification_report',
+            'show_fix_verification_report',
+            'show_fix_verification_history',
+            'show_fix_periodic_maintenance',
+            'show_fix_status',
             'show_maintenance_request',
             'create_maintenance_request',
             'create_excel',
@@ -53,6 +66,10 @@ class RoleSeeder extends Seeder
 
         $staffLab->givePermissionTo([
             'show_asset',
+            'show_fix_verification_report',
+            'show_fix_verification_history',
+            'show_fix_periodic_maintenance',
+            'show_fix_status',
             'scan_monitoring_qr_code',
             'show_monitoring_report',
             'show_maintenance_request',
@@ -67,6 +84,10 @@ class RoleSeeder extends Seeder
         $kaurLab->givePermissionTo([
             'show_monitoring_report',
             'show_monitoring_report_validation',
+            'show_fix_damaged_report_validation',
+            'show_fix_damaged_report_validation_history',
+            'show_fix_periodic_maintenance_report',
+            'show_fix_final_report',
             'show_maintenance_request',
             'create_maintenance_request',
             'create_criteria',
@@ -75,6 +96,10 @@ class RoleSeeder extends Seeder
         $kaurKeuangan->givePermissionTo([
             'show_monitoring_report',
             'show_monitoring_report_validation',
+            'show_fix_damaged_report_validation',
+            'show_fix_damaged_report_validation_history',
+            'show_fix_periodic_maintenance_report',
+            'show_fix_final_report',
             'show_maintenance_request',
             'create_maintenance_request',
             'create_criteria',
@@ -82,6 +107,8 @@ class RoleSeeder extends Seeder
         
         $wakilDekan->givePermissionTo([
             'show_monitoring_report',
+            'show_fix_periodic_maintenance_report',
+            'show_fix_final_report',
             'show_maintenance_request',
             'create_maintenance_request',
         ]);

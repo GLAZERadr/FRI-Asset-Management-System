@@ -12,6 +12,8 @@ use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\MonitoringController;
+use App\Http\Controllers\FixVerificationController;
+use App\Http\Controllers\MonitoringValidationController;
 use App\Http\Controllers\DamagedAssetController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\PaymentController;
@@ -52,6 +54,19 @@ Route::middleware('guest')->group(function () {
         ->name('password.update');
 });
 
+// Damaged Assets
+Route::prefix('damage-report')->name('damage-report.')->group(function () {
+    // QR processing for guest damage reports
+    Route::post('/qr-process', [DamagedAssetController::class, 'processQRForDamage'])->name('qr.process');
+    
+    // Damage report form (guest access)
+    Route::get('/create', [DamagedAssetController::class, 'createDamageReport'])->name('create');
+    Route::post('/store', [DamagedAssetController::class, 'storeDamageReport'])->name('store');
+    
+    // Success page
+    Route::get('/success/{damage_id}', [DamagedAssetController::class, 'damageReportSuccess'])->name('success');
+});
+
 // Auth routes
 Route::middleware('auth')->group(function () {
     Route::prefix('mobile')->name('mobile.')->group(function () {
@@ -80,11 +95,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/create', [AssetController::class, 'create'])->name('create');
         Route::post('/', [AssetController::class, 'store'])->name('store');
         Route::get('/export-pdf', [AssetController::class, 'exportPdf'])->name('export-pdf');
-        Route::get('/qr-download/{kodeRuangan}', [AssetController::class, 'downloadQrCode'])->name('qr-download');
+        Route::get('/qr-download/{asset_id}', [AssetController::class, 'downloadQrCode'])->name('qr-download');
         
         // Monitoring routes - put these BEFORE the generic /{id} route
         Route::get('/monitoring', [MonitoringController::class, 'index'])->name('monitoring.index');
+        Route::get('/monitoring/print', [MonitoringController::class, 'printLaporan'])->name('monitoring.printLaporan');
         Route::get('/monitoring/verify', [MonitoringController::class, 'verify'])->name('monitoring.verify');
+        Route::get('/monitoring/verification/{id_laporan}/{asset_id}', [MonitoringController::class, 'verifying'])->name('monitoring.verifying');
+        Route::put('/monitoring/verification/{id_laporan}/{asset_id}', [MonitoringController::class, 'updateVerification'])->name('monitoring.updateVerification');
 
         Route::get('/monitoring/{kodeRuangan}', [MonitoringController::class, 'showMonitoring'])->name('monitoring.form');
         Route::post('/monitoring/store', [MonitoringController::class, 'storeMonitoring'])->name('monitoring.store');
@@ -97,16 +115,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}', [AssetController::class, 'show'])->name('show');
         Route::get('/{id}/edit', [AssetController::class, 'edit'])->name('edit');
         Route::put('/{id}', [AssetController::class, 'update'])->name('update');
-    });
-    
-    // Damaged Assets
-    Route::prefix('perbaikan-aset')->group(function () {
-        Route::get('/', [DamagedAssetController::class, 'index'])->name('perbaikan.aset');
-        Route::get('/create', [DamagedAssetController::class, 'create'])->name('perbaikan.aset.create');
-        Route::post('/', [DamagedAssetController::class, 'store'])->name('perbaikan.aset.store');
-        Route::get('/{id}', [DamagedAssetController::class, 'show'])->name('perbaikan.aset.show');
-        Route::get('/{id}/edit', [DamagedAssetController::class, 'edit'])->name('perbaikan.aset.edit');
-        Route::put('/{id}', [DamagedAssetController::class, 'update'])->name('perbaikan.aset.update');
     });
     
     // Maintenance Requests
@@ -144,9 +152,25 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/approve', [PengajuanController::class, 'approve'])->name('approve');
     });
 
+    Route::prefix('fix-verification')->name('fix-verification.')->group(function () {
+        Route::get('/', [FixVerificationController::class, 'index'])->name('index');
+        Route::get('/create/{damage_id}', [FixVerificationController::class, 'create'])->name('create');
+        Route::get('/history', [FixVerificationController::class, 'history'])->name('history');
+        Route::get('/show/{damage_id}', [FixVerificationController::class, 'show'])->name('show');        
+        Route::post('/update/{damage_id}', [FixVerificationController::class, 'update'])->name('update');
+    });
+
+    Route::prefix('fix-validation')->name('fix-validation.')->group(function () {
+        Route::get('/', [MonitoringValidationController::class, 'index'])->name('index');
+        Route::get('/create/{id_laporan}', [MonitoringValidationController::class, 'create'])->name('create');
+        Route::get('/show/{id_laporan}', [MonitoringValidationController::class, 'show'])->name('show');  
+        Route::post('/{id_laporan}/store', [MonitoringValidationController::class, 'store'])->name('store');      
+        Route::post('/update/{id_laporan}', [MonitoringValidationController::class, 'approve'])->name('approve');
+        Route::get('/print', [MonitoringValidationController::class, 'printValidated'])->name('print');
+    });
+
     // Notifications
     Route::prefix('notifications')->name('notifications.')->group(function () {
-        Route::get('/', [NotificationController::class, 'index'])->name('index');
         Route::get('/get', [NotificationController::class, 'getNotifications'])->name('get');
         Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('read');
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead'])->name('read-all');

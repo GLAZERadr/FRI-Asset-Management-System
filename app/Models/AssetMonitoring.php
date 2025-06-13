@@ -14,13 +14,18 @@ class AssetMonitoring extends Model
         'id_laporan',
         'kode_ruangan',
         'nama_pelapor',
+        'reviewer',
         'tanggal_laporan',
+        'validated',
+        'validated_at',
+        'catatan',
         'monitoring_data',
         'user_id'
     ];
 
     protected $casts = [
         'tanggal_laporan' => 'date',
+        'validated_at' => 'datetime',
         'monitoring_data' => 'array'
     ];
 

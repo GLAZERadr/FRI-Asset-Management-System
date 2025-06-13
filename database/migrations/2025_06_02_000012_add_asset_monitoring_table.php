@@ -15,6 +15,10 @@ return new class extends Migration
             $table->string('nama_pelapor');
             $table->date('tanggal_laporan');
             $table->json('monitoring_data');
+            $table->string('reviewer')->nullable();
+            $table->string('validated')->nullable();
+            $table->date('validated_at')->nullable();
+            $table->string('catatan')->nullable();
             $table->foreignId('user_id')->constrained();
             $table->timestamps();
             

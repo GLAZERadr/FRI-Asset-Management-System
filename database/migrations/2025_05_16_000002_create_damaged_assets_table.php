@@ -13,12 +13,20 @@ return new class extends Migration
             $table->string('damage_id')->unique();
             $table->string('asset_id');
             $table->foreign('asset_id')->references('asset_id')->on('assets');
-            $table->enum('tingkat_kerusakan', ['Ringan', 'Sedang', 'Berat']);
+            $table->enum('tingkat_kerusakan', ['Ringan', 'Sedang', 'Berat'])->nullable();
             $table->integer('estimasi_biaya')->default(0);
+            $table->dateTime('estimasi_waktu_perbaikan')->nullable();
             $table->string('deskripsi_kerusakan')->nullable();
             $table->dateTime('tanggal_pelaporan')->nullable();
             $table->string('pelapor')->nullable();
+            $table->string('reporter_name')->nullable();
+            $table->string('reporter_role')->nullable();
             $table->string('vendor')->nullable();
+            $table->enum('status', ['Baru', 'Ditolak', 'Menunggu Persetujuan Kaur', 'Diterima'])->nullable();
+            $table->string('damaged_image')->nullable();
+            $table->enum('verified', ['Yes', 'No'])->nullable();
+            $table->dateTime('verified_at')->nullable();
+            $table->string('alasan_penolakan')->nullable();
             $table->timestamps();
         });
     }

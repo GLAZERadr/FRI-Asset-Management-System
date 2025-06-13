@@ -14,17 +14,7 @@ class NotificationController extends Controller
     {
         $this->notificationService = $notificationService;
     }
-
-    /**
-     * Display all notifications page
-     */
-    public function index()
-    {
-        $notifications = $this->notificationService->getAllNotifications(Auth::user(), 20);
-        
-        return view('notifications.index', compact('notifications'));
-    }
-
+    
     /**
      * Get notifications for API
      */

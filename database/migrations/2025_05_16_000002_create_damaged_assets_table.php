@@ -24,8 +24,13 @@ return new class extends Migration
             $table->string('vendor')->nullable();
             $table->enum('status', ['Baru', 'Ditolak', 'Menunggu Persetujuan Kaur', 'Diterima'])->nullable();
             $table->string('damaged_image')->nullable();
+            $table->string('reviewer')->nullable();
+            $table->string('verification_id')->nullable();
             $table->enum('verified', ['Yes', 'No'])->nullable();
+            $table->enum('validated', ['Yes', 'No', 'Reject'])->nullable();
             $table->dateTime('verified_at')->nullable();
+            $table->string('validation_id')->nullable();
+            $table->dateTime('validated_at')->nullable();
             $table->string('alasan_penolakan')->nullable();
             $table->timestamps();
         });

@@ -182,7 +182,7 @@
                 </div>
 
                 <!-- Perbaikan Section -->
-                <div class="relative" x-data="{ open: {{ request()->routeIs('perbaikan.*') ? 'true' : 'false' }} }">
+                <div class="relative" x-data="{ open: {{ request()->routeIs('perbaikan.*') || request()->routeIs('fix-verification.*')  ? 'true' : 'false' }} }">
                     <button @click="open = !open" class="nav-item {{ request()->routeIs('perbaikan.*') ? 'active' : '' }}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="nav-item-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -208,6 +208,55 @@
                                @click="sidebarOpen = false"
                                class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('fix-verification.history') ? 'bg-gray-200 text-green-600' : '' }}">
                                 <span class="truncate">Histori Verifikasi</span>
+                            </a>
+                        @endcan
+                        @can('show_fix_damaged_report_validation')
+                            <a href="{{ route('perbaikan.validation.index') }}" 
+                               @click="sidebarOpen = false"
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.validation.index') ? 'bg-gray-200 text-green-600' : '' }}">
+                                <span class="truncate">Validasi Laporan Kerusakan</span>
+                            </a>
+                        @endcan
+                        @can('show_fix_damaged_report_validation_history')
+                            <a href="{{ route('perbaikan.validation.history') }}" 
+                               @click="sidebarOpen = false"
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.validation.history') ? 'bg-gray-200 text-green-600' : '' }}">
+                                <span class="truncate">Histori Validasi</span>
+                            </a>
+                        @endcan
+                        @can('show_fix_periodic_maintenance')
+                            <a href="{{ route('perbaikan.pemeliharaan-berkala.index') }}" 
+                               @click="sidebarOpen = false"
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.pemeliharaan-berkala.index') ? 'bg-gray-200 text-green-600' : '' }}">
+                                <span class="truncate">Pemeliharaan Berkala</span>
+                            </a>
+                        @endcan
+                        @can('show_fix_status')
+                            <a href="{{ route('perbaikan.status.index') }}" 
+                               @click="sidebarOpen = false"
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.status.index') ? 'bg-gray-200 text-green-600' : '' }}">
+                                <span class="truncate">Status Perbaikan</span>
+                            </a>
+                        @endcan
+                        @can('show_fix_periodic_maintenance_report')
+                            <a href="{{ route('perbaikan.pemeliharaan-berkala.report') }}" 
+                               @click="sidebarOpen = false"
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.pemeliharaan-berkala.report') ? 'bg-gray-200 text-green-600' : '' }}">
+                                <span class="truncate">Laporan Pemeliharaan Berkala</span>
+                            </a>
+                        @endcan
+                        @can('show_fix_final_report')
+                            <a href="#" 
+                               @click="sidebarOpen = false"
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('fix-verification.history') ? 'bg-gray-200 text-green-600' : '' }}">
+                                <span class="truncate">Laporan Akhir Perbaikan Aset</span>
+                            </a>
+                        @endcan
+                        @can('show_fix_report')
+                            <a href="#" 
+                               @click="sidebarOpen = false"
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('fix-verification.history') ? 'bg-gray-200 text-green-600' : '' }}">
+                                <span class="truncate">Laporan Perbaikan Aset</span>
                             </a>
                         @endcan
                     </div>

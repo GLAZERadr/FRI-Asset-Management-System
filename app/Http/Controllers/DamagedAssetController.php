@@ -125,6 +125,7 @@ class DamagedAssetController extends Controller
             'estimasi_biaya' => $validated['estimasi_biaya'],
             'deskripsi_kerusakan' => $validated['deskripsi_kerusakan'],
             'vendor' => $validated['vendor'] ?? null,
+            'validated' => 'No',
         ]);
         
         return redirect()->route('perbaikan.aset')
@@ -264,8 +265,12 @@ class DamagedAssetController extends Controller
             $latestDamage = DamagedAsset::latest('id')->first();
             Log::info('Latest damage record', ['latest_damage' => $latestDamage]);
             
+            $user = auth()->user();
+            $damageId = DamagedAsset::generateIdLaporan($user);
+            $verId = DamagedAsset::generateVerId();
+            $valId = DamagedAsset::generateValId();
+
             $damageNumber = $latestDamage ? intval(substr($latestDamage->damage_id, 4)) + 1 : 1;
-            $damageId = 'DMG-' . str_pad($damageNumber, 5, '0', STR_PAD_LEFT);
             
             Log::info('Generated damage ID', [
                 'damage_number' => $damageNumber,
@@ -309,7 +314,10 @@ class DamagedAssetController extends Controller
                 'reporter_role' => $validated['role_pelapor'],
                 'damaged_image' => $photoPath,
                 'status' => 'Baru',
+                'verification_id' => $verId,
                 'verified' => 'No',
+                'validation_id' => $valId,
+                'validated' => 'No',
                 'vendor' => null,
             ];
     

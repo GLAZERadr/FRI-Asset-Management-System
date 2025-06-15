@@ -13,6 +13,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\MonitoringController;
 use App\Http\Controllers\FixVerificationController;
+use App\Http\Controllers\FixValidationController;
+use App\Http\Controllers\MaintenanceScheduleController;
+use App\Http\Controllers\FixStatusController;
 use App\Http\Controllers\MonitoringValidationController;
 use App\Http\Controllers\DamagedAssetController;
 use App\Http\Controllers\PengajuanController;
@@ -116,6 +119,26 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}/edit', [AssetController::class, 'edit'])->name('edit');
         Route::put('/{id}', [AssetController::class, 'update'])->name('update');
     });
+
+    Route::prefix('perbaikan')->name('perbaikan.')->group(function () {
+        Route::get('/validation', [FixValidationController::class, 'index'])->name('validation.index');
+        Route::get('/validation/show/{validation_id}', [FixValidationController::class, 'show'])->name('validation.show');
+        Route::get('/validation/action/{validation_id}', [FixValidationController::class, 'action'])->name('validation.action');
+        Route::post('/validation/update/{validation_id}', [FixValidationController::class, 'update'])->name('validation.update');
+        Route::get('/validation/history', [FixValidationController::class, 'history'])->name('validation.history');
+        Route::get('/validation/download-pdf/{validation_id}', [FixValidationController::class, 'downloadPdf'])->name('validation.download-pdf');
+
+        Route::get('/pemeliharaan-berkala', [MaintenanceScheduleController::class, 'index'])->name('pemeliharaan-berkala.index');
+        Route::post('/pemeliharaan-berkala/store-basic', [MaintenanceScheduleController::class, 'storeBasic'])->name('pemeliharaan-berkala.store-basic');
+        Route::put('/pemeliharaan-berkala/{id}/details', [MaintenanceScheduleController::class, 'updateDetails'])->name('pemeliharaan-berkala.update-details');
+        Route::get('/pemeliharaan-berkala/report', [MaintenanceScheduleController::class, 'report'])->name('pemeliharaan-berkala.report');
+        Route::get('/pemeliharaan-berkala/report/{id}', [MaintenanceScheduleController::class, 'showReport'])->name('pemeliharaan-berkala.show-report');
+        Route::get('/pemeliharaan-berkala/report/{id}/download-pdf', [MaintenanceScheduleController::class, 'downloadReportPdf'])->name('pemeliharaan-berkala.download-report-pdf');
+        Route::delete('/pemeliharaan-berkala/{id}', [MaintenanceScheduleController::class, 'destroy'])->name('pemeliharaan-berkala.destroy');
+
+        Route::get('/status', [FixStatusController::class, 'index'])->name('status.index');
+        Route::get('/status/show/{id_laporan}', [FixStatusController::class, 'show'])->name('status.show');
+    });
     
     // Maintenance Requests
     Route::prefix('pengajuan')->name('pengajuan.')->group(function () {
@@ -158,6 +181,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/history', [FixVerificationController::class, 'history'])->name('history');
         Route::get('/show/{damage_id}', [FixVerificationController::class, 'show'])->name('show');        
         Route::post('/update/{damage_id}', [FixVerificationController::class, 'update'])->name('update');
+        Route::get('/download-pdf', [FixVerificationController::class, 'downloadPdf'])->name('download-pdf');
     });
 
     Route::prefix('fix-validation')->name('fix-validation.')->group(function () {

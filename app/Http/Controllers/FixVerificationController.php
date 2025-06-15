@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use App\Models\DamagedAsset;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Carbon\Carbon;
 
 class FixVerificationController extends Controller
@@ -115,6 +117,7 @@ class FixVerificationController extends Controller
             'tingkat_kerusakan' => $request->tingkat_kerusakan,
             'estimasi_biaya' => $request->estimasi_biaya,
             'estimasi_waktu_perbaikan' => Carbon::parse($request->estimasi_waktu_perbaikan),
+            'reviewer' => Auth::user()->name ?? 'System',
             'verified' => $request->verified,
             'verified_at' => Carbon::parse($request->verified_at),
         ];
@@ -135,5 +138,28 @@ class FixVerificationController extends Controller
     
         return redirect()->route('fix-verification.index')
             ->with('success', $message);
+    }
+
+    public function downloadPdf(Request $request)
+    {
+        $query = DamagedAsset::with('asset');
+        
+        // Apply the same filters as index method
+        if ($request->has('lokasi') && $request->lokasi) {
+            $query->whereHas('asset', function($q) use ($request) {
+                $q->where('lokasi', 'like', '%' . $request->lokasi . '%');
+            });
+        }
+        
+        $damagedAssets = $query->orderBy('tanggal_pelaporan', 'desc')->get();
+        $filterInfo = [
+            'lokasi' => $request->lokasi ?? 'Semua Lokasi',
+            'total' => $damagedAssets->count(),
+            'generated_at' => \Carbon\Carbon::now()->format('d F Y, H:i')
+        ];
+        
+        $pdf = PDF::loadView('verifikasi-laporan-perbaikan.pdf', compact('damagedAssets', 'filterInfo'));
+        
+        return $pdf->download('laporan-pemantauan-aset-' . date('Y-m-d') . '.pdf');
     }
 }

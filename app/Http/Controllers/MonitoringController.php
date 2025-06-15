@@ -22,7 +22,7 @@ class MonitoringController extends Controller
         if ($user->hasRole(['kaur_laboratorium'])) {
             // Show only lab assets
             $query->where('id_laporan', 'LIKE', '%-LAB-%')
-                ->Where('validated', 'valid');;
+                ->Where('validated', 'valid');
         } elseif ($user->hasRole(['kaur_keuangan_logistik_sdm'])) {
             // Show only logistic assets
             $query->where('id_laporan', 'LIKE', '%-LOG-%')

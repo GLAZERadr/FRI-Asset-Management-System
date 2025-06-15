@@ -1,9 +1,10 @@
 @extends('layouts.app')
-@section('header', 'Data Aset')
+@section('header', 'Manajemen Pengajuan Perbaikan')
 @section('content')
 <div class="container mx-auto">
+    <!-- Filters and Actions -->
     <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <form action="{{ route('pemantauan.index') }}" method="GET" class="grid grid-cols-4 gap-4 items-end">
+        <form action="{{ route('perbaikan.validation.index') }}" method="GET" class="grid grid-cols-4 gap-4 items-end">
             <div>
                 <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">Pilih Lokasi</label>
                 <select id="lokasi" name="lokasi" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
@@ -14,6 +15,26 @@
                 </select>
             </div>
             
+            <div>
+                <label for="bulan" class="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
+                <select id="bulan" name="bulan" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                    <option value="">Semua Bulan</option>
+                    @foreach($months as $value => $name)
+                        <option value="{{ $value }}" {{ request('bulan') == $value ? 'selected' : '' }}>{{ $name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="tahun" class="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
+                <select id="tahun" name="tahun" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                    <option value="">Semua Tahun</option>
+                    @foreach($years as $year)
+                        <option value="{{ $year }}" {{ request('tahun') == $year ? 'selected' : '' }}>{{ $year }}</option>
+                    @endforeach
+                </select>
+            </div>
+
             <div class="flex space-x-2">
                 <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -21,13 +42,13 @@
                     </svg>
                     Filter
                 </button>
-                <a href="{{ route('pemantauan.index') }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
+                <a href="{{ route('perbaikan.validation.index') }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50">
                     Reset
                 </a>
             </div>
         </form>
     </div>
-
+    
     <!-- Assets Table -->
     <div class="bg-white rounded-lg shadow overflow-hidden">
         <div class="overflow-x-auto">
@@ -35,31 +56,32 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Verifikasi</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Validasi</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Aset</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis Aset</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lokasi Aset</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tingkat Kerusakan</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pelapor</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Pelaporan</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reviewer</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Verifikasi</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Verifikasi</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Kerusakan</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Biaya</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Laporan</th>
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse ($damagedAssets as $index => $asset)
-                    <tr class="hover:bg-gray-50">
+                    @forelse ($reports as $index => $asset)
+                    <tr>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ $damagedAssets->firstItem() + $index }}
+                            {{ $reports->firstItem() + $index }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {{ $asset->damage_id ?? 'VER-' . str_pad($asset->id, 4, '0', STR_PAD_LEFT) }}
+                            {{ $asset->validation_id }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $asset->asset->nama_asset }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ $asset->asset->kategori }}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
                             {{ $asset->asset->lokasi }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -77,59 +99,21 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ $asset->reporter_role }}
+                            {{ number_format($asset->estimasi_biaya, 0, ',', '.') }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ \Carbon\Carbon::parse($asset->tanggal_pelaporan)->format('d-m-Y') }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ $asset->reviewer ?? 'Admin System' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ $asset->verified_at ? \Carbon\Carbon::parse($asset->verified_at)->format('d-m-Y') : '-' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                            @if($asset->verified == 'Yes')
-                                <!-- Checkmark Icon for "Yes" verification -->
-                                <div class="flex justify-center">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                        </svg>
-                                        Terverifikasi
-                                    </span>
-                                </div>
-                            @elseif($asset->verified == 'No')
-                                <!-- X Mark Icon for "No" verification -->
-                                <div class="flex justify-center">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                                        </svg>
-                                        Ditolak
-                                    </span>
-                                </div>
-                            @else
-                                <!-- Pending status -->
-                                <div class="flex justify-center">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        Pending
-                                    </span>
-                                </div>
-                            @endif
-                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                             <div class="flex justify-center space-x-2">
-                                <a href="{{ route('fix-verification.show', $asset->damage_id) }}" class="text-gray-600 hover:text-gray-900" title="Lihat Detail">
+                                <!-- Magnifying Glass/Search Icon for View Detail -->
+                                <a href="{{ route('perbaikan.validation.show', $asset->validation_id) }}" class="text-gray-600 hover:text-gray-900" title="Lihat Detail">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                     </svg>
                                 </a>
 
-                                <a href="{{ route('fix-verification.download-pdf', request()->query()) }}" class="text-gray-600 hover:text-gray-900" title="Proses Laporan">
+                                <a href="{{ route('perbaikan.validation.action', $asset->validation_id) }}" class="text-gray-600 hover:text-gray-900" title="Proses Laporan">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                     </svg>
@@ -154,9 +138,9 @@
             </table>
         </div>
         <!-- Pagination -->
-        @if($damagedAssets->hasPages())
+        @if($reports->hasPages())
         <div class="px-6 py-3 border-t border-gray-200">
-            {{ $damagedAssets->appends(request()->query())->links() }}
+            {{ $reports->appends(request()->query())->links() }}
         </div>
         @endif
     </div>

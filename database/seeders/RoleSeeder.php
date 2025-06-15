@@ -34,6 +34,7 @@ class RoleSeeder extends Seeder
         Permission::create(['name' => 'show_fix_damaged_report_validation_history']);
         Permission::create(['name' => 'show_fix_periodic_maintenance_report']);
         Permission::create(['name' => 'show_fix_final_report']);
+        Permission::create(['name' => 'show_fix_report']);
 
         Permission::create(['name' => 'show_maintenance_request']);
         Permission::create(['name' => 'create_maintenance_request']);
@@ -108,7 +109,7 @@ class RoleSeeder extends Seeder
         $wakilDekan->givePermissionTo([
             'show_monitoring_report',
             'show_fix_periodic_maintenance_report',
-            'show_fix_final_report',
+            'show_fix_report',
             'show_maintenance_request',
             'create_maintenance_request',
         ]);

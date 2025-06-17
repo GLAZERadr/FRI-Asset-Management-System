@@ -82,6 +82,25 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
+
+                        <div>
+                            <label for="jenis_pembayaran" class="block text-sm font-medium text-gray-700">
+                                Jenis Pembayaran <span class="text-red-500">*</span>
+                            </label>
+                            <select name="jenis_pembayaran" id="jenis_pembayaran" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 @error('jenis_pembayaran') border-red-300 @enderror" 
+                                required>
+                                <option value="">Pilih jenis pembayaran</option>
+                                @foreach(\App\Models\Payment::JENIS_PEMBAYARAN as $key => $label)
+                                    <option value="{{ $key }}" {{ old('jenis_pembayaran') == $key ? 'selected' : '' }}>
+                                        {{ $label }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('jenis_pembayaran')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
                         
                         <div>
                             <label for="status" class="block text-sm font-medium text-gray-700">

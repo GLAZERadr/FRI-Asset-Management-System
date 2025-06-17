@@ -92,6 +92,7 @@ class RoleSeeder extends Seeder
             'show_maintenance_request',
             'create_maintenance_request',
             'create_criteria',
+            'show_payment'
         ]);
         
         $kaurKeuangan->givePermissionTo([
@@ -104,6 +105,7 @@ class RoleSeeder extends Seeder
             'show_maintenance_request',
             'create_maintenance_request',
             'create_criteria',
+            'show_payment'
         ]);
         
         $wakilDekan->givePermissionTo([

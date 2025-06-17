@@ -145,14 +145,15 @@
                     <!-- Lokasi Aset -->
                     <div class="lg:col-span-1">
                         <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">Lokasi Aset</label>
-                        <input type="text" 
-                               id="lokasi" 
-                               name="lokasi" 
-                               value="{{ old('lokasi') }}"
-                               class="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 @error('lokasi') border-red-500 @enderror"
-                               placeholder="TULT/GACUK"
-                               required>
-                        <p class="mt-1 text-xs text-gray-500">Isi dengan kode gedung: TULT/GACUK</p>
+                        <select id="lokasi" 
+                                name="lokasi" 
+                                class="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 @error('lokasi') border-red-500 @enderror"
+                                required>
+                            <option value="">Pilih Lokasi</option>
+                            <option value="Logistik" {{ old('lokasi') == 'Logistik' ? 'selected' : '' }}>Logistik</option>
+                            <option value="Laboratorium" {{ old('lokasi') == 'Laboratorium' ? 'selected' : '' }}>Laboratorium</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Pilih lokasi aset</p>
                         @error('lokasi')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror

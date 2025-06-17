@@ -236,7 +236,7 @@
                         </svg>
                     </a>
                         
-                        @if($request->status == 'Menunggu Persetujuan' && $request->requested_by == Auth::id())
+                        @if(in_array($request->status, ['Menunggu Persetujuan', 'Selesai', 'Ditolak']) && $request->requested_by == Auth::id())
                             <form action="{{ route('pengajuan.destroy', $request->id) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengajuan ini?')">
                                 @csrf
                                 @method('DELETE')

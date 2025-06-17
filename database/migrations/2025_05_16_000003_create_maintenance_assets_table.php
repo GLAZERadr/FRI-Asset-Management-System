@@ -21,7 +21,6 @@ return new class extends Migration
             $table->timestamp('tanggal_perbaikan')->nullable();
             $table->timestamp('tanggal_selesai')->nullable();
             $table->string('teknisi')->nullable();
-            $table->string('estimasi_waktu_perbaikan')->nullable();
             $table->string('requested_by')->nullable();
             $table->string('requested_by_role')->nullable();
             $table->timestamp('kaur_lab_approved_at')->nullable();
@@ -29,6 +28,11 @@ return new class extends Migration
             $table->timestamp('kaur_keuangan_approved_at')->nullable();
             $table->string('kaur_keuangan_approved_by')->nullable();
             $table->decimal('priority_score', 8, 4)->nullable();
+            $table->string('penyebab_kerusakan')->nullable();
+            $table->string('deskripsi_perbaikan')->nullable();
+            $table->enum('hasil_perbaikan', ['Sukses', 'Perlu Tindak Lanjut'])->nullable();
+            $table->string('rekomendasi')->nullable();
+            $table->string('catatan')->nullable();
             $table->timestamps();
             
             $table->foreign('damage_id')->references('damage_id')->on('damaged_assets')->onDelete('cascade');

@@ -52,6 +52,8 @@
                     required>
                 <option value="">Select Role</option>
                 <option value="staff_logistik" {{ old('role') == 'staff_logistik' ? 'selected' : '' }}>Staff Logistik</option>
+                <option value="staff_logistik" {{ old('role') == 'staff_laboratorium' ? 'selected' : '' }}>Staff Laboratorium</option>
+                <option value="staff_logistik" {{ old('role') == 'staff_keuangan' ? 'selected' : '' }}>Staff Keuangan</option>
                 <option value="kaur_laboratorium" {{ old('role') == 'kaur_laboratorium' ? 'selected' : '' }}>Kaur Laboratorium</option>
                 <option value="kaur_keuangan_logistik_sdm" {{ old('role') == 'kaur_keuangan_logistik_sdm' ? 'selected' : '' }}>Kaur Keuangan Logistik SDM</option>
                 <option value="wakil_dekan_2" {{ old('role') == 'wakil_dekan_2' ? 'selected' : '' }}>Wakil Dekan 2</option>

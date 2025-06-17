@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MaintenanceAsset;
 use App\Models\DamagedAsset;
 use App\Models\Asset;
+use App\Models\Payment;
 use App\Models\User;
 use App\Models\ApprovalLog;
 use App\Services\NotificationService;
@@ -1052,14 +1053,8 @@ class PengajuanController extends Controller
             $stats['rejected'] = (clone $allMaintenanceRequests)->where('status', 'Ditolak')->count();
             
             // Total expenditure from completed repairs
-            $stats['total_expenditure'] = (clone $allMaintenanceRequests)
-                ->where('status', 'Selesai')
-                ->whereHas('damagedAsset')
-                ->with('damagedAsset')
-                ->get()
-                ->sum(function($maintenance) {
-                    return $maintenance->damagedAsset->estimasi_biaya ?? 0;
-                });
+            $stats['total_expenditure'] = Payment::where('status', 'sudah_dibayar')
+                ->sum('total_tagihan');
             
             // Highest repair cost and asset
             $highestCostMaintenance = (clone $allMaintenanceRequests)
@@ -1113,9 +1108,8 @@ class PengajuanController extends Controller
                 ->with('damagedAsset')
                 ->get();
                 
-            $stats['total_expenditure'] = $completedRepairs->sum(function($maintenance) {
-                return $maintenance->damagedAsset->estimasi_biaya ?? 0;
-            });
+            $stats['total_expenditure'] = Payment::where('status', 'sudah_dibayar')
+                ->sum('total_tagihan');
         }
         
         return $stats;
@@ -1610,16 +1604,10 @@ class PengajuanController extends Controller
     public function destroy($id)
     {
         $maintenanceAsset = MaintenanceAsset::findOrFail($id);
-        
-        // Only allow deletion if not yet approved
-        if ($maintenanceAsset->status == 'Menunggu Persetujuan' && 
-            $maintenanceAsset->requested_by == Auth::id()) {
-            
-            $maintenanceAsset->delete();
-            return redirect()->route('pengajuan.index')
-                ->with('success', 'Pengajuan berhasil dihapus.');
-        }
-        
-        return back()->with('error', 'Pengajuan tidak dapat dihapus.');
+                    
+        $maintenanceAsset->delete();
+
+        return redirect()->route('pengajuan.index')
+            ->with('success', 'Pengajuan berhasil dihapus.');        
     }
 }

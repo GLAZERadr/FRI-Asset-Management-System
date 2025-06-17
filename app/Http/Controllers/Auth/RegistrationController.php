@@ -31,7 +31,7 @@ class RegistrationController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'division' => ['required', 'string', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'string', 'in:staff_logistik,kaur_laboratorium,kaur_keuangan_logistik_sdm,wakil_dekan_2'],
+            'role' => ['required', 'string', 'in:staff_logistik,staff_laboratorium,staff_keuangan,kaur_laboratorium,kaur_keuangan_logistik_sdm,wakil_dekan_2'],
         ]);
 
         $user = User::create([

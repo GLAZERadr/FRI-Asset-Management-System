@@ -63,16 +63,11 @@
 
     <!-- Pairwise Comparison Section -->
     <div class="bg-white rounded-lg shadow-md p-6" id="comparisonSection">
-        <h2 class="text-xl font-semibold mb-4">Pairwise Comparison</h2>
+        <h2 class="text-xl font-semibold mb-4">Perbandingan berpasangan</h2>
+        <p class="text-sm text-gray-600 mb-4">Pilih yang lebih penting (Semakin besar semakin penting)</p>
         
         <div class="overflow-x-auto">
-            <table class="min-w-full border-collapse border border-gray-300">
-                <thead>
-                    <tr class="bg-gray-100">
-                        <th class="border border-gray-300 px-4 py-2">Pilih yang lebih penting</th>
-                        <th class="border border-gray-300 px-4 py-2">Nilai Perbandingan</th>
-                    </tr>
-                </thead>
+            <table class="min-w-full">
                 <tbody id="comparisonTableBody">
                     <!-- Dynamic content will be inserted here -->
                 </tbody>
@@ -254,27 +249,58 @@ document.addEventListener('DOMContentLoaded', function() {
         for (let i = 0; i < activeCriteria.length; i++) {
             for (let j = i + 1; j < activeCriteria.length; j++) {
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="border border-gray-300 px-4 py-2">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center space-x-2">
-                                <input type="radio" name="comparison_${i}_${j}" value="${activeCriteria[i].id}" class="comparison-radio" checked>
-                                <span class="font-medium">${activeCriteria[i].name}</span>
+                row.className = 'border-b border-gray-200';
+                
+                // Create the comparison scale (9 to 1 to 9)
+                let scaleHTML = '';
+                
+                // Left side (9-2)
+                for (let k = 9; k >= 2; k--) {
+                    scaleHTML += `
+                        <td class="px-2 py-4 text-center">
+                            <div class="flex flex-col items-center">
+                                <input type="radio" name="comparison_${i}_${j}" value="${activeCriteria[i].id}_${k}" 
+                                    class="comparison-radio mb-1" ${k === 2 ? 'checked' : ''}>
+                                <span class="text-xs">${k}</span>
                             </div>
-                            <span class="mx-4 text-gray-500 font-bold">VS</span>
-                            <div class="flex items-center space-x-2">
-                                <span class="font-medium">${activeCriteria[j].name}</span>
-                                <input type="radio" name="comparison_${i}_${j}" value="${activeCriteria[j].id}" class="comparison-radio">
-                            </div>
+                        </td>
+                    `;
+                }
+                
+                // Center (1)
+                scaleHTML += `
+                    <td class="px-2 py-4 text-center">
+                        <div class="flex flex-col items-center">
+                            <input type="radio" name="comparison_${i}_${j}" value="equal_1" 
+                                class="comparison-radio mb-1">
+                            <span class="text-xs">1</span>
                         </div>
                     </td>
-                    <td class="border border-gray-300 px-4 py-2">
-                        <input type="number" min="1" max="9" value="1" step="1"
-                               class="w-20 px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               data-criteria1="${activeCriteria[i].id}" 
-                               data-criteria2="${activeCriteria[j].id}">
-                    </td>
                 `;
+                
+                // Right side (2-9)
+                for (let k = 2; k <= 9; k++) {
+                    scaleHTML += `
+                        <td class="px-2 py-4 text-center">
+                            <div class="flex flex-col items-center">
+                                <input type="radio" name="comparison_${i}_${j}" value="${activeCriteria[j].id}_${k}" 
+                                    class="comparison-radio mb-1">
+                                <span class="text-xs">${k}</span>
+                            </div>
+                        </td>
+                    `;
+                }
+                
+                row.innerHTML = `
+                    <td class="px-4 py-4 font-medium text-right">${activeCriteria[i].name}</td>
+                    ${scaleHTML}
+                    <td class="px-4 py-4 font-medium text-left">${activeCriteria[j].name}</td>
+                `;
+                
+                // Add data attributes for processing
+                row.setAttribute('data-criteria1', activeCriteria[i].id);
+                row.setAttribute('data-criteria2', activeCriteria[j].id);
+                
                 tableBody.appendChild(row);
             }
         }
@@ -291,35 +317,48 @@ document.addEventListener('DOMContentLoaded', function() {
             name: row.querySelector('input').value
         }));
 
-        // Collect pairwise comparison data
-        const comparisonInputs = document.querySelectorAll('#comparisonTableBody input[type="number"]');
+        // Collect pairwise comparison data from the new format
+        const comparisonRows = document.querySelectorAll('#comparisonTableBody tr');
         
-        comparisonInputs.forEach(input => {
-            const criteria1 = input.dataset.criteria1;
-            const criteria2 = input.dataset.criteria2;
-            const value = parseFloat(input.value) || 1;
+        comparisonRows.forEach(row => {
+            const criteria1 = row.getAttribute('data-criteria1');
+            const criteria2 = row.getAttribute('data-criteria2');
             
-            // Check which radio is selected for this comparison
-            const radioName = input.closest('tr').querySelector('input[type="radio"]').name;
-            const selectedRadio = document.querySelector(`input[name="${radioName}"]:checked`);
-            const selectedCriteria = selectedRadio ? selectedRadio.value : criteria1;
+            // Find selected radio button
+            const selectedRadio = row.querySelector('input[type="radio"]:checked');
             
-            console.log(`Comparison: ${criteria1} vs ${criteria2}, selected: ${selectedCriteria}, value: ${value}`);
-            
-            if (selectedCriteria === criteria1) {
-                // criteria1 is more important
-                comparisons.push({
-                    criteria_1: criteria1,
-                    criteria_2: criteria2,
-                    value: value
-                });
-            } else {
-                // criteria2 is more important  
-                comparisons.push({
-                    criteria_1: criteria2,
-                    criteria_2: criteria1,
-                    value: value
-                });
+            if (selectedRadio) {
+                const value = selectedRadio.value;
+                
+                if (value === 'equal_1') {
+                    // Equal importance
+                    comparisons.push({
+                        criteria_1: criteria1,
+                        criteria_2: criteria2,
+                        value: 1
+                    });
+                } else {
+                    // Parse the value (format: criteriaId_importance or equal_1)
+                    const parts = value.split('_');
+                    const selectedCriteria = parts[0];
+                    const importance = parseInt(parts[1]);
+                    
+                    if (selectedCriteria === criteria1) {
+                        // criteria1 is more important
+                        comparisons.push({
+                            criteria_1: criteria1,
+                            criteria_2: criteria2,
+                            value: importance
+                        });
+                    } else {
+                        // criteria2 is more important
+                        comparisons.push({
+                            criteria_1: criteria2,
+                            criteria_2: criteria1,
+                            value: importance
+                        });
+                    }
+                }
             }
         });
 
@@ -344,6 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ comparisons })
             });
             
+            // ADD THIS MISSING PART:
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -359,6 +399,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Store the calculation result
             calculationResult = result;
             displayResults(result);
+            // END OF MISSING PART
+            
         } catch (error) {
             console.error('Error details:', error);
             
@@ -398,15 +440,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const consistencyDiv = document.getElementById('consistencyResult');
         const isConsistent = result.consistency_ratio <= 0.1;
         
+        // Calculate RI (Random Index) - you should get this from your backend
+        const n = result.criteria.length;
+        const randomIndex = result.random_index || 0; // Get RI from backend response
+        
         consistencyDiv.className = `p-4 rounded-md ${isConsistent ? 'consistency-good' : 'consistency-bad'}`;
         consistencyDiv.innerHTML = `
-            <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-3 gap-4 mb-4">
                 <div>
                     <p><strong>Lambda Max:</strong> ${result.lambda_max.toFixed(3)}</p>
-                    <p><strong>Consistency Index:</strong> ${result.consistency_index.toFixed(3)}</p>
+                    <p><strong>Consistency Index (CI):</strong> ${result.consistency_index.toFixed(3)}</p>
                 </div>
                 <div>
-                    <p><strong>Consistency Ratio:</strong> ${(result.consistency_ratio * 100).toFixed(1)}%</p>
+                    <p><strong>Random Index (RI):</strong> ${randomIndex.toFixed(3)}</p>
+                    <p><strong>Consistency Ratio (CR):</strong> ${(result.consistency_ratio * 100).toFixed(1)}%</p>
+                </div>
+                <div>
+                    <p><strong>Formula:</strong></p>
+                    <p>CR = CI / RI</p>
+                    <p>${result.consistency_index.toFixed(3)} / ${randomIndex.toFixed(3)} = ${result.consistency_ratio.toFixed(3)}</p>
                 </div>
             </div>
             <div class="text-center">

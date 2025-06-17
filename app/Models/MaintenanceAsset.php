@@ -18,7 +18,6 @@ class MaintenanceAsset extends Model
         'tanggal_perbaikan',
         'tanggal_selesai',
         'teknisi',
-        'estimasi_waktu_perbaikan',
         'requested_by',
         'requested_by_role',
         'kaur_lab_approved_at',
@@ -28,6 +27,11 @@ class MaintenanceAsset extends Model
         'priority_score',
         'priority_calculated_at',
         'priority_method',
+        'penyebab_kerusakan',
+        'deskripsi_perbaikan',
+        'hasil_perbaikan',
+        'rekomendasi',
+        'catatan'
     ];
 
     protected $casts = [

@@ -93,7 +93,7 @@ class DamagedAsset extends Model
     public static function generateIdLaporan($user = null)
     {
         // Get current month and year
-        $monthYear = date('mY'); // 032025 for March 2025
+        $monthYear = date('Ym'); // 032025 for March 2025
         
         // Determine role code based on user's role
         $roleCode = 'GEN'; // Default
@@ -114,9 +114,9 @@ class DamagedAsset extends Model
         }
         
         // Get the latest sequence number for this month and role
-        $basePattern = "DMG-{$monthYear}-{$roleCode}-";
-        $latestReport = self::where('id_laporan', 'LIKE', $basePattern . '%')
-                           ->orderBy('id_laporan', 'desc')
+        $basePattern = "LR-{$monthYear}-";
+        $latestReport = self::where('damage_id', 'LIKE', $basePattern . '%')
+                           ->orderBy('damage_id', 'desc')
                            ->first();
         
         if ($latestReport) {
@@ -128,7 +128,7 @@ class DamagedAsset extends Model
         }
         
         // Format sequence with leading zeros (3 digits)
-        $sequenceFormatted = str_pad($newSequence, 2, '0', STR_PAD_LEFT);
+        $sequenceFormatted = str_pad($newSequence, 3, '0', STR_PAD_LEFT);
         
         return $basePattern . $sequenceFormatted;
     }

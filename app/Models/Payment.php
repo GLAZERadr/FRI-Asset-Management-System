@@ -17,6 +17,7 @@ class Payment extends Model
         'total_tagihan',
         'file_invoice',
         'tipe_pembayaran',
+        'jenis_pembayaran',
         'status',
         'tanggal_pembayaran',
         'updated_by',
@@ -38,11 +39,14 @@ class Payment extends Model
 
     // Constants for payment types
     const TIPE_PEMBAYARAN = [
-        'setelah_perbaikan' => 'Setelah Perbaikan',
-        'sebelum_perbaikan' => 'Sebelum Perbaikan',
         'transfer' => 'Transfer Bank',
         'cash' => 'Cash',
         'check' => 'Cek',
+    ];
+
+    const JENIS_PEMBAYARAN = [
+        'setelah_perbaikan' => 'Setelah Perbaikan',
+        'sebelum_perbaikan' => 'Sebelum Perbaikan',
     ];
 
     // Constants for payment status
@@ -75,6 +79,12 @@ class Payment extends Model
     public function getTipeLabel()
     {
         return self::TIPE_PEMBAYARAN[$this->tipe_pembayaran] ?? $this->tipe_pembayaran;
+    }
+
+    
+    public function getJenisLabel()
+    {
+        return self::JENIS_PEMBAYARAN[$this->jenis_pembayaran] ?? $this->jenis_pembayaran;
     }
 
     /**

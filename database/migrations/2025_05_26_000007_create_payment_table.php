@@ -24,9 +24,12 @@ return new class extends Migration
             $table->string('file_invoice')->nullable()->comment('Invoice file path');
             
             // Payment type dropdown
-            $table->enum('tipe_pembayaran', ['setelah_perbaikan', 'sebelum_perbaikan', 'transfer', 'cash', 'check'])
-                  ->default('setelah_perbaikan')
+            $table->enum('tipe_pembayaran', ['transfer', 'cash', 'check'])
+                  ->default('transfer')
                   ->comment('Payment type');
+
+            $table->enum('jenis_pembayaran', ['setelah_perbaikan', 'sebelum_perbaikan'])
+                  ->default('setelah_perbaikan');
             
             // Payment status
             $table->enum('status', ['belum_dibayar', 'sudah_dibayar', 'terlambat', 'dibatalkan'])

@@ -37,6 +37,11 @@
                     </div>
 
                     <div>
+                        <label class="block text-sm font-medium text-gray-700">Jenis Pembayaran</label>
+                        <p class="mt-1 text-sm text-gray-900">{{ $payment->getJenisLabel() }}</p>
+                    </div>
+
+                    <div>
                         <label class="block text-sm font-medium text-gray-700">Status</label>
                         <div class="mt-1">
                             @php

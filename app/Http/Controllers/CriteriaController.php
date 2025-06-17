@@ -202,6 +202,7 @@ class CriteriaController extends Controller
                 'matrix' => $matrix,
                 'normalized_matrix' => $normalizedMatrix,
                 'weights' => $weights,
+                'random_index' => $consistency['ri'],
                 'consistency_index' => $consistency['ci'],
                 'consistency_ratio' => $consistency['cr'],
                 'lambda_max' => $consistency['lambda_max'],
@@ -226,7 +227,18 @@ class CriteriaController extends Controller
     {
         try {
             // Random Index values for different matrix sizes
-            $randomIndex = [0, 0, 0.58, 0.90, 1.12, 1.24, 1.32, 1.41, 1.45, 1.49];
+            $randomIndex = [
+                1 => 0.00,
+                2 => 0.00, 
+                3 => 0.58,
+                4 => 0.90,
+                5 => 1.12,
+                6 => 1.24,
+                7 => 1.32,
+                8 => 1.41,
+                9 => 1.45,
+                10 => 1.49
+            ];
             
             // Calculate lambda max
             $lambdaMax = 0;
@@ -244,13 +256,16 @@ class CriteriaController extends Controller
             // Calculate Consistency Index
             $ci = ($lambdaMax - $n) / ($n - 1);
             
-            // Calculate Consistency Ratio
+            // Get Random Index
             $ri = $randomIndex[$n] ?? 1.49;
+            
+            // Calculate Consistency Ratio
             $cr = $ri > 0 ? $ci / $ri : 0;
             
             return [
                 'lambda_max' => $lambdaMax,
                 'ci' => $ci,
+                'ri' => $ri,  // ADD THIS LINE
                 'cr' => $cr
             ];
             

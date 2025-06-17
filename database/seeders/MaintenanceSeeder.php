@@ -47,7 +47,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'Computer Dell OptiPlex 7070',
                 'kategori' => 'Elektronik',
                 'spesifikasi' => 'Intel Core i5-9500, 8GB RAM, 256GB SSD, Windows 11 Pro',
-                'lokasi' => 'TULT-0901',
+                'lokasi' => 'Laboratorium',
                 'kode_ruangan' => 'TULT-0901',
                 'tgl_perolehan' => '2022-01-15',
                 'masa_pakai_maksimum' => Carbon::parse('2022-01-15')->addMonths(48), // 4 years
@@ -61,7 +61,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'Computer HP EliteDesk 800',
                 'kategori' => 'Elektronik',
                 'spesifikasi' => 'Intel Core i5-8500, 8GB RAM, 1TB HDD, Windows 10 Pro',
-                'lokasi' => 'TULT-0901',
+                'lokasi' => 'Laboratorium',
                 'kode_ruangan' => 'TULT-0901',
                 'tgl_perolehan' => '2021-08-20',
                 'masa_pakai_maksimum' => Carbon::parse('2021-08-20')->addMonths(48),
@@ -75,7 +75,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'Printer Canon imageCLASS LBP6030',
                 'kategori' => 'Elektronik',
                 'spesifikasi' => 'Laser Monochrome, USB 2.0, A4 Size',
-                'lokasi' => 'TULT-0902',
+                'lokasi' => 'Laboratorium',
                 'kode_ruangan' => 'TULT-0902',
                 'tgl_perolehan' => '2021-03-10',
                 'masa_pakai_maksimum' => Carbon::parse('2021-03-10')->addMonths(60), // 5 years
@@ -89,7 +89,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'Projector Epson EB-X41',
                 'kategori' => 'Elektronik',
                 'spesifikasi' => '3600 Lumens, XGA Resolution, HDMI, VGA',
-                'lokasi' => 'GACUK-101',
+                'lokasi' => 'Laboratorium',
                 'kode_ruangan' => 'GACUK-101',
                 'tgl_perolehan' => '2020-09-05',
                 'masa_pakai_maksimum' => Carbon::parse('2020-09-05')->addMonths(72), // 6 years
@@ -103,7 +103,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'Router Cisco ISR 4331',
                 'kategori' => 'Elektronik',
                 'spesifikasi' => 'Integrated Services Router, 4-port Gigabit Ethernet',
-                'lokasi' => 'TULT-0903',
+                'lokasi' => 'Laboratorium',
                 'kode_ruangan' => 'TULT-0903',
                 'tgl_perolehan' => '2022-06-12',
                 'masa_pakai_maksimum' => Carbon::parse('2022-06-12')->addMonths(84), // 7 years
@@ -119,7 +119,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'Meja Kantor',
                 'kategori' => 'Furnitur',
                 'spesifikasi' => 'Kayu Jati, 120cm x 60cm x 75cm, Finishing Natural',
-                'lokasi' => 'TULT-0901',
+                'lokasi' => 'Logistik',
                 'kode_ruangan' => 'TULT-0901',
                 'tgl_perolehan' => '2020-01-15',
                 'masa_pakai_maksimum' => Carbon::parse('2020-01-15')->addMonths(120), // 10 years
@@ -133,7 +133,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'Kursi Kantor',
                 'kategori' => 'Furnitur',
                 'spesifikasi' => 'Kursi Putar, Busa Memory Foam, Adjustable Height',
-                'lokasi' => 'TULT-0901',
+                'lokasi' => 'Logistik',
                 'kode_ruangan' => 'TULT-0901',
                 'tgl_perolehan' => '2020-01-15',
                 'masa_pakai_maksimum' => Carbon::parse('2020-01-15')->addMonths(84), // 7 years
@@ -147,7 +147,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'Lemari Arsip',
                 'kategori' => 'Furnitur',
                 'spesifikasi' => 'Besi, 4 Laci, Sistem Kunci, 180cm x 40cm x 60cm',
-                'lokasi' => 'TULT-0902',
+                'lokasi' => 'Logistik',
                 'kode_ruangan' => 'TULT-0902',
                 'tgl_perolehan' => '2019-11-20',
                 'masa_pakai_maksimum' => Carbon::parse('2019-11-20')->addMonths(180), // 15 years
@@ -163,7 +163,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'AC Daikin Split',
                 'kategori' => 'Mesin',
                 'spesifikasi' => '1.5 PK, Inverter Technology, R32 Refrigerant',
-                'lokasi' => 'TULT-0901',
+                'lokasi' => 'Logistik',
                 'kode_ruangan' => 'TULT-0901',
                 'tgl_perolehan' => '2021-07-25',
                 'masa_pakai_maksimum' => Carbon::parse('2021-07-25')->addMonths(120), // 10 years
@@ -177,7 +177,7 @@ class MaintenanceSeeder extends Seeder
                 'nama_asset' => 'Generator Listrik',
                 'kategori' => 'Mesin',
                 'spesifikasi' => '5000W, Bensin, Portable, Auto Start',
-                'lokasi' => 'GACUK-101',
+                'lokasi' => 'Logistik',
                 'kode_ruangan' => 'GACUK-101',
                 'tgl_perolehan' => '2020-12-10',
                 'masa_pakai_maksimum' => Carbon::parse('2020-12-10')->addMonths(96), // 8 years
@@ -356,7 +356,6 @@ class MaintenanceSeeder extends Seeder
                 'teknisi' => $technicians[array_rand($technicians)],
                 'requested_by' => $requester ? $requester->id : null,
                 'requested_by_role' => $requesterRole,
-                'estimasi_waktu_perbaikan' => rand(1, 14),
             ];
             
             // Apply different approval scenarios

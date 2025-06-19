@@ -23,6 +23,7 @@ class DamagedAsset extends Model
         'reporter_role',
         'vendor',
         'damaged_image',
+        'petugas',
         'status',
         'id_laporan',
         'alasan_penolakan',
@@ -93,7 +94,7 @@ class DamagedAsset extends Model
     public static function generateIdLaporan($user = null)
     {
         // Get current month and year
-        $monthYear = date('Ym'); // 032025 for March 2025
+        $monthYear = date('Ym'); // 202506 for June 2025
         
         // Determine role code based on user's role
         $roleCode = 'GEN'; // Default
@@ -113,24 +114,33 @@ class DamagedAsset extends Model
             };
         }
         
-        // Get the latest sequence number for this month and role
-        $basePattern = "LR-{$monthYear}-";
-        $latestReport = self::where('damage_id', 'LIKE', $basePattern . '%')
-                           ->orderBy('damage_id', 'desc')
-                           ->first();
+        // Use a do-while loop to ensure uniqueness
+        do {
+            // Get the latest sequence number for this month
+            $basePattern = "LR-{$monthYear}-";
+            $latestReport = self::where('damage_id', 'LIKE', $basePattern . '%')
+                               ->orderBy('damage_id', 'desc')
+                               ->first();
+            
+            if ($latestReport) {
+                // Extract the sequence number from the damage_id (not id_laporan)
+                $lastSequence = intval(substr($latestReport->damage_id, strlen($basePattern)));
+                $newSequence = $lastSequence + 1;
+            } else {
+                $newSequence = 1;
+            }
+            
+            // Format sequence with leading zeros (3 digits)
+            $sequenceFormatted = str_pad($newSequence, 3, '0', STR_PAD_LEFT);
+            
+            $newDamageId = $basePattern . $sequenceFormatted;
+            
+            // Check if this ID already exists
+            $exists = self::where('damage_id', $newDamageId)->exists();
+            
+        } while ($exists);
         
-        if ($latestReport) {
-            // Extract the sequence number from the last report ID
-            $lastSequence = intval(substr($latestReport->id_laporan, strlen($basePattern)));
-            $newSequence = $lastSequence + 1;
-        } else {
-            $newSequence = 1;
-        }
-        
-        // Format sequence with leading zeros (3 digits)
-        $sequenceFormatted = str_pad($newSequence, 3, '0', STR_PAD_LEFT);
-        
-        return $basePattern . $sequenceFormatted;
+        return $newDamageId;
     }
 
     public static function generateVerId()

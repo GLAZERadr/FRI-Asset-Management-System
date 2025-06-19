@@ -67,7 +67,6 @@ class DamagedAssetController extends Controller
             'tingkat_kerusakan' => 'required|in:Ringan,Sedang,Berat',
             'estimasi_biaya' => 'required|numeric|min:0',
             'deskripsi_kerusakan' => 'required|string',
-            'vendor' => 'nullable|string',
         ]);
         
         // Generate a unique damage ID
@@ -83,7 +82,6 @@ class DamagedAssetController extends Controller
             'deskripsi_kerusakan' => $validated['deskripsi_kerusakan'],
             'tanggal_pelaporan' => now(),
             'pelapor' => Auth::user()->division,
-            'vendor' => $validated['vendor'] ?? null,
         ]);
         
         return redirect()->route('perbaikan.aset')
@@ -117,14 +115,12 @@ class DamagedAssetController extends Controller
             'tingkat_kerusakan' => 'required|in:Ringan,Sedang,Berat',
             'estimasi_biaya' => 'required|numeric|min:0',
             'deskripsi_kerusakan' => 'required|string',
-            'vendor' => 'nullable|string',
         ]);
         
         $damagedAsset->update([
             'tingkat_kerusakan' => $validated['tingkat_kerusakan'],
             'estimasi_biaya' => $validated['estimasi_biaya'],
             'deskripsi_kerusakan' => $validated['deskripsi_kerusakan'],
-            'vendor' => $validated['vendor'] ?? null,
             'validated' => 'No',
         ]);
         
@@ -317,8 +313,7 @@ class DamagedAssetController extends Controller
                 'verification_id' => $verId,
                 'verified' => 'No',
                 'validation_id' => $valId,
-                'validated' => 'No',
-                'vendor' => null,
+                'validated' => 'No'
             ];
     
             Log::info('Attempting to create damage record', ['create_data' => $createData]);

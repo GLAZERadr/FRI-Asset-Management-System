@@ -13,22 +13,44 @@ class FixVerificationController extends Controller
 {
     public function index(Request $request)
     {
+        $user = Auth::user();
         $query = DamagedAsset::with('asset');
         
-        // Show only unverified records OR verified records that are rejected
-        $query->where(function($q) {
-            $q->where('verified', 'No')
-              ->orWhere(function($subQ) {
-                  $subQ->where('verified', 'Yes')
-                       ->whereIn('status', ['Ditolak', 'Menunggu Persetujuan Kaur']);
-              });
-        });
+        if ($user->hasRole(['staff_laboratorium'])) {
+            // Show only lab assets reported by assistants that need validation
+            $query->where(function($q) {
+                $q->where(function($subQ) {
+                    $subQ->where('verified', 'No')
+                         ->where('reporter_role', 'asisten');
+                })
+                ->orWhere(function($subQ) {
+                    $subQ->where('verified', 'Yes')
+                         ->where('reporter_role', 'asisten')
+                         ->whereIn('status', ['Ditolak', 'Menunggu Persetujuan Kaur']);
+                });
+            });
+        } elseif ($user->hasRole(['staff_logistik'])) {
+            // Show only logistic assets reported by dosen, mahasiswa, or staff that need validation
+            $query->where(function($q) {
+                $q->where(function($subQ) {
+                    $subQ->where('verified', 'No')
+                         ->whereIn('reporter_role', ['dosen', 'mahasiswa', 'staff']); // Fixed: use whereIn instead of where
+                })
+                ->orWhere(function($subQ) {
+                    $subQ->where('verified', 'Yes')
+                         ->whereIn('reporter_role', ['dosen', 'mahasiswa', 'staff'])
+                         ->whereIn('status', ['Ditolak', 'Menunggu Persetujuan Kaur']);
+                });
+            });
+        } else {
+            // For other roles, show only unvalidated records
+            $query->where('validated', 'No');
+        }
         
         // Apply filters if they exist
         if ($request->has('status') && $request->status) {
             $query->where('status', $request->status);
         }
-
         if ($request->has('lokasi') && $request->lokasi) {
             $query->whereHas('asset', function($q) use ($request) {
                 $q->where('lokasi', $request->lokasi);
@@ -47,17 +69,23 @@ class FixVerificationController extends Controller
 
     public function history(Request $request)
     {
+        $user = Auth::user();
+        
         $query = DamagedAsset::with('asset');
         
-        // Show only verified records with status 'Diterima' or 'Ditolak'
         $query->where('verified', 'Yes')
               ->whereIn('status', ['Diterima', 'Ditolak']);
+              
+        if ($user->hasRole(['staff_laboratorium'])) {
+            $query->where('reporter_role', 'asisten');
+        } elseif ($user->hasRole(['staff_logistik'])) {
+            $query->whereIn('reporter_role', ['dosen', 'mahasiswa', 'staff']); // Fixed: use whereIn instead of where
+        }
         
         // Apply status filter
         if ($request->has('status') && $request->status) {
             $query->where('status', $request->status);
         }
-
         // Apply location filter
         if ($request->has('lokasi') && $request->lokasi) {
             $query->whereHas('asset', function($q) use ($request) {
@@ -78,9 +106,11 @@ class FixVerificationController extends Controller
     public function create($damage_id)
     {
         $tingkat_kerusakan = ['Ringan', 'Sedang', 'Berat'];
+        $petugas = ['Vendor', 'Staf'];
+
         $damagedAsset = DamagedAsset::where('damage_id', $damage_id)->firstOrFail();
         
-        return view('verifikasi-laporan-perbaikan.create', compact('damagedAsset', 'tingkat_kerusakan'));
+        return view('verifikasi-laporan-perbaikan.create', compact('damagedAsset', 'tingkat_kerusakan', 'petugas'));
     }
 
     public function show($id)
@@ -92,6 +122,7 @@ class FixVerificationController extends Controller
     public function update(Request $request, $damage_id)
     {
         $request->validate([
+            'petugas' => 'required|in:Vendor,Staf',
             'tingkat_kerusakan' => 'required|in:Ringan,Sedang,Berat',
             'estimasi_biaya' => 'required|numeric|min:0',
             'estimasi_waktu_perbaikan' => 'required|date|after_or_equal:today',
@@ -114,6 +145,7 @@ class FixVerificationController extends Controller
     
         // Prepare update data
         $updateData = [
+            'petugas' => $request->petugas,
             'tingkat_kerusakan' => $request->tingkat_kerusakan,
             'estimasi_biaya' => $request->estimasi_biaya,
             'estimasi_waktu_perbaikan' => Carbon::parse($request->estimasi_waktu_perbaikan),

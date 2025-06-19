@@ -54,7 +54,8 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 8500000,
                 'sumber_perolehan' => 'Yayasan Universitas Telkom',
                 'status_kelayakan' => 'Layak',
-                'tingkat_kepentingan_asset' => '8'
+                'tingkat_kepentingan_asset' => '3',
+                'vendor' => 'none'
             ],
             [
                 'asset_id' => 'T0901-ELE-002',
@@ -68,7 +69,9 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 7500000,
                 'sumber_perolehan' => 'Bantuan Pemerintah',
                 'status_kelayakan' => 'Layak',
-                'tingkat_kepentingan_asset' => '7'
+                'tingkat_kepentingan_asset' => '3',
+                'vendor' => 'none'
+                
             ],
             [
                 'asset_id' => 'T0901-ELE-003',
@@ -82,7 +85,8 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 1200000,
                 'sumber_perolehan' => 'Hibah',
                 'status_kelayakan' => 'Tidak Layak',
-                'tingkat_kepentingan_asset' => '6'
+                'tingkat_kepentingan_asset' => '3',
+                'vendor' => 'none'
             ],
             [
                 'asset_id' => 'T0901-ELE-004',
@@ -96,7 +100,8 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 4500000,
                 'sumber_perolehan' => 'Yayasan Universitas Telkom',
                 'status_kelayakan' => 'Layak',
-                'tingkat_kepentingan_asset' => '9'
+                'tingkat_kepentingan_asset' => '2',
+                'vendor' => 'none'
             ],
             [
                 'asset_id' => 'T0901-ELE-005',
@@ -110,7 +115,8 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 25000000,
                 'sumber_perolehan' => 'Bantuan Pemerintah',
                 'status_kelayakan' => 'Layak',
-                'tingkat_kepentingan_asset' => '10'
+                'tingkat_kepentingan_asset' => '2',
+                'vendor' => 'none'
             ],
             
             // Furniture
@@ -126,7 +132,8 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 1500000,
                 'sumber_perolehan' => 'Yayasan Universitas Telkom',
                 'status_kelayakan' => 'Layak',
-                'tingkat_kepentingan_asset' => '6'
+                'tingkat_kepentingan_asset' => '2',
+                'vendor' => 'none'
             ],
             [
                 'asset_id' => 'T0901-FUR-002',
@@ -140,7 +147,8 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 800000,
                 'sumber_perolehan' => 'Yayasan Universitas Telkom',
                 'status_kelayakan' => 'Layak',
-                'tingkat_kepentingan_asset' => '5'
+                'tingkat_kepentingan_asset' => '1',
+                'vendor' => 'none'
             ],
             [
                 'asset_id' => 'T0901-FUR-003',
@@ -154,7 +162,8 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 2200000,
                 'sumber_perolehan' => 'Hibah',
                 'status_kelayakan' => 'Layak',
-                'tingkat_kepentingan_asset' => '7'
+                'tingkat_kepentingan_asset' => '1',
+                'vendor' => 'none'
             ],
             
             // Machines
@@ -170,7 +179,8 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 4200000,
                 'sumber_perolehan' => 'Yayasan Universitas Telkom',
                 'status_kelayakan' => 'Layak',
-                'tingkat_kepentingan_asset' => '8'
+                'tingkat_kepentingan_asset' => '3',
+                'vendor' => 'none'
             ],
             [
                 'asset_id' => 'T0901-MES-002',
@@ -184,7 +194,8 @@ class MaintenanceSeeder extends Seeder
                 'nilai_perolehan' => 12000000,
                 'sumber_perolehan' => 'Bantuan Pemerintah',
                 'status_kelayakan' => 'Tidak Layak',
-                'tingkat_kepentingan_asset' => '9'
+                'tingkat_kepentingan_asset' => '2',
+                'vendor' => 'none'
             ],
         ];
 
@@ -286,7 +297,6 @@ class MaintenanceSeeder extends Seeder
                 'deskripsi_kerusakan' => $damageReports[array_rand($damageReports)],
                 'tanggal_pelaporan' => $reportingDate,
                 'pelapor' => $pelapor,
-                'vendor' => $vendors[array_rand($vendors)],
             ]);
             
             $damagedAssets[] = $damagedAsset;
@@ -300,8 +310,6 @@ class MaintenanceSeeder extends Seeder
      */
     private function createMaintenanceAssets(array $assets, array $damagedAssets): void
     {
-        $technicians = ['Vendor', 'Staf'];
-        
         // Get users for workflow - check if they exist
         $staffLogistik = User::whereHas('roles', function($q) {
             $q->where('name', 'staff_logistik');
@@ -350,10 +358,8 @@ class MaintenanceSeeder extends Seeder
             $maintenanceData = [
                 'maintenance_id' => $maintenanceId,
                 'damage_id' => $damagedAsset->damage_id,
-                'asset_id' => $damagedAsset->asset_id,
                 'status' => $status,
                 'tanggal_pengajuan' => $submissionDate,
-                'teknisi' => $technicians[array_rand($technicians)],
                 'requested_by' => $requester ? $requester->id : null,
                 'requested_by_role' => $requesterRole,
             ];

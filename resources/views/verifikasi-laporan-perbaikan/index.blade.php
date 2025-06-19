@@ -4,7 +4,7 @@
 <div class="container mx-auto">
     <!-- Filters and Actions -->
     <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <form action="{{ route('pemantauan.index') }}" method="GET" class="grid grid-cols-4 gap-4 items-end">
+        <form action="{{ route('fix-verification.index') }}" method="GET" class="grid grid-cols-4 gap-4 items-end">
             <div>
                 <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">Pilih Lokasi</label>
                 <select id="lokasi" name="lokasi" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">

@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->string('maintenance_id')->unique();
             $table->string('damage_id');
-            $table->string('asset_id');
             $table->enum('status', ['Menunggu Persetujuan', 'Diterima', 'Dikerjakan', 'Selesai', 'Ditolak'])->default('Menunggu Persetujuan'); // Updated enum values
             $table->timestamp('tanggal_pengajuan')->nullable();
             $table->timestamp('tanggal_perbaikan')->nullable();
@@ -33,10 +32,10 @@ return new class extends Migration
             $table->enum('hasil_perbaikan', ['Sukses', 'Perlu Tindak Lanjut'])->nullable();
             $table->string('rekomendasi')->nullable();
             $table->string('catatan')->nullable();
+            $table->json('photos')->nullable();
             $table->timestamps();
             
             $table->foreign('damage_id')->references('damage_id')->on('damaged_assets')->onDelete('cascade');
-            $table->foreign('asset_id')->references('asset_id')->on('assets')->onDelete('cascade');
         });
     }
 

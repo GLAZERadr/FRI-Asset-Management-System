@@ -6,7 +6,6 @@
         <div class="p-4 lg:p-6">
             <form action="{{ route('pemantauan.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
-
                 <!-- File Upload Area -->
                 <div class="mb-6">
                     <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 lg:p-6 text-center cursor-pointer hover:border-blue-400 transition-colors duration-200">
@@ -41,6 +40,21 @@
                                placeholder="Nama Aset"
                                required>
                         @error('nama_asset')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Vendor -->
+                    <div class="lg:col-span-1">
+                        <label for="vendor" class="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+                        <input type="text" 
+                               id="vendor" 
+                               name="vendor" 
+                               value="{{ old('vendor') }}"
+                               class="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 @error('vendor') border-red-500 @enderror"
+                               placeholder="Vendor"
+                               required>
+                        @error('vendor')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
@@ -159,6 +173,24 @@
                         @enderror
                     </div>
                     
+                    <!-- Tingkat Kepentingan Asset -->
+                    <div class="lg:col-span-1">
+                        <label for="tingkat_kepentingan_asset" class="block text-sm font-medium text-gray-700 mb-1">Tingkat Kepentingan Asset</label>
+                        <select id="tingkat_kepentingan_asset" 
+                                name="tingkat_kepentingan_asset" 
+                                class="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 @error('tingkat_kepentingan_asset') border-red-500 @enderror"
+                                required>
+                            <option value="">Pilih Tingkat Kepentingan</option>
+                            <option value="1" {{ old('tingkat_kepentingan_asset') == '1' ? 'selected' : '' }}>Rendah</option>
+                            <option value="2" {{ old('tingkat_kepentingan_asset') == '2' ? 'selected' : '' }}>Sedang</option>
+                            <option value="3" {{ old('tingkat_kepentingan_asset') == '3' ? 'selected' : '' }}>Tinggi</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Pilih tingkat kepentingan asset</p>
+                        @error('tingkat_kepentingan_asset')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    
                     <!-- Sumber Perolehan -->
                     <div class="lg:col-span-1">
                         <label for="sumber_perolehan" class="block text-sm font-medium text-gray-700 mb-1">Sumber Perolehan</label>
@@ -224,7 +256,6 @@
         </div>
     </div>
 </div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const dropZone = document.getElementById('dropZone');
@@ -334,7 +365,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-
 <style>
 /* Additional mobile-specific styles */
 @media (max-width: 768px) {
@@ -364,12 +394,10 @@ document.addEventListener('DOMContentLoaded', function() {
         font-size: 16px;
     }
 }
-
 /* Smooth transitions for all interactive elements */
 input, select, textarea, button {
     transition: all 0.2s ease;
 }
-
 /* Better visual feedback */
 input:focus, select:focus, textarea:focus {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);

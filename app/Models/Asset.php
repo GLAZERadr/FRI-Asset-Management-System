@@ -24,6 +24,7 @@ class Asset extends Model
         'nilai_perolehan',
         'sumber_perolehan',
         'status_kelayakan',
+        'vendor',
         'foto_asset'
     ];
 

@@ -21,11 +21,13 @@ class FixValidationController extends Controller
         if ($user->hasRole(['kaur_laboratorium'])) {
             // Show only lab assets reported by assistants that need validation
             $query->where('validated', 'No')
-                  ->where('reporter_role', 'asisten');
+                  ->where('reporter_role', 'asisten')
+                  ->where('verified_at');
         } elseif ($user->hasRole(['kaur_keuangan_logistik_sdm'])) {
             // Show only logistic assets reported by dosen, mahasiswa, or staff that need validation
             $query->where('validated', 'No')
-                  ->whereIn('reporter_role', ['dosen', 'mahasiswa', 'staff']);
+                  ->whereIn('reporter_role', ['dosen', 'mahasiswa', 'staff'])
+                  ->whereNotNull('verified_at');
         } else {
             // For other roles, show only unvalidated records
             $query->where('validated', 'No');

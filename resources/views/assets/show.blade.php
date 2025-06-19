@@ -1,3 +1,4 @@
+<!-- assets/show -->
 @extends('layouts.app')
 
 @section('header', 'Detail Aset')
@@ -113,10 +114,30 @@
                                 <label class="block text-sm font-medium text-gray-600 mb-1">Tingkat Kepentingan</label>
                                 <p class="text-lg font-semibold text-gray-900">
                                     @if($asset->tingkat_kepentingan_asset)
-                                        <span class="px-3 py-1 rounded-full text-sm font-medium
-                                            {{ $asset->tingkat_kepentingan_asset >= 8 ? 'bg-red-100 text-red-800' : 
-                                               ($asset->tingkat_kepentingan_asset >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800') }}">
-                                            {{ $asset->tingkat_kepentingan_asset }}/10
+                                        @php
+                                            $kepentinganText = '';
+                                            $kepentinganClass = '';
+                                            switch($asset->tingkat_kepentingan_asset) {
+                                                case 1:
+                                                    $kepentinganText = 'Rendah';
+                                                    $kepentinganClass = 'bg-blue-100 text-blue-800';
+                                                    break;
+                                                case 2:
+                                                    $kepentinganText = 'Sedang';
+                                                    $kepentinganClass = 'bg-yellow-100 text-yellow-800';
+                                                    break;
+                                                case 3:
+                                                    $kepentinganText = 'Tinggi';
+                                                    $kepentinganClass = 'bg-red-100 text-red-800';
+                                                    break;
+                                                default:
+                                                    $kepentinganText = 'Tidak Diketahui';
+                                                    $kepentinganClass = 'bg-gray-100 text-gray-800';
+                                                    break;
+                                            }
+                                        @endphp
+                                        <span class="px-3 py-1 rounded-full text-sm font-medium {{ $kepentinganClass }}">
+                                            {{ $kepentinganText }}
                                         </span>
                                     @else
                                         -

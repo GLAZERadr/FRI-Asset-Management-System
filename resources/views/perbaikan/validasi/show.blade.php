@@ -58,6 +58,11 @@
                                 <label class="block text-sm font-medium text-gray-600 mb-1">Kode Ruangan</label>
                                 <p class="text-lg font-semibold text-gray-900">{{ $report->asset->kode_ruangan ?? '-' }}</p>
                             </div>
+
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <label class="block text-sm font-medium text-gray-600 mb-1">Vendor</label>
+                                <p class="text-lg font-semibold text-gray-900">{{ $report->asset->vendor ?? '-' }}</p>
+                            </div>
                             
                             <div class="bg-gray-50 p-4 rounded-lg">
                                 <label class="block text-sm font-medium text-gray-600 mb-1">Pelapor</label>

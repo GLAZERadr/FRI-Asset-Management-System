@@ -162,7 +162,9 @@ class AssetController extends Controller
     {
         $validated = $request->validate([
             'nama_asset' => 'required|string|max:255',
+            'vendor' => 'nullable|string|max:255',
             'kategori' => 'required|string|in:Furnitur,Elektronik,Mesin',
+            'tingkat_kepentingan_asset' => 'required|integer|min:1',
             'spesifikasi' => 'required|string',
             'lokasi' => 'required|string|max:255',
             'kode_ruangan' => 'required|string|max:255',
@@ -218,9 +220,11 @@ class AssetController extends Controller
         Asset::create([
             'asset_id' => $assetId,
             'nama_asset' => $validated['nama_asset'],
+            'vendor' => $validated['vendor'],
             'kategori' => $validated['kategori'],
             'spesifikasi' => $validated['spesifikasi'],
             'lokasi' => $validated['lokasi'],
+            'tingkat_kepentingan_asset' => $validated['tingkat_kepentingan_asset'],
             'kode_ruangan' => $validated['kode_ruangan'],
             'tgl_perolehan' => $validated['tgl_perolehan'],
             'masa_pakai_maksimum' => $masaPakaiMaksimum,
@@ -251,9 +255,11 @@ class AssetController extends Controller
         
         $validated = $request->validate([
             'nama_asset' => 'required|string|max:255',
+            'vendor' => 'nullable|string|max:255',
             'kategori' => 'required|string|in:Furnitur,Elektronik,Mesin',
             'spesifikasi' => 'required|string',
             'lokasi' => 'required|string|max:255',
+            'tingkat_kepentingan_asset' => 'required|integer|min:1',
             'kode_ruangan' => 'required|string|max:255',
             'tgl_perolehan' => 'required|date',
             'masa_pakai_maksimum' => 'required|integer|min:1',
@@ -280,9 +286,11 @@ class AssetController extends Controller
         
         $asset->update([
             'nama_asset' => $validated['nama_asset'],
+            'vendor' => $validated['vendor'],
             'kategori' => $validated['kategori'],
             'spesifikasi' => $validated['spesifikasi'],
             'lokasi' => $validated['lokasi'],
+            'tingkat_kepentingan_asset' => $validated['tingkat_kepentingan_asset'],
             'kode_ruangan' => $validated['kode_ruangan'],
             'tgl_perolehan' => $validated['tgl_perolehan'],
             'masa_pakai_maksimum' => $masaPakaiMaksimum,

@@ -12,7 +12,6 @@ class MaintenanceAsset extends Model
     protected $fillable = [
         'maintenance_id',
         'damage_id',
-        'asset_id',
         'status',
         'tanggal_pengajuan',
         'tanggal_perbaikan',
@@ -31,7 +30,8 @@ class MaintenanceAsset extends Model
         'deskripsi_perbaikan',
         'hasil_perbaikan',
         'rekomendasi',
-        'catatan'
+        'catatan',
+        'photos'
     ];
 
     protected $casts = [
@@ -41,15 +41,24 @@ class MaintenanceAsset extends Model
         'kaur_lab_approved_at' => 'datetime',
         'kaur_keuangan_approved_at' => 'datetime',
         'priority_calculated_at' => 'datetime',
-        'priority_score' => 'float'
+        'priority_score' => 'float',
+        'photos' => 'array' // Cast photos as array for JSON storage
     ];
 
     /**
      * Get the asset for this maintenance
+     * FIXED: Get asset through damaged asset relationship
      */
     public function asset()
     {
-        return $this->belongsTo(Asset::class, 'asset_id', 'asset_id');
+        return $this->hasOneThrough(
+            Asset::class,
+            DamagedAsset::class,
+            'damage_id', // Foreign key on damaged_assets table
+            'asset_id',  // Foreign key on assets table
+            'damage_id', // Local key on maintenance_assets table
+            'asset_id'   // Local key on damaged_assets table
+        );
     }
 
     /**
@@ -197,5 +206,29 @@ class MaintenanceAsset extends Model
         });
         
         return $query;
+    }
+
+    /**
+     * Get formatted photos array
+     */
+    public function getPhotosAttribute($value)
+    {
+        if (is_string($value)) {
+            return json_decode($value, true) ?: [];
+        }
+        
+        return $value ?: [];
+    }
+
+    /**
+     * Set photos attribute
+     */
+    public function setPhotosAttribute($value)
+    {
+        if (is_array($value)) {
+            $this->attributes['photos'] = json_encode($value);
+        } else {
+            $this->attributes['photos'] = $value;
+        }
     }
 }

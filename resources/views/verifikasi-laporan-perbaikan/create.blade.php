@@ -37,6 +37,7 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
                     <!-- Lokasi Asset -->
                     <div>
                         <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">Lokasi Aset</label>
@@ -52,6 +53,7 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
                     <!-- Estimasi Waktu Perbaikan - Date Picker -->
                     <div>
                         <label for="estimasi_waktu_perbaikan" class="block text-sm font-medium text-gray-700 mb-1">Estimasi Waktu Perbaikan</label>
@@ -67,6 +69,7 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
                     <!-- ID Verifikasi -->
                     <div>
                         <label for="verification_id" class="block text-sm font-medium text-gray-700 mb-1">ID Verifikasi</label>
@@ -82,6 +85,7 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
                     <!-- Tanggal Pelaporan -->
                     <div>
                         <label for="tanggal_pelaporan" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pelaporan</label>
@@ -97,6 +101,7 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
                     <!-- Estimasi Biaya -->
                     <div>
                         <label for="estimasi_biaya" class="block text-sm font-medium text-gray-700 mb-1">Estimasi Biaya</label>
@@ -114,6 +119,7 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
                     <!-- ID Asset -->
                     <div>
                         <label for="asset_id" class="block text-sm font-medium text-gray-700 mb-1">ID Asset</label>
@@ -129,6 +135,7 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
                     <!-- Deskripsi Kerusakan -->
                     <div>
                         <label for="deskripsi_kerusakan" class="block text-sm font-medium text-gray-700 mb-1">Deskripsi Kerusakan</label>
@@ -144,6 +151,7 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
                     <!-- Tingkat Kerusakan -->
                     <div>
                         <label for="tingkat_kerusakan" class="block text-sm font-medium text-gray-700 mb-1">Tingkat Kerusakan</label>
@@ -161,6 +169,7 @@
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
                     <!-- Nama Asset -->
                     <div>
                         <label for="nama_asset" class="block text-sm font-medium text-gray-700 mb-1">Nama Aset</label>
@@ -228,6 +237,24 @@
                             readonly
                             required>
                         @error('kategori')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <!-- Petugas -->
+                    <div>
+                        <label for="petugas" class="block text-sm font-medium text-gray-700 mb-1">Petugas</label>
+                        <select id="petugas" 
+                                name="petugas" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 @error('petugas') border-red-500 @enderror"
+                                required>
+                            <option value="">Petugas</option>
+                            @foreach($petugas as $category)
+                                <option value="{{ $category }}" {{ (old('petugas', $damagedAsset->petugas) == $category) ? 'selected' : '' }}>{{ $category }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Isi sesuai dengan petugas yang cocok</p>
+                        @error('petugas')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>

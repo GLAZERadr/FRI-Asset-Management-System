@@ -121,13 +121,15 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::prefix('perbaikan')->name('perbaikan.')->group(function () {
+        // Validation routes
         Route::get('/validation', [FixValidationController::class, 'index'])->name('validation.index');
         Route::get('/validation/show/{validation_id}', [FixValidationController::class, 'show'])->name('validation.show');
         Route::get('/validation/action/{validation_id}', [FixValidationController::class, 'action'])->name('validation.action');
         Route::post('/validation/update/{validation_id}', [FixValidationController::class, 'update'])->name('validation.update');
         Route::get('/validation/history', [FixValidationController::class, 'history'])->name('validation.history');
         Route::get('/validation/download-pdf/{validation_id}', [FixValidationController::class, 'downloadPdf'])->name('validation.download-pdf');
-
+    
+        // Maintenance schedule routes
         Route::get('/pemeliharaan-berkala', [MaintenanceScheduleController::class, 'index'])->name('pemeliharaan-berkala.index');
         Route::post('/pemeliharaan-berkala/store-basic', [MaintenanceScheduleController::class, 'storeBasic'])->name('pemeliharaan-berkala.store-basic');
         Route::put('/pemeliharaan-berkala/{id}/details', [MaintenanceScheduleController::class, 'updateDetails'])->name('pemeliharaan-berkala.update-details');
@@ -135,9 +137,27 @@ Route::middleware('auth')->group(function () {
         Route::get('/pemeliharaan-berkala/report/{id}', [MaintenanceScheduleController::class, 'showReport'])->name('pemeliharaan-berkala.show-report');
         Route::get('/pemeliharaan-berkala/report/{id}/download-pdf', [MaintenanceScheduleController::class, 'downloadReportPdf'])->name('pemeliharaan-berkala.download-report-pdf');
         Route::delete('/pemeliharaan-berkala/{id}', [MaintenanceScheduleController::class, 'destroy'])->name('pemeliharaan-berkala.destroy');
-
+    
+        // Status routes - FIXED CONFLICTS
         Route::get('/status', [FixStatusController::class, 'index'])->name('status.index');
-        Route::get('/status/show/{id_laporan}', [FixStatusController::class, 'show'])->name('status.show');
+        Route::get('/status/selesai', [FixStatusController::class, 'fixHasDone'])->name('status.done');
+        Route::get('/status/report', [FixStatusController::class, 'report'])->name('status.report');
+        
+        // Individual maintenance routes
+        Route::get('/status/show/{maintenance_id}', [FixStatusController::class, 'show'])->name('status.show');
+        Route::put('/status/update/{maintenance_id}', [FixStatusController::class, 'update'])->name('status.update');
+        
+        // Recommendation routes - FIXED CONFLICTS
+        Route::get('/status/recommendation/{maintenance_id}', [FixStatusController::class, 'showRecommendation'])->name('status.recommendation.show');
+        Route::put('/status/recommendation/{maintenance_id}', [FixStatusController::class, 'updateRecommendation'])->name('status.recommendation.update');
+        
+        // Report routes - FIXED CONFLICTS
+        Route::get('/status/report/show/{maintenance_id}', [FixStatusController::class, 'showReport'])->name('status.report.show');
+        Route::put('/status/report/{maintenance_id}', [FixStatusController::class, 'updateCatatan'])->name('status.report.update-catatan');
+        
+        // PDF download routes
+        Route::get('/status/download-pdf/{maintenance_id}', [FixStatusController::class, 'downloadPdf'])->name('status.download-pdf');
+        Route::get('/status/download-report-pdf/{maintenance_id}', [FixStatusController::class, 'downloadReportPdf'])->name('status.download-report-pdf');
     });
     
     // Maintenance Requests

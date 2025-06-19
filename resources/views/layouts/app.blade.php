@@ -224,18 +224,18 @@
                                 <span class="truncate">Histori Validasi</span>
                             </a>
                         @endcan
-                        @can('show_fix_periodic_maintenance')
-                            <a href="{{ route('perbaikan.pemeliharaan-berkala.index') }}" 
-                               @click="sidebarOpen = false"
-                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.pemeliharaan-berkala.index') ? 'bg-gray-200 text-green-600' : '' }}">
-                                <span class="truncate">Pemeliharaan Berkala</span>
-                            </a>
-                        @endcan
                         @can('show_fix_status')
                             <a href="{{ route('perbaikan.status.index') }}" 
                                @click="sidebarOpen = false"
                                class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.status.index') ? 'bg-gray-200 text-green-600' : '' }}">
                                 <span class="truncate">Status Perbaikan</span>
+                            </a>
+                        @endcan
+                        @can('show_fix_periodic_maintenance')
+                            <a href="{{ route('perbaikan.pemeliharaan-berkala.index') }}" 
+                               @click="sidebarOpen = false"
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.pemeliharaan-berkala.index') ? 'bg-gray-200 text-green-600' : '' }}">
+                                <span class="truncate">Pemeliharaan Berkala</span>
                             </a>
                         @endcan
                         @can('show_fix_periodic_maintenance_report')
@@ -246,16 +246,16 @@
                             </a>
                         @endcan
                         @can('show_fix_final_report')
-                            <a href="#" 
+                            <a href="{{ route('perbaikan.status.done') }}" 
                                @click="sidebarOpen = false"
-                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('fix-verification.history') ? 'bg-gray-200 text-green-600' : '' }}">
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.status.done') ? 'bg-gray-200 text-green-600' : '' }}">
                                 <span class="truncate">Laporan Akhir Perbaikan Aset</span>
                             </a>
                         @endcan
                         @can('show_fix_report')
-                            <a href="#" 
+                            <a href="{{ route('perbaikan.status.report') }}" 
                                @click="sidebarOpen = false"
-                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('fix-verification.history') ? 'bg-gray-200 text-green-600' : '' }}">
+                               class="flex items-center py-2 px-8 text-sm text-gray-600 hover:bg-gray-100 {{ request()->routeIs('perbaikan.status.report') ? 'bg-gray-200 text-green-600' : '' }}">
                                 <span class="truncate">Laporan Perbaikan Aset</span>
                             </a>
                         @endcan

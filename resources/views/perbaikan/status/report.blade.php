@@ -1,23 +1,14 @@
-<!-- perbaikan/status/index -->
 @extends('layouts.app')
-@section('header', 'Status Perbaikan Aset')
+@section('header', 'Status Perbaikan Aset Selesai')
 @section('content')
 <div class="container mx-auto">
     <!-- Filters Section -->
     <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <form action="{{ route('pengajuan.detailed') }}" method="GET" id="filter-form">
-            <!-- Preserve sort parameters -->
-            @if(request('sort'))
-                <input type="hidden" name="sort" value="{{ request('sort') }}">
-            @endif
-            @if(request('direction'))
-                <input type="hidden" name="direction" value="{{ request('direction') }}">
-            @endif
-            
-            <div class="grid grid-cols-4 gap-6 items-end">
+        <form action="{{ route('perbaikan.status.done') }}" method="GET" id="filter-form">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                 <div>
-                    <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">Pilih Lokasi Aset</label>
-                    <select id="lokasi" name="lokasi" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                    <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">Pilih Lokasi</label>
+                    <select id="lokasi" name="lokasi" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Semua Lokasi</option>
                         @foreach($locations as $location)
                             <option value="{{ $location }}" {{ request('lokasi') == $location ? 'selected' : '' }}>{{ $location }}</option>
@@ -26,13 +17,22 @@
                 </div>
                 
                 <div>
-                    <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Pilih Status</label>
-                    <select id="status" name="status" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                        <option value="">Semua Status</option>
-                        <option value="Diterima" {{ request('status') == 'Diterima' ? 'selected' : '' }}>Diterima</option>
-                        <option value="Dikerjakan" {{ request('status') == 'Dikerjakan' ? 'selected' : '' }}>Dikerjakan</option>
-                        <option value="Selesai" {{ request('status') == 'Selesai' ? 'selected' : '' }}>Selesai</option>
-                        <option value="Ditolak" {{ request('status') == 'Ditolak' ? 'selected' : '' }}>Ditolak</option>
+                    <label for="bulan" class="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
+                    <select id="bulan" name="bulan" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Semua Bulan</option>
+                        @foreach($months as $monthNumber => $monthName)
+                            <option value="{{ $monthNumber }}" {{ request('bulan') == $monthNumber ? 'selected' : '' }}>{{ $monthName }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label for="tahun" class="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
+                    <select id="tahun" name="tahun" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Semua Tahun</option>
+                        @foreach($years as $year)
+                            <option value="{{ $year }}" {{ request('tahun') == $year ? 'selected' : '' }}>{{ $year }}</option>
+                        @endforeach
                     </select>
                 </div>
                 
@@ -44,12 +44,11 @@
                         Filter
                     </button>
                     
-                    <!-- Clear Filters Button -->
-                    <a href="{{ route('pengajuan.detailed') }}" class="px-4 py-2 bg-gray-500 text-white rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center">
+                    <a href="{{ route('perbaikan.status.done') }}" class="px-4 py-2 bg-gray-500 text-white rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                        Hapus Filter
+                        Reset
                     </a>
                 </div>
             </div>
@@ -60,7 +59,7 @@
     <div class="bg-white rounded-lg shadow overflow-hidden">
         <!-- Table Header -->
         <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Daftar Perbaikan Aset</h3>
+            <h3 class="text-lg font-medium text-gray-900">Daftar Perbaikan Aset Selesai</h3>
         </div>
         
         <x-table>
@@ -70,28 +69,34 @@
                         ID Laporan
                     </th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        ID Aset
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Nama Aset
                     </th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Lokasi
                     </th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Kategori Aset
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status Kerusakan
                     </th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Pelapor
+                        Biaya Perbaikan
                     </th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Tanggal Perbaikan
                     </th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Petugas
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status Perbaikan
-                    </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Tanggal Selesai
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Dokumentasi Perbaikan
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Catatan
                     </th>
                     <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Aksi
@@ -102,73 +107,86 @@
             @forelse ($maintenanceRequests as $request)
             <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {{ $request->damage_id }}
+                    {{ $request->maintenance_id }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ $request->asset->nama_asset }}
+                    {{ $request->asset->asset_id ?? '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ $request->asset->kode_ruangan }}
+                    {{ $request->asset->nama_asset ?? '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    @php
-                        $tingkatKerusakan = $request->damagedAsset->tingkat_kerusakan;
-                        $badgeClasses = [
-                            'Ringan' => 'bg-blue-100 text-blue-800',
-                            'Sedang' => 'bg-yellow-100 text-yellow-800',
-                            'Berat' => 'bg-red-100 text-red-800'
-                        ];
-                        $class = $badgeClasses[$tingkatKerusakan] ?? 'bg-gray-100 text-gray-800';
-                    @endphp
-                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $class }}">
-                        {{ $tingkatKerusakan }}
-                    </span>
+                    {{ $request->asset->kode_ruangan ?? '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ $request->damagedAsset->reporter_role ? $request->damagedAsset->reporter_role : '-' }}
+                    {{ $request->asset->kategori ?? '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ $request->tanggal_perbaikan ? date('d/m/Y', strtotime($request->tanggal_perbaikan)) : '-' }}
+                    @if($request->damagedAsset)
+                        @php
+                            $tingkatKerusakan = $request->damagedAsset->tingkat_kerusakan;
+                            $badgeClasses = [
+                                'Ringan' => 'bg-blue-100 text-blue-800',
+                                'Sedang' => 'bg-yellow-100 text-yellow-800',
+                                'Berat' => 'bg-red-100 text-red-800'
+                            ];
+                            $class = $badgeClasses[$tingkatKerusakan] ?? 'bg-gray-100 text-gray-800';
+                        @endphp
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $class }}">
+                            {{ $tingkatKerusakan }}
+                        </span>
+                    @else
+                        -
+                    @endif
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ $request->damagedAsset->petugas ? $request->damagedAsset->petugas : '-' }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    @php
-                        $status = $request->status;
-                        $statusClasses = [
-                            'Diterima' => 'bg-blue-100 text-blue-800',
-                            'Dikerjakan' => 'bg-yellow-100 text-yellow-800', 
-                            'Selesai' => 'bg-green-100 text-green-800',
-                            'Ditolak' => 'bg-red-100 text-red-800'
-                        ];
-                        $statusClass = $statusClasses[$status] ?? 'bg-gray-100 text-gray-800';
-                        $isDisabled = in_array($status, ['Selesai', 'Ditolak']);
-                    @endphp
-                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $statusClass }}">
-                        {{ $status }}
-                    </span>
+                    {{ $request->damagedAsset->estimasi_biaya ?? '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ $request->tanggal_selesai ? date('d/m/Y', strtotime($request->tanggal_selesai)) : '-' }}
+                    {{ $request->tanggal_perbaikan ? $request->tanggal_perbaikan->format('d/m/Y') : '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ $request->tanggal_selesai ? $request->tanggal_selesai->format('d/m/Y') : '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                    @if($request->photos && count($request->photos) > 0)
+                        <button class="text-gray-600 hover:text-gray-900" title="Lihat Dokumentasi ({{ count($request->photos) }} foto)">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+                    @else
+                        <span class="text-gray-400">-</span>
+                    @endif
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ $request->catatan ? $request->catatan : '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href="{{ route('perbaikan.status.show', $request->maintenance_id) }}" class="text-gray-600 hover:text-gray-900" title="Proses Laporan">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                        </svg>
-                    </a>
+                    <div class="flex items-center justify-end space-x-2">
+                        <!-- Add Recommendation -->
+                        <a href="{{ route('perbaikan.status.report.show', $request->maintenance_id) }}" class="text-gray-600 hover:text-gray-900" title="Tambah Rekomendasi">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </a>
+                        <a href="{{ route('perbaikan.status.download-report-pdf', $request->maintenance_id) }}" class="text-gray-600 hover:text-gray-900" title="Download PDF Laporan">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                        </a>
+                    </div>
                 </td>
             </tr>
             @empty
             <tr>
-                <td colspan="8" class="px-6 py-10 text-center">
+                <td colspan="10" class="px-6 py-10 text-center">
                     <div class="flex flex-col items-center justify-center">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <p class="text-gray-500 text-lg font-medium">Tidak Ada Data Pengajuan</p>
-                        <p class="text-gray-400 text-sm mt-1">Belum ada pengajuan perbaikan yang dibuat.</p>
+                        <p class="text-gray-500 text-lg font-medium">Tidak Ada Data Perbaikan Selesai</p>
+                        <p class="text-gray-400 text-sm mt-1">Belum ada perbaikan yang selesai.</p>
                     </div>
                 </td>
             </tr>
@@ -199,7 +217,6 @@
                     Menampilkan {{ $maintenanceRequests->firstItem() ?? 0 }} - {{ $maintenanceRequests->lastItem() ?? 0 }} 
                     dari {{ $maintenanceRequests->total() }} data
                 </span>
-                <a href="{{ route('pengajuan.daftar') }}" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Back</a>
             </div>
         </div>
         @endif
@@ -208,22 +225,20 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Detailed Pengajuan page loaded');
-    
     // Auto-submit form when filters change
     document.getElementById('lokasi').addEventListener('change', function() {
         this.form.submit();
     });
     
-    document.getElementById('petugas').addEventListener('change', function() {
+    document.getElementById('bulan').addEventListener('change', function() {
         this.form.submit();
     });
     
-    document.getElementById('status').addEventListener('change', function() {
+    document.getElementById('tahun').addEventListener('change', function() {
         this.form.submit();
     });
     
-    // Show success/error messages if any
+    // Show success/error messages
     @if(session('success'))
         alert('{{ session('success') }}');
     @endif

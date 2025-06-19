@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('pelapor')->nullable();
             $table->string('reporter_name')->nullable();
             $table->string('reporter_role')->nullable();
-            $table->string('vendor')->nullable();
+            $table->enum('petugas', ['Vendor', 'Staf'])->nullable();
             $table->enum('status', ['Baru', 'Ditolak', 'Menunggu Persetujuan Kaur', 'Diterima'])->nullable();
             $table->string('damaged_image')->nullable();
             $table->string('reviewer')->nullable();

@@ -22,6 +22,7 @@ return new class extends Migration
             $table->enum('masa_pakai_unit', ['hari', 'bulan', 'tahun'])->nullable()->comment('Unit for masa pakai (days, months, years)');
             $table->decimal('nilai_perolehan', 15, 2)->nullable()->comment('Nilai perolehan amount');
             $table->string('sumber_perolehan')->nullable();
+            $table->string('vendor')->nullable();
             $table->enum('status_kelayakan', ['Layak', 'Tidak Layak'])->nullable();
             $table->string('foto_asset')->nullable()->comment('Foto aset file path');
             $table->timestamps();

@@ -1,7 +1,5 @@
 <?php
-
 namespace Database\Seeders;
-
 use Illuminate\Database\Seeder;
 use App\Models\Asset;
 use App\Models\DamagedAsset;
@@ -25,16 +23,217 @@ class MaintenanceSeeder extends Seeder
             // Create Damaged Assets based on the created assets
             $damagedAssets = $this->createDamagedAssets($assets);
             
-            // Create Maintenance Assets based on damaged assets
-            $this->createMaintenanceAssets($assets, $damagedAssets);
+            // Create Maintenance Assets for only SOME damaged assets (not all)
+            $this->createMaintenanceAssets($assets, array_slice($damagedAssets, 0, 4)); // Only first 4
+            
+            // Create additional standalone damaged assets (without maintenance requests)
+            $this->createStandaloneDamagedAssets($assets);
             
             $this->command->info('✅ MaintenanceSeeder completed successfully!');
-            $this->command->info('📊 Created: ' . count($assets) . ' assets, ' . count($damagedAssets) . ' damage reports, ' . count($damagedAssets) . ' maintenance requests');
+            $this->command->info('📊 Created: ' . count($assets) . ' assets, ' . count($damagedAssets) . ' damage reports, 4 maintenance requests');
+            $this->command->info('📋 Additional standalone damaged assets created for staff to submit');
         } else {
             $this->command->warn('⚠️  Data already exists. Use --force to override or clear tables manually.');
         }
     }
 
+    /**
+     * Create additional standalone damaged assets without maintenance requests
+     */
+    private function createStandaloneDamagedAssets(array $assets): void
+    {
+        $additionalDamageReports = [
+            'Monitor tidak menampilkan gambar',
+            'Keyboard sticky keys',
+            'Webcam tidak terdeteksi',
+            'Bluetooth tidak berfungsi',
+            'Printer paper jam terus menerus',
+            'Scanner tidak dapat membaca',
+            'Microphone tidak ada suara',
+            'Ethernet port rusak',
+            'Baterai tidak mengisi',
+            'Casing retak di bagian samping',
+            'LED indicator tidak menyala',
+            'Software license expired',
+            'Driver tidak kompatibel',
+            'HDMI port tidak output',
+            'CD/DVD drive tidak terbaca'
+        ];
+
+        $damageLevels = ['Ringan', 'Sedang', 'Berat'];
+        $pelapors = ['Laboratorium', 'Logistik dan SDM'];
+        
+        // Get remaining assets that don't have damage reports yet
+        $usedAssetIds = DamagedAsset::pluck('asset_id')->toArray();
+        $availableAssets = collect($assets)->filter(function($asset) use ($usedAssetIds) {
+            return !in_array($asset->asset_id, $usedAssetIds);
+        });
+
+        // Also add some assets that might have multiple damage reports
+        if ($availableAssets->count() < 5) {
+            $availableAssets = $availableAssets->merge(collect($assets)->random(min(3, count($assets))));
+        }
+
+        $damageCounter = DamagedAsset::count() + 1; // Continue numbering from existing
+
+        foreach ($availableAssets->take(8) as $index => $asset) { // Create 8 additional damaged assets
+            $damageId = 'DMG' . str_pad($damageCounter + $index, 3, '0', STR_PAD_LEFT);
+            
+            // Check if damage report already exists
+            $existingDamage = DamagedAsset::where('damage_id', $damageId)->first();
+            if ($existingDamage) {
+                continue;
+            }
+
+            $reportingDate = Carbon::now()->subDays(rand(1, 30)); // More recent reports
+
+            // Determine reporter based on asset location
+            $pelapor = 'Logistik dan SDM';
+            if (str_contains($asset->lokasi, 'Laboratorium')) {
+                $pelapor = 'Laboratorium';
+            }
+
+            // Random damage level
+            $damageLevel = $damageLevels[array_rand($damageLevels)];
+            
+            // Calculate cost based on damage level and asset importance
+            $baseCost = intval($asset->tingkat_kepentingan_asset) * 150000; // Slightly higher base cost
+            
+            switch ($damageLevel) {
+                case 'Ringan':
+                    $estimatedCost = $baseCost * rand(1, 4);
+                    break;
+                case 'Sedang':
+                    $estimatedCost = $baseCost * rand(4, 10);
+                    break;
+                case 'Berat':
+                    $estimatedCost = $baseCost * rand(10, 20);
+                    break;
+                default:
+                    $estimatedCost = $baseCost * rand(3, 7);
+            }
+
+            // Calculate estimated completion time based on damage level
+            $estimatedCompletionTime = $this->calculateEstimatedCompletionTime($reportingDate, $damageLevel);
+
+            // Some damaged assets should have vendor recommendations
+            $needsVendor = rand(1, 100) <= 30; // 30% chance needs vendor
+            $vendor = null;
+            $technician = 'Staf';
+            
+            if ($needsVendor) {
+                $vendors = ['PT Teknologi Maju', 'CV Solusi Digital', 'PT Mitra Komputer', 'UD Teknik Jaya', 'PT Elektronik Prima'];
+                $vendor = $vendors[array_rand($vendors)];
+                $technician = 'Vendor';
+            }
+
+            // Create the standalone damaged asset
+            DamagedAsset::create([
+                'damage_id' => $damageId,
+                'asset_id' => $asset->asset_id,
+                'tingkat_kerusakan' => $damageLevel,
+                'estimasi_biaya' => $estimatedCost,
+                'estimasi_waktu_perbaikan' => $estimatedCompletionTime,
+                'deskripsi_kerusakan' => $additionalDamageReports[array_rand($additionalDamageReports)],
+                'tanggal_pelaporan' => $reportingDate,
+                'pelapor' => $pelapor,
+                'petugas' => $technician,
+                'validated' => 'Yes', // Pre-validated so they appear in staff view
+            ]);
+        }
+
+        $this->command->info('📝 Created 8 additional standalone damaged assets for staff submission');
+    }
+
+    /**
+     * Calculate estimated completion time based on damage level
+     */
+    private function calculateEstimatedCompletionTime(Carbon $reportingDate, string $damageLevel): Carbon
+    {
+        switch ($damageLevel) {
+            case 'Ringan':
+                // 2-8 hours from reporting
+                return $reportingDate->copy()->addHours(rand(2, 8));
+                
+            case 'Sedang':
+                // 3-10 days from reporting
+                return $reportingDate->copy()->addDays(rand(3, 10));
+                
+            case 'Berat':
+                // 2-6 weeks from reporting
+                return $reportingDate->copy()->addWeeks(rand(2, 6));
+                
+            default:
+                // Default to 2-5 days
+                return $reportingDate->copy()->addDays(rand(2, 5));
+        }
+    }
+
+    /**
+     * Generate realistic cause descriptions
+     */
+    private function generateCauseDescription($damageLevel): string
+    {
+        $causes = [
+            'Ringan' => [
+                'Penggunaan normal sehari-hari',
+                'Debu menumpuk di dalam perangkat',
+                'Kabel longgar atau tidak terpasang dengan baik',
+                'Driver software perlu update',
+                'Pengaturan konfigurasi berubah'
+            ],
+            'Sedang' => [
+                'Komponen mulai aus karena pemakaian intensif',
+                'Overheating akibat ventilasi kurang baik',
+                'Tegangan listrik tidak stabil',
+                'Komponen elektronik mengalami degradasi',
+                'Kerusakan akibat penanganan yang kurang hati-hati'
+            ],
+            'Berat' => [
+                'Komponen utama mengalami kerusakan fatal',
+                'Korsleting akibat masalah kelistrikan',
+                'Kerusakan fisik akibat terjatuh atau benturan',
+                'Kerusakan akibat cairan masuk ke dalam perangkat',
+                'Umur pakai sudah mencapai batas maksimum'
+            ]
+        ];
+
+        return $causes[$damageLevel][array_rand($causes[$damageLevel])];
+    }
+
+    /**
+     * Generate repair recommendations
+     */
+    private function generateRepairRecommendation($damageLevel, $needsVendor): string
+    {
+        if ($needsVendor) {
+            return 'Memerlukan penanganan khusus oleh vendor resmi dengan spare part original dan garansi perbaikan.';
+        }
+
+        $recommendations = [
+            'Ringan' => [
+                'Pembersihan menyeluruh dan pengecekan koneksi',
+                'Update driver dan software terkait',
+                'Kalibrasi ulang pengaturan sistem',
+                'Penggantian kabel atau connector yang rusak'
+            ],
+            'Sedang' => [
+                'Penggantian komponen yang rusak dengan yang kompatibel',
+                'Perbaikan sistem pendingin dan ventilasi',
+                'Pengecekan dan stabilisasi sumber daya listrik',
+                'Maintenance preventif untuk mencegah kerusakan lanjutan'
+            ],
+            'Berat' => [
+                'Evaluasi kelayakan ekonomis untuk perbaikan vs penggantian',
+                'Perbaikan komprehensif dengan penggantian komponen utama',
+                'Rekondisi menyeluruh dengan pengujian kualitas',
+                'Pertimbangan untuk upgrade atau replacement unit'
+            ]
+        ];
+
+        return $recommendations[$damageLevel][array_rand($recommendations[$damageLevel])];
+    }
+    
     /**
      * Create sample assets with proper structure
      */
@@ -267,7 +466,7 @@ class MaintenanceSeeder extends Seeder
             
             // Determine reporter based on asset location
             $pelapor = 'Logistik dan SDM';
-            if (str_contains($asset->lokasi, 'TULT-090')) {
+            if (str_contains($asset->lokasi, 'Laboratorium')) {
                 $pelapor = 'Laboratorium';
             }
             
@@ -289,14 +488,19 @@ class MaintenanceSeeder extends Seeder
                     $estimatedCost = $baseCost * rand(2, 5);
             }
 
+            // Calculate estimated completion time
+            $estimatedCompletionTime = $this->calculateEstimatedCompletionTime($reportingDate, $damageLevel);
+
             $damagedAsset = DamagedAsset::create([
                 'damage_id' => $damageId,
                 'asset_id' => $asset->asset_id,
                 'tingkat_kerusakan' => $damageLevel,
                 'estimasi_biaya' => $estimatedCost,
+                'estimasi_waktu_perbaikan' => $estimatedCompletionTime,
                 'deskripsi_kerusakan' => $damageReports[array_rand($damageReports)],
                 'tanggal_pelaporan' => $reportingDate,
                 'pelapor' => $pelapor,
+                'validated' => 'Yes'
             ]);
             
             $damagedAssets[] = $damagedAsset;
@@ -354,7 +558,6 @@ class MaintenanceSeeder extends Seeder
             // Create with different approval states
             $approvalScenario = rand(1, 5);
             $status = 'Menunggu Persetujuan';
-
             $maintenanceData = [
                 'maintenance_id' => $maintenanceId,
                 'damage_id' => $damagedAsset->damage_id,

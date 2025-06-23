@@ -254,14 +254,16 @@
                         <form action="{{ route('pengajuan.update-status', $request->id) }}" method="POST" class="inline-block status-form" data-maintenance-id="{{ $request->id }}">
                             @csrf
                             @method('PATCH')
-                            <select name="status" data-current-status="{{ $status }}"
-                                    class="text-xs font-semibold rounded-full border-0 focus:ring-0 {{ $class }} appearance-none pr-6 pl-2 py-1 status-select">
-                                <option value="Diterima" {{ $status == 'Diterima' ? 'selected' : '' }}>Diterima</option>
-                                <option value="Menunggu Persetujuan" {{ $status == 'Menunggu Persetujuan' ? 'selected' : '' }}>Menunggu Persetujuan</option>
-                                <option value="Dikerjakan" {{ $status == 'Dikerjakan' ? 'selected' : '' }}>Dikerjakan</option>
-                                <option value="Selesai" {{ $status == 'Selesai' ? 'selected' : '' }}>Selesai</option>
-                                <option value="Ditolak" {{ $status == 'Ditolak' ? 'selected' : '' }}>Ditolak</option>
-                            </select>
+                            @if(Auth::user()->hasAnyRole(['staff_logistik', 'staff_laboratorium', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                                <select name="status" data-current-status="{{ $status }}"
+                                        class="text-xs font-semibold rounded-full border-0 focus:ring-0 {{ $class }} appearance-none pr-6 pl-2 py-1 status-select">
+                                    <option value="Diterima" {{ $status == 'Diterima' ? 'selected' : '' }}>Diterima</option>
+                                    <option value="Menunggu Persetujuan" {{ $status == 'Menunggu Persetujuan' ? 'selected' : '' }}>Menunggu Persetujuan</option>
+                                    <option value="Dikerjakan" {{ $status == 'Dikerjakan' ? 'selected' : '' }}>Dikerjakan</option>
+                                    <option value="Selesai" {{ $status == 'Selesai' ? 'selected' : '' }}>Selesai</option>
+                                    <option value="Ditolak" {{ $status == 'Ditolak' ? 'selected' : '' }}>Ditolak</option>
+                                </select>
+                            @endif
                         </form>
                     @endif
                 </td>
@@ -291,7 +293,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div class="flex justify-end space-x-2">
-                        @if(in_array($request->status, ['Selesai', 'Ditolak']))
+                        @if(in_array($request->status, ['Selesai', 'Ditolak']) && Auth::user()->hasAnyRole(['staff_logistik', 'staff_laboratorium', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
                         <form action="{{ route('pengajuan.destroy', $request->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengajuan ini?');">
                             @csrf
                             @method('DELETE')

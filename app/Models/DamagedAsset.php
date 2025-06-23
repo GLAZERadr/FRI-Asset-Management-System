@@ -21,7 +21,6 @@ class DamagedAsset extends Model
         'pelapor',
         'reporter_name',
         'reporter_role',
-        'vendor',
         'damaged_image',
         'petugas',
         'status',

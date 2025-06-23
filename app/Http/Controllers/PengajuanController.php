@@ -85,24 +85,35 @@ class PengajuanController extends Controller
     {
         $user = Auth::user();
         
-        // Different logic based on user role
         if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
-            // Get damaged assets without maintenance requests or not completed
+            // Start with base query
             $query = DamagedAsset::with(['asset', 'maintenanceAsset'])
-                ->where('validated', 'Yes')
-                ->whereDoesntHave('maintenanceAsset') // No maintenance request at all
-                ->orWhereHas('maintenanceAsset', function($q) {
-                    $q->whereIn('status', ['Ditolak']); // Only show rejected ones
-                });
+                ->where('validated', 'Yes');
             
-            // Filter by division
+            // Apply division filter first, then maintenance conditions within that scope
             if ($user->hasRole('staff_laboratorium')) {
+                // Laboratory staff - only see laboratory assets
                 $query->whereHas('asset', function($q) {
                     $q->where('lokasi', 'LIKE', '%Laboratorium%');
+                })
+                ->where(function($q) {
+                    // Within laboratory assets, show those without maintenance OR rejected
+                    $q->whereDoesntHave('maintenanceAsset') // No maintenance request at all
+                    ->orWhereHas('maintenanceAsset', function($subQ) {
+                        $subQ->whereIn('status', ['Ditolak']); // Only show rejected ones
+                    });
                 });
             } else {
+                // Logistics staff - only see non-laboratory (logistics) assets  
                 $query->whereHas('asset', function($q) {
                     $q->where('lokasi', 'NOT LIKE', '%Laboratorium%');
+                })
+                ->where(function($q) {
+                    // Within logistics assets, show those without maintenance OR rejected
+                    $q->whereDoesntHave('maintenanceAsset') // No maintenance request at all
+                    ->orWhereHas('maintenanceAsset', function($subQ) {
+                        $subQ->whereIn('status', ['Ditolak']); // Only show rejected ones
+                    });
                 });
             }
             
@@ -114,8 +125,7 @@ class PengajuanController extends Controller
                     return $group->first();
                 })
                 ->values();
-                
-        } elseif ($user->hasRole('kaur_laboratorium')) {
+        }elseif ($user->hasRole('kaur_laboratorium')) {
             // Show maintenance requests submitted by staff lab
             $query = MaintenanceAsset::with(['asset', 'damagedAsset'])
                 ->where('requested_by_role', 'staff_laboratorium')

@@ -15,34 +15,132 @@
             @endif
             
             <div class="grid grid-cols-4 gap-6 items-end">
-                <div>
-                    <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">Pilih Lokasi Aset</label>
-                    <select id="lokasi" name="lokasi" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                        <option value="">Semua Lokasi</option>
-                        @foreach($locations as $location)
-                            <option value="{{ $location }}" {{ request('lokasi') == $location ? 'selected' : '' }}>{{ $location }}</option>
-                        @endforeach
-                    </select>
+                <div class="relative">
+                    <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">
+                        Lokasi
+                        <span class="text-xs text-gray-500">(ketik atau pilih)</span>
+                    </label>
+                    
+                    <div class="relative">
+                        <input type="text" 
+                            id="lokasi" 
+                            name="lokasi" 
+                            value="{{ request('lokasi') }}"
+                            placeholder="Ketik atau pilih lokasi..."
+                            class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            autocomplete="on">
+                        
+                        <!-- Dropdown trigger button -->
+                        <button type="button" 
+                                id="lokasi-dropdown-btn"
+                                class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                            <svg id="dropdown-arrow" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        
+                        <!-- Dropdown options -->
+                        <div id="lokasi-dropdown" 
+                            class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-auto">
+                            <div class="py-1">
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer border-b location-option" 
+                                    data-location="">
+                                    <span class="font-medium">Semua Lokasi</span>
+                                    <span class="text-gray-500 text-xs block">Tampilkan semua data</span>
+                                </div>
+                                @foreach($locations as $location)
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer location-option" 
+                                    data-location="{{ $location }}">
+                                    {{ $location }}
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div>
-                    <label for="petugas" class="block text-sm font-medium text-gray-700 mb-1">Pilih Petugas</label>
-                    <select id="petugas" name="petugas" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                        <option value="">Semua Petugas</option>
-                        <option value="Vendor" {{ request('petugas') == 'Vendor' ? 'selected' : '' }}>Vendor</option>
-                        <option value="Staf" {{ request('petugas') == 'Staf' ? 'selected' : '' }}>Staf</option>
-                    </select>
+                <div class="relative">
+                    <label for="petugas" class="block text-sm font-medium text-gray-700 mb-1">
+                        Pilih Petugas
+                        <span class="text-xs text-gray-500">(ketik atau pilih)</span>
+                    </label>
+                    
+                    <div class="relative">
+                        <input type="text" 
+                            id="petugas" 
+                            name="petugas" 
+                            value="{{ request('petugas') }}"
+                            placeholder="Ketik atau pilih petugas..."
+                            class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            autocomplete="on">
+                        
+                        <button type="button" 
+                                id="petugas-dropdown-btn"
+                                class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                            <svg id="petugas-dropdown-arrow" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        
+                        <div id="petugas-dropdown" 
+                            class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-auto">
+                            <div class="py-1">
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer border-b petugas-option" 
+                                    data-petugas="">
+                                    <span class="font-medium">Semua Petugas</span>
+                                    <span class="text-gray-500 text-xs block">Tampilkan semua data</span>
+                                </div>
+                                @foreach($petugasList as $petugas)
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer petugas-option" 
+                                    data-petugas="{{ $petugas }}">
+                                    {{ $petugas }}
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div>
-                    <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Pilih Status</label>
-                    <select id="status" name="status" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                        <option value="">Semua Status</option>
-                        <option value="Diterima" {{ request('status') == 'Diterima' ? 'selected' : '' }}>Diterima</option>
-                        <option value="Dikerjakan" {{ request('status') == 'Dikerjakan' ? 'selected' : '' }}>Dikerjakan</option>
-                        <option value="Selesai" {{ request('status') == 'Selesai' ? 'selected' : '' }}>Selesai</option>
-                        <option value="Ditolak" {{ request('status') == 'Ditolak' ? 'selected' : '' }}>Ditolak</option>
-                    </select>
+                <div class="relative">
+                    <label for="status" class="block text-sm font-medium text-gray-700 mb-1">
+                        Pilih Status
+                        <span class="text-xs text-gray-500">(ketik atau pilih)</span>
+                    </label>
+                    
+                    <div class="relative">
+                        <input type="text" 
+                            id="status" 
+                            name="status" 
+                            value="{{ request('status') }}"
+                            placeholder="Ketik atau pilih status..."
+                            class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            autocomplete="on">
+                        
+                        <button type="button" 
+                                id="status-dropdown-btn"
+                                class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                            <svg id="status-dropdown-arrow" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        
+                        <div id="status-dropdown" 
+                            class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-auto">
+                            <div class="py-1">
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer border-b status-option" 
+                                    data-status="">
+                                    <span class="font-medium">Semua Status</span>
+                                    <span class="text-gray-500 text-xs block">Tampilkan semua data</span>
+                                </div>
+                                @foreach($statusList as $status)
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer status-option" 
+                                    data-status="{{ $status }}">
+                                    {{ $status }}
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="flex items-end space-x-2">
@@ -139,6 +237,7 @@
                     @php
                         $status = $request->status;
                         $statusClasses = [
+                            'Menunggu Persetujuan' => 'bg-yellow-100 text-yellow-800',
                             'Diterima' => 'bg-blue-100 text-blue-800',
                             'Dikerjakan' => 'bg-yellow-100 text-yellow-800', 
                             'Selesai' => 'bg-green-100 text-green-800',
@@ -158,6 +257,7 @@
                             <select name="status" onchange="this.form.submit()" 
                                     class="text-xs font-semibold rounded-full border-0 focus:ring-0 {{ $class }} appearance-none pr-6 pl-2 py-1">
                                 <option value="Diterima" {{ $status == 'Diterima' ? 'selected' : '' }}>Diterima</option>
+                                <option value="Menunggu Persetujuan" {{ $status == 'Menunggu Persetujuan' ? 'selected' : '' }}>Menunggu Persetujuan</option>
                                 <option value="Dikerjakan" {{ $status == 'Dikerjakan' ? 'selected' : '' }}>Dikerjakan</option>
                                 <option value="Selesai" {{ $status == 'Selesai' ? 'selected' : '' }}>Selesai</option>
                                 <option value="Ditolak" {{ $status == 'Ditolak' ? 'selected' : '' }}>Ditolak</option>
@@ -169,10 +269,10 @@
                     {{ $request->tanggal_pengajuan ? date('d/m/Y', strtotime($request->tanggal_pengajuan)) : '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                    @if($request->estimasi_waktu_perbaikan)
+                    @if($request->damagedAsset->estimasi_waktu_perbaikan)
                         <div class="flex flex-col items-end">
                             <span class="font-medium text-gray-900">
-                                {{ $request->estimasi_waktu_perbaikan }}
+                                {{ $request->damagedAsset->estimasi_waktu_perbaikan }}
                             </span>
                             @if($request->status === 'Selesai' && $request->tanggal_perbaikan && $request->tanggal_selesai)
                                 @php
@@ -187,7 +287,7 @@
                     @endif
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ $request->teknisi ?? '-' }}
+                    {{ $request->damagedAsset->petugas ?? '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div class="flex justify-end space-x-2">
@@ -259,29 +359,310 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Detailed Pengajuan page loaded');
+    console.log('Pengajuan page loaded');
     
-    // Auto-submit form when filters change
-    document.getElementById('lokasi').addEventListener('change', function() {
-        this.form.submit();
+    // Location filter functionality
+    const lokasiInput = document.getElementById('lokasi');
+    const dropdownBtn = document.getElementById('lokasi-dropdown-btn');
+    const dropdown = document.getElementById('lokasi-dropdown');
+    const dropdownArrow = document.getElementById('dropdown-arrow');
+    const locationOptions = document.querySelectorAll('.location-option');
+    
+    let isDropdownOpen = false;
+
+    // Toggle dropdown
+    function toggleDropdown() {
+        isDropdownOpen = !isDropdownOpen;
+        dropdown.classList.toggle('hidden', !isDropdownOpen);
+        dropdownArrow.style.transform = isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+        
+        // Ensure the dropdown closes if it was previously opened
+        if (!isDropdownOpen) {
+            closeDropdown();
+        }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!dropdown.contains(e.target) && !lokasiInput.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+
+
+    // Filter options based on input
+    function filterOptions() {
+        const searchValue = lokasiInput.value.toLowerCase();
+        
+        locationOptions.forEach(option => {
+            const locationValue = option.getAttribute('data-location').toLowerCase();
+            const locationText = option.textContent.toLowerCase();
+            
+            if (searchValue === '' || locationText.includes(searchValue) || locationValue.includes(searchValue)) {
+                option.style.display = 'block';
+            } else {
+                option.style.display = 'none';
+            }
+        });
+    }
+
+    // Select location
+    function selectLocation(locationValue) {
+        lokasiInput.value = locationValue;
+        closeDropdown();
+    }
+
+    // Close dropdown
+    function closeDropdown() {
+        isDropdownOpen = false;
+        dropdown.classList.add('hidden');
+        dropdownArrow.style.transform = 'rotate(0deg)';
+    }
+
+    // Event listeners for location filter
+    if (dropdownBtn) {
+        dropdownBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleDropdown();
+        });
+    }
+
+    if (lokasiInput) {
+        lokasiInput.addEventListener('input', function() {
+            if (isDropdownOpen) {
+                filterOptions();
+            }
+        });
+
+        lokasiInput.addEventListener('focus', function() {
+            if (!isDropdownOpen) {
+                toggleDropdown();
+            }
+        });
+
+        lokasiInput.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!isDropdownOpen) {
+                    toggleDropdown();
+                }
+            } else if (e.key === 'Escape') {
+                closeDropdown();
+            }
+        });
+    }
+
+    // Location option clicks
+    locationOptions.forEach(option => {
+        option.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const locationValue = this.getAttribute('data-location');
+            selectLocation(locationValue);
+        });
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (dropdown && !dropdown.contains(e.target) && 
+            lokasiInput && !lokasiInput.contains(e.target) && 
+            dropdownBtn && !dropdownBtn.contains(e.target)) {
+            closeDropdown();
+        }
     });
     
-    document.getElementById('petugas').addEventListener('change', function() {
-        this.form.submit();
+    // Auto-hide success/error messages after 5 seconds
+    const alerts = document.querySelectorAll('.alert-message');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 500);
+        }, 5000);
     });
-    
-    document.getElementById('status').addEventListener('change', function() {
-        this.form.submit();
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // === Petugas Dropdown ===
+    const petugasInput = document.getElementById('petugas');
+    const petugasDropdownBtn = document.getElementById('petugas-dropdown-btn');
+    const petugasDropdown = document.getElementById('petugas-dropdown');
+    const petugasOptions = document.querySelectorAll('.petugas-option');
+    const petugasDropdownArrow = document.getElementById('petugas-dropdown-arrow');
+    let isPetugasOpen = false;
+
+    function togglePetugasDropdown() {
+        isPetugasOpen = !isPetugasOpen;
+        petugasDropdown.classList.toggle('hidden', !isPetugasOpen);
+        petugasDropdownArrow.style.transform = isPetugasOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    function closePetugasDropdown() {
+        isPetugasOpen = false;
+        petugasDropdown.classList.add('hidden');
+        petugasDropdownArrow.style.transform = 'rotate(0deg)';
+    }
+
+    function filterPetugasOptions() {
+        const search = petugasInput.value.toLowerCase();
+        petugasOptions.forEach(option => {
+            const value = option.getAttribute('data-petugas').toLowerCase();
+            const text = option.textContent.toLowerCase();
+            option.style.display = (text.includes(search) || value.includes(search)) ? 'block' : 'none';
+        });
+    }
+
+    function selectPetugas(value) {
+        petugasInput.value = value;
+        closePetugasDropdown();
+    }
+
+    petugasDropdownBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePetugasDropdown();
     });
-    
-    // Show success/error messages if any
-    @if(session('success'))
-        alert('{{ session('success') }}');
-    @endif
-    
-    @if(session('error'))
-        alert('{{ session('error') }}');
-    @endif
+
+    petugasInput.addEventListener('input', function () {
+        if (isPetugasOpen) filterPetugasOptions();
+    });
+
+    petugasOptions.forEach(option => {
+        option.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectPetugas(this.getAttribute('data-petugas'));
+        });
+    });
+
+    if (petugasInput) {
+        petugasInput.addEventListener('input', function() {
+            if (isPetugasOpen) {
+                filterOptions();
+            }
+        });
+
+        petugasInput.addEventListener('focus', function() {
+            if (!isPetugasOpen) {
+                togglePetugasDropdown();
+            }
+        });
+
+        petugasInput.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!isPetugasOpen) {
+                    togglePetugasDropdown();
+                }
+            } else if (e.key === 'Escape') {
+                closePetugasDropdown();
+            }
+        });
+    }
+
+    // === Status Dropdown ===
+    const statusInput = document.getElementById('status');
+    const statusDropdownBtn = document.getElementById('status-dropdown-btn');
+    const statusDropdown = document.getElementById('status-dropdown');
+    const statusOptions = document.querySelectorAll('.status-option');
+    const statusDropdownArrow = document.getElementById('status-dropdown-arrow');
+    let isStatusOpen = false;
+
+    function toggleStatusDropdown() {
+        isStatusOpen = !isStatusOpen;
+        statusDropdown.classList.toggle('hidden', !isStatusOpen);
+        statusDropdownArrow.style.transform = isStatusOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    function closeStatusDropdown() {
+        isStatusOpen = false;
+        statusDropdown.classList.add('hidden');
+        statusDropdownArrow.style.transform = 'rotate(0deg)';
+    }
+
+    function filterStatusOptions() {
+        const search = statusInput.value.toLowerCase();
+        statusOptions.forEach(option => {
+            const value = option.getAttribute('data-status').toLowerCase();
+            const text = option.textContent.toLowerCase();
+            option.style.display = (text.includes(search) || value.includes(search)) ? 'block' : 'none';
+        });
+    }
+
+    function selectStatus(value) {
+        statusInput.value = value;
+        closeStatusDropdown();
+    }
+
+    statusDropdownBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleStatusDropdown();
+    });
+
+    statusInput.addEventListener('input', function () {
+        if (isStatusOpen) filterStatusOptions();
+    });
+
+    statusOptions.forEach(option => {
+        option.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectStatus(this.getAttribute('data-status'));
+        });
+    });
+
+    if (statusInput) {
+        statusInput.addEventListener('input', function() {
+            if (isStatusOpen) {
+                filterOptions();
+            }
+        });
+
+        statusInput.addEventListener('focus', function() {
+            if (!isStatusOpen) {
+                toggleStatusDropdown();
+            }
+        });
+
+        statusInput.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!isPetugasOpen) {
+                    toggleStatusDropdown();
+                }
+            } else if (e.key === 'Escape') {
+                closeStatusDropdown();
+            }
+        });
+    }
+
+    // === Close dropdowns when clicking outside ===
+    document.addEventListener('click', function (e) {
+        if (!petugasDropdown.contains(e.target) &&
+            !petugasInput.contains(e.target) &&
+            !petugasDropdownBtn.contains(e.target)) {
+            closePetugasDropdown();
+        }
+
+        if (!statusDropdown.contains(e.target) &&
+            !statusInput.contains(e.target) &&
+            !statusDropdownBtn.contains(e.target)) {
+            closeStatusDropdown();
+        }
+    });
+
+    // === Auto-hide alerts ===
+    const alerts = document.querySelectorAll('.alert-message');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 500);
+        }, 5000);
+    });
 });
 </script>
 @endsection

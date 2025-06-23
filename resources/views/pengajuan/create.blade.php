@@ -22,36 +22,101 @@
             @endif
             
             <div class="grid grid-cols-3 gap-6 items-end">
-                <div>
+                <div class="relative">
                     <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">
                         @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
                             Pilih Departemen
                         @else
                             Pilih Lokasi Aset
                         @endif
+                        <span class="text-xs text-gray-500">(ketik atau pilih)</span>
                     </label>
-                    <select id="lokasi" name="lokasi" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                        @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
-                            <option value="">Semua Departemen</option>
-                        @else
-                            <option value="">Semua Lokasi</option>
-                        @endif
-                        @foreach($locations as $location)
-                            <option value="{{ $location }}" {{ request('lokasi') == $location ? 'selected' : '' }}>{{ $location }}</option>
-                        @endforeach
-                    </select>
+
+                    <div class="relative">
+                        <input type="text" 
+                            id="lokasi" 
+                            name="lokasi" 
+                            value="{{ request('lokasi') }}"
+                            placeholder="Ketik atau pilih..."
+                            class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            autocomplete="on">
+
+                        <!-- Trigger dropdown -->
+                        <button type="button" 
+                                id="lokasi-dropdown-btn"
+                                class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                            <svg id="lokasi-dropdown-arrow" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown options -->
+                        <div id="lokasi-dropdown" 
+                            class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-auto">
+                            <div class="py-1">
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer border-b lokasi-option" 
+                                    data-lokasi="">
+                                    <span class="font-medium">
+                                        @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
+                                            Semua Departemen
+                                        @else
+                                            Semua Lokasi
+                                        @endif
+                                    </span>
+                                    <span class="text-gray-500 text-xs block">Tampilkan semua data</span>
+                                </div>
+                                @foreach($locations as $location)
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer lokasi-option" 
+                                    data-lokasi="{{ $location }}">
+                                    {{ $location }}
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <div>
-                    <label for="tingkat_kerusakan" class="block text-sm font-medium text-gray-700 mb-1">Pilih Tingkat Kerusakan</label>
-                    <select id="tingkat_kerusakan" name="tingkat_kerusakan" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                        <option value="">Semua Tingkat</option>
-                        @foreach($tingkatKerusakanOptions as $tingkat)
-                            <option value="{{ $tingkat }}" {{ request('tingkat_kerusakan') == $tingkat ? 'selected' : '' }}>
-                                {{ $tingkat }}
-                            </option>
-                        @endforeach
-                    </select>
+
+
+                <div class="relative">
+                    <label for="tingkat_kerusakan" class="block text-sm font-medium text-gray-700 mb-1">
+                        Pilih Tingkat Kerusakan
+                        <span class="text-xs text-gray-500">(ketik atau pilih)</span>
+                    </label>
+                    
+                    <div class="relative">
+                        <input type="text" 
+                            id="tingkat_kerusakan" 
+                            name="tingkat_kerusakan" 
+                            value="{{ request('tingkat_kerusakan') }}"
+                            placeholder="Ketik atau pilih tingkat_kerusakan..."
+                            class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            autocomplete="on">
+                        
+                        <button type="button" 
+                                id="tingkat_kerusakan-dropdown-btn"
+                                class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                            <svg id="tingkat_kerusakan-dropdown-arrow" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        
+                        <div id="tingkat_kerusakan-dropdown" 
+                            class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-auto">
+                            <div class="py-1">
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer border-b tingkat_kerusakan-option" 
+                                    data-tingkat_kerusakan="">
+                                    <span class="font-medium">Semua tingkat_kerusakan</span>
+                                    <span class="text-gray-500 text-xs block">Tampilkan semua data</span>
+                                </div>
+                                @foreach($tingkatKerusakanOptions as $tingkat_kerusakan)
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer tingkat_kerusakan-option" 
+                                    data-tingkat_kerusakan="{{ $tingkat_kerusakan }}">
+                                    {{ $tingkat_kerusakan }}
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="flex items-end">
@@ -696,5 +761,165 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 @endif
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const tingkatKerusakanInput = document.getElementById('tingkat_kerusakan');
+    const tingkatKerusakanDropdownBtn = document.getElementById('tingkat_kerusakan-dropdown-btn');
+    const tingkatKerusakanDropdown = document.getElementById('tingkat_kerusakan-dropdown');
+    const tingkatKerusakanOptions = document.querySelectorAll('.tingkat_kerusakan-option');
+    const tingkatKerusakanDropdownArrow = document.getElementById('tingkat_kerusakan-dropdown-arrow');
+    let isTingkatKerusakanOpen = false;
+
+    function toggleTingkatKerusakanDropdown() {
+        isTingkatKerusakanOpen = !isTingkatKerusakanOpen;
+        tingkatKerusakanDropdown.classList.toggle('hidden', !isTingkatKerusakanOpen);
+        tingkatKerusakanDropdownArrow.style.transform = isTingkatKerusakanOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    function closeTingkatKerusakanDropdown() {
+        isTingkatKerusakanOpen = false;
+        tingkatKerusakanDropdown.classList.add('hidden');
+        tingkatKerusakanDropdownArrow.style.transform = 'rotate(0deg)';
+    }
+
+    function filterTingkatKerusakanOptions() {
+        const search = tingkatKerusakanInput.value.toLowerCase();
+        tingkatKerusakanOptions.forEach(option => {
+            const value = option.getAttribute('data-tingkat_kerusakan').toLowerCase();
+            const text = option.textContent.toLowerCase();
+            option.style.display = (text.includes(search) || value.includes(search)) ? 'block' : 'none';
+        });
+    }
+
+    function selectTingkatKerusakan(value) {
+        tingkatKerusakanInput.value = value;
+        closeTingkatKerusakanDropdown();
+    }
+
+    tingkatKerusakanDropdownBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleTingkatKerusakanDropdown();
+    });
+
+    tingkatKerusakanInput.addEventListener('input', function () {
+        if (isTingkatKerusakanOpen) filterTingkatKerusakanOptions();
+    });
+
+    tingkatKerusakanInput.addEventListener('focus', function () {
+        if (!isTingkatKerusakanOpen) toggleTingkatKerusakanDropdown();
+    });
+
+    tingkatKerusakanInput.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (!isTingkatKerusakanOpen) toggleTingkatKerusakanDropdown();
+        } else if (e.key === 'Escape') {
+            closeTingkatKerusakanDropdown();
+        }
+    });
+
+    tingkatKerusakanOptions.forEach(option => {
+        option.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectTingkatKerusakan(this.getAttribute('data-tingkat_kerusakan'));
+        });
+    });
+
+    // === Lokasi Dropdown ===
+    const lokasiInput = document.getElementById('lokasi');
+    const lokasiDropdownBtn = document.getElementById('lokasi-dropdown-btn');
+    const lokasiDropdown = document.getElementById('lokasi-dropdown');
+    const lokasiOptions = document.querySelectorAll('.lokasi-option');
+    const lokasiDropdownArrow = document.getElementById('lokasi-dropdown-arrow');
+    let isLokasiOpen = false;
+
+    function toggleLokasiDropdown() {
+        isLokasiOpen = !isLokasiOpen;
+        lokasiDropdown.classList.toggle('hidden', !isLokasiOpen);
+        lokasiDropdownArrow.style.transform = isLokasiOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    function closeLokasiDropdown() {
+        isLokasiOpen = false;
+        lokasiDropdown.classList.add('hidden');
+        lokasiDropdownArrow.style.transform = 'rotate(0deg)';
+    }
+
+    function filterLokasiOptions() {
+        const search = lokasiInput.value.toLowerCase();
+        lokasiOptions.forEach(option => {
+            const value = option.getAttribute('data-lokasi').toLowerCase();
+            const text = option.textContent.toLowerCase();
+            option.style.display = (text.includes(search) || value.includes(search)) ? 'block' : 'none';
+        });
+    }
+
+    function selectLokasi(value) {
+        lokasiInput.value = value;
+        closeLokasiDropdown();
+    }
+
+    lokasiDropdownBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleLokasiDropdown();
+    });
+
+    lokasiInput.addEventListener('input', function () {
+        if (isLokasiOpen) filterLokasiOptions();
+    });
+
+    lokasiOptions.forEach(option => {
+        option.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectLokasi(this.getAttribute('data-lokasi'));
+        });
+    });
+
+    lokasiInput.addEventListener('focus', function () {
+        if (!isLokasiOpen) toggleLokasiDropdown();
+    });
+
+    lokasiInput.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            toggleLokasiDropdown();
+        } else if (e.key === 'Escape') {
+            closeLokasiDropdown();
+        }
+    });
+
+    // Tambahkan ke global event listener luar
+    document.addEventListener('click', function (e) {
+        if (!lokasiDropdown.contains(e.target) &&
+            !lokasiInput.contains(e.target) &&
+            !lokasiDropdownBtn.contains(e.target)) {
+            closeLokasiDropdown();
+        }
+    });
+
+
+    document.addEventListener('click', function (e) {
+        if (!tingkatKerusakanDropdown.contains(e.target) &&
+            !tingkatKerusakanInput.contains(e.target) &&
+            !tingkatKerusakanDropdownBtn.contains(e.target)) {
+            closeTingkatKerusakanDropdown();
+        }
+    });
+
+    // Optional: Auto-hide alerts
+    const alerts = document.querySelectorAll('.alert-message');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 500);
+        }, 5000);
+    });
+});
 </script>
 @endsection

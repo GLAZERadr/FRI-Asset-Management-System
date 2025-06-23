@@ -58,9 +58,10 @@ class PengajuanController extends Controller
             $query->whereDate('tanggal_pengajuan', '<=', $request->end_date);
         }
         
-        if ($request->has('lokasi') && $request->lokasi) {
-            $query->whereHas('asset', function($q) use ($request) {
-                $q->where('lokasi', $request->lokasi);
+        if ($request->filled('lokasi')) {
+            $lokasi = $request->lokasi;
+            $query->whereHas('asset', function($q) use ($lokasi) {
+                $q->where('lokasi', 'LIKE', '%' . $lokasi . '%');
             });
         }
         
@@ -1248,13 +1249,17 @@ class PengajuanController extends Controller
 
         // Apply filters
         if ($request->filled('lokasi')) {
-            $query->whereHas('asset', function($q) use ($request) {
-                $q->where('lokasi', $request->lokasi);
+            $lokasi = $request->lokasi;
+            $query->whereHas('asset', function($q) use ($lokasi) {
+                $q->where('lokasi', 'LIKE', '%' . $lokasi . '%');
             });
         }
         
         if ($request->filled('petugas')) {
-            $query->where('teknisi', $request->petugas);
+            $petugas = $request->petugas;
+            $query->whereHas('damagedAsset', function($q) use ($petugas) {
+                $q->where('petugas', $petugas);
+            });
         }
         
         if ($request->filled('status')) {
@@ -1308,8 +1313,10 @@ class PengajuanController extends Controller
         
         // Get filter options
         $locations = Asset::distinct()->pluck('lokasi')->filter();
+        $petugasList = ['Vendor', 'Staf'];
+        $statusList = MaintenanceAsset::distinct()->pluck('status')->filter();
         
-        return view('pengajuan.detailed', compact('maintenanceRequests', 'locations'));
+        return view('pengajuan.detailed', compact('maintenanceRequests', 'locations', 'petugasList', 'statusList'));
     }
     
     public function updateStatus(Request $request, $id)

@@ -9,23 +9,57 @@
             <div>
                 <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
                 <input type="date" id="start_date" name="start_date" value="{{ request('start_date') }}" 
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
             </div>
             
             <div>
                 <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Akhir</label>
                 <input type="date" id="end_date" name="end_date" value="{{ request('end_date') }}" 
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
             </div>
             
-            <div>
-                <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
-                <select id="lokasi" name="lokasi" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                    <option value="">Semua Lokasi</option>
-                    @foreach($locations as $location)
-                        <option value="{{ $location }}" {{ request('lokasi') == $location ? 'selected' : '' }}>{{ $location }}</option>
-                    @endforeach
-                </select>
+            <div class="relative">
+                <label for="lokasi" class="block text-sm font-medium text-gray-700 mb-1">
+                    Lokasi
+                    <span class="text-xs text-gray-500">(ketik atau pilih)</span>
+                </label>
+                
+                <div class="relative">
+                    <input type="text" 
+                        id="lokasi" 
+                        name="lokasi" 
+                        value="{{ request('lokasi') }}"
+                        placeholder="Ketik atau pilih lokasi..."
+                        class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                        autocomplete="on">
+                    
+                    <!-- Dropdown trigger button -->
+                    <button type="button" 
+                            id="lokasi-dropdown-btn"
+                            class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                        <svg id="dropdown-arrow" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    
+                    <!-- Dropdown options -->
+                    <div id="lokasi-dropdown" 
+                        class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-auto">
+                        <div class="py-1">
+                            <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer border-b location-option" 
+                                data-location="">
+                                <span class="font-medium">Semua Lokasi</span>
+                                <span class="text-gray-500 text-xs block">Tampilkan semua data</span>
+                            </div>
+                            @foreach($locations as $location)
+                            <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer location-option" 
+                                data-location="{{ $location }}">
+                                {{ $location }}
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <div class="flex items-end space-x-2">
@@ -299,6 +333,108 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Pengajuan page loaded');
     
+    // Location filter functionality
+    const lokasiInput = document.getElementById('lokasi');
+    const dropdownBtn = document.getElementById('lokasi-dropdown-btn');
+    const dropdown = document.getElementById('lokasi-dropdown');
+    const dropdownArrow = document.getElementById('dropdown-arrow');
+    const locationOptions = document.querySelectorAll('.location-option');
+    
+    let isDropdownOpen = false;
+
+    // Toggle dropdown
+    function toggleDropdown() {
+        isDropdownOpen = !isDropdownOpen;
+        dropdown.classList.toggle('hidden', !isDropdownOpen);
+        dropdownArrow.style.transform = isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+        
+        if (isDropdownOpen) {
+            filterOptions();
+        }
+    }
+
+    // Filter options based on input
+    function filterOptions() {
+        const searchValue = lokasiInput.value.toLowerCase();
+        
+        locationOptions.forEach(option => {
+            const locationValue = option.getAttribute('data-location').toLowerCase();
+            const locationText = option.textContent.toLowerCase();
+            
+            if (searchValue === '' || locationText.includes(searchValue) || locationValue.includes(searchValue)) {
+                option.style.display = 'block';
+            } else {
+                option.style.display = 'none';
+            }
+        });
+    }
+
+    // Select location
+    function selectLocation(locationValue) {
+        lokasiInput.value = locationValue;
+        closeDropdown();
+    }
+
+    // Close dropdown
+    function closeDropdown() {
+        isDropdownOpen = false;
+        dropdown.classList.add('hidden');
+        dropdownArrow.style.transform = 'rotate(0deg)';
+    }
+
+    // Event listeners for location filter
+    if (dropdownBtn) {
+        dropdownBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleDropdown();
+        });
+    }
+
+    if (lokasiInput) {
+        lokasiInput.addEventListener('input', function() {
+            if (isDropdownOpen) {
+                filterOptions();
+            }
+        });
+
+        lokasiInput.addEventListener('focus', function() {
+            if (!isDropdownOpen) {
+                toggleDropdown();
+            }
+        });
+
+        lokasiInput.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!isDropdownOpen) {
+                    toggleDropdown();
+                }
+            } else if (e.key === 'Escape') {
+                closeDropdown();
+            }
+        });
+    }
+
+    // Location option clicks
+    locationOptions.forEach(option => {
+        option.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const locationValue = this.getAttribute('data-location');
+            selectLocation(locationValue);
+        });
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (dropdown && !dropdown.contains(e.target) && 
+            lokasiInput && !lokasiInput.contains(e.target) && 
+            dropdownBtn && !dropdownBtn.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+    
     // Auto-hide success/error messages after 5 seconds
     const alerts = document.querySelectorAll('.alert-message');
     alerts.forEach(alert => {
@@ -308,11 +444,6 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => alert.remove(), 500);
         }, 5000);
     });
-    
-    // Auto-submit form when filters change
-    document.getElementById('lokasi').addEventListener('change', function() {
-        this.form.submit();
-    });
 });
 
 @if(Auth::user()->canApprove())
@@ -320,12 +451,10 @@ function openApprovalModal(maintenanceId) {
     document.getElementById('maintenanceId').value = maintenanceId;
     document.getElementById('approvalModal').classList.remove('hidden');
 }
-
 function closeApprovalModal() {
     document.getElementById('approvalModal').classList.add('hidden');
     document.getElementById('approvalForm').reset();
 }
-
 // Handle approval form submission
 document.getElementById('approvalForm').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -359,7 +488,6 @@ document.getElementById('approvalForm').addEventListener('submit', async functio
         alert('Terjadi kesalahan saat memproses persetujuan');
     }
 });
-
 // Close modal when clicking outside
 document.getElementById('approvalModal').addEventListener('click', function(e) {
     if (e.target === this) {

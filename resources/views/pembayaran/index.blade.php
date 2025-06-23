@@ -16,15 +16,47 @@
                         @endforeach
                     </select>
                 </div>
-                
-                <div>
-                    <label for="vendor" class="block text-sm font-medium text-gray-700 mb-1">Pilih Vendor</label>
-                    <select id="vendor" name="vendor" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                        <option value="">Semua Vendor</option>
-                        @foreach($vendors as $vendorName)
-                            <option value="{{ $vendorName }}" {{ request('vendor') == $vendorName ? 'selected' : '' }}>{{ $vendorName }}</option>
-                        @endforeach
-                    </select>
+
+                <div class="relative">
+                    <label for="vendor" class="block text-sm font-medium text-gray-700 mb-1">
+                        Pilih Vendor
+                        <span class="text-xs text-gray-500">(ketik atau pilih)</span>
+                    </label>
+                    
+                    <div class="relative">
+                        <input type="text" 
+                            id="vendor" 
+                            name="vendor" 
+                            value="{{ request('vendor') }}"
+                            placeholder="Ketik atau pilih vendor..."
+                            class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+                            autocomplete="on">
+                        
+                        <button type="button" 
+                                id="vendor-dropdown-btn"
+                                class="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600">
+                            <svg id="vendor-dropdown-arrow" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        
+                        <div id="vendor-dropdown" 
+                            class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-auto">
+                            <div class="py-1">
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer border-b vendor-option" 
+                                    data-vendor="">
+                                    <span class="font-medium">Semua vendor</span>
+                                    <span class="text-gray-500 text-xs block">Tampilkan semua data</span>
+                                </div>
+                                @foreach($vendors as $vendor)
+                                <div class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer vendor-option" 
+                                    data-vendor="{{ $vendor }}">
+                                    {{ $vendor }}
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div>
@@ -231,12 +263,94 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('filter-form').submit();
     });
     
-    document.getElementById('vendor').addEventListener('change', function() {
-        document.getElementById('filter-form').submit();
-    });
-    
     document.getElementById('status').addEventListener('change', function() {
         document.getElementById('filter-form').submit();
+    });
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const vendorInput = document.getElementById('vendor');
+    const vendorDropdownBtn = document.getElementById('vendor-dropdown-btn');
+    const vendorDropdown = document.getElementById('vendor-dropdown');
+    const vendorOptions = document.querySelectorAll('.vendor-option');
+    const vendorDropdownArrow = document.getElementById('vendor-dropdown-arrow');
+    let isvendorOpen = false;
+
+    function togglevendorDropdown() {
+        isvendorOpen = !isvendorOpen;
+        vendorDropdown.classList.toggle('hidden', !isvendorOpen);
+        vendorDropdownArrow.style.transform = isvendorOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    function closevendorDropdown() {
+        isvendorOpen = false;
+        vendorDropdown.classList.add('hidden');
+        vendorDropdownArrow.style.transform = 'rotate(0deg)';
+    }
+
+    function filtervendorOptions() {
+        const search = vendorInput.value.toLowerCase();
+        vendorOptions.forEach(option => {
+            const value = option.getAttribute('data-vendor').toLowerCase();
+            const text = option.textContent.toLowerCase();
+            option.style.display = (text.includes(search) || value.includes(search)) ? 'block' : 'none';
+        });
+    }
+
+    function selectvendor(value) {
+        vendorInput.value = value;
+        closevendorDropdown();
+    }
+
+    vendorDropdownBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        togglevendorDropdown();
+    });
+
+    vendorInput.addEventListener('input', function () {
+        if (isvendorOpen) filtervendorOptions();
+    });
+
+    vendorInput.addEventListener('focus', function () {
+        if (!isvendorOpen) togglevendorDropdown();
+    });
+
+    vendorInput.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (!isvendorOpen) togglevendorDropdown();
+        } else if (e.key === 'Escape') {
+            closevendorDropdown();
+        }
+    });
+
+    vendorOptions.forEach(option => {
+        option.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectvendor(this.getAttribute('data-vendor'));
+        });
+    });
+
+
+    document.addEventListener('click', function (e) {
+        if (!vendorDropdown.contains(e.target) &&
+            !vendorInput.contains(e.target) &&
+            !vendorDropdownBtn.contains(e.target)) {
+            closevendorDropdown();
+        }
+    });
+
+    // Optional: Auto-hide alerts
+    const alerts = document.querySelectorAll('.alert-message');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 500);
+        }, 5000);
     });
 });
 </script>

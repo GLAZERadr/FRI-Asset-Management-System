@@ -108,12 +108,12 @@
                 </a>
 
                 <div class="flex space-x-2">
-                    @if($payment->status === 'belum_dibayar' && Auth::user()->hasAnyRole(['kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
+                    @if($payment->status === 'belum_dibayar' && Auth::user()->hasAnyRole(['staff_keuangan']))
                         <form action="{{ route('pembayaran.mark-paid', $payment) }}" method="POST" class="inline">
                             @csrf
                             @method('PATCH')
                             <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50" onclick="return confirm('Tandai pembayaran ini sebagai sudah dibayar?')">
-                                Tandai Sudah Dibayar
+                                Bayar
                             </button>
                         </form>
 
@@ -125,18 +125,6 @@
                             </button>
                         </form>
                     @endif
-
-                    @can('mark_payment_as_paid')
-                        @if($payment->status !== 'sudah_dibayar')
-                            <form action="{{ route('pembayaran.mark-paid', $payment) }}" method="POST" class="inline">
-                                @csrf
-                                @method('PATCH')
-                                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50" onclick="return confirm('Apakah Anda yakin membayar invoice ini?')">
-                                    Bayar
-                                </button>
-                            </form>
-                        @endif
-                    @endcan
 
                     @can('edit_payment')
                         @if($payment->status !== 'sudah_dibayar')

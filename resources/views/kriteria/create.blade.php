@@ -585,23 +585,35 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.disabled = true;
             btn.textContent = 'Menyimpan bobot...';
             
-            // Store the AHP weights in session/database
+            // Prepare data for database storage
+            const weightsData = {
+                criteria: calculationResult.criteria,
+                weights: calculationResult.weights,
+                consistency_ratio: calculationResult.consistency_ratio,
+                consistency_index: calculationResult.consistency_index,
+                lambda_max: calculationResult.lambda_max,
+                random_index: calculationResult.random_index,
+                matrix: calculationResult.matrix,
+                normalized_matrix: calculationResult.normalized_matrix
+            };
+            
+            // Store the AHP weights in database
             const storeResponse = await fetch('{{ route("kriteria.store-weights") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 },
-                body: JSON.stringify({
-                    criteria: calculationResult.criteria,
-                    weights: calculationResult.weights,
-                    consistency_ratio: calculationResult.consistency_ratio
-                })
+                body: JSON.stringify(weightsData)
             });
             
             if (!storeResponse.ok) {
-                throw new Error('Failed to store weights');
+                const errorData = await storeResponse.json();
+                throw new Error(errorData.message || 'Failed to store weights');
             }
+            
+            const storeData = await storeResponse.json();
+            console.log('Weights stored successfully:', storeData);
             
             btn.textContent = 'Menghitung prioritas TOPSIS...';
             
@@ -618,7 +630,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (topsisData.success) {
                 // Show success message
-                alert('Bobot AHP berhasil disimpan dan prioritas TOPSIS telah dihitung!');
+                alert('Bobot AHP berhasil disimpan ke database dan prioritas TOPSIS telah dihitung!');
                 
                 // Redirect to pengajuan create page
                 window.location.href = '{{ route("pengajuan.create") }}';

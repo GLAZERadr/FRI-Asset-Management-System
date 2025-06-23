@@ -150,13 +150,13 @@ class DamagedAsset extends Model
         
         // Get the latest sequence number for this month and role
         $basePattern = "VER-{$Year}-";
-        $latestReport = self::where('id_laporan', 'LIKE', $basePattern . '%')
-                           ->orderBy('id_laporan', 'desc')
+        $latestReport = self::where('verification_id', 'LIKE', $basePattern . '%')
+                           ->orderBy('verification_id', 'desc')
                            ->first();
         
         if ($latestReport) {
             // Extract the sequence number from the last report ID
-            $lastSequence = intval(substr($latestReport->id_laporan, strlen($basePattern)));
+            $lastSequence = intval(substr($latestReport->verification_id, strlen($basePattern)));
             $newSequence = $lastSequence + 1;
         } else {
             $newSequence = 1;
@@ -176,13 +176,13 @@ class DamagedAsset extends Model
         
         // Get the latest sequence number for this month and role
         $basePattern = "VAL-{$Year}-";
-        $latestReport = self::where('id_laporan', 'LIKE', $basePattern . '%')
-                           ->orderBy('id_laporan', 'desc')
+        $latestReport = self::where('validation_id', 'LIKE', $basePattern . '%')
+                           ->orderBy('validation_id', 'desc')
                            ->first();
         
         if ($latestReport) {
             // Extract the sequence number from the last report ID
-            $lastSequence = intval(substr($latestReport->id_laporan, strlen($basePattern)));
+            $lastSequence = intval(substr($latestReport->validation_id, strlen($basePattern)));
             $newSequence = $lastSequence + 1;
         } else {
             $newSequence = 1;

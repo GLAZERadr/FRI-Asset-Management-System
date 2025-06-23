@@ -223,9 +223,6 @@
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Teknisi
                     </th>
-                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Aksi
-                    </th>
                 </tr>
             </x-slot>
             
@@ -246,7 +243,7 @@
                         $statusClasses = [
                             'Menunggu Persetujuan' => 'bg-yellow-100 text-yellow-800',
                             'Diterima' => 'bg-blue-100 text-blue-800',
-                            'Dikerjakan' => 'bg-yellow-100 text-yellow-800', 
+                            'Dikerjakan' => 'bg-gray-100 text-gray-800', 
                             'Selesai' => 'bg-green-100 text-green-800',
                             'Ditolak' => 'bg-red-100 text-red-800'
                         ];
@@ -261,27 +258,6 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {{ $request->teknisi ?? '-' }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div class="flex justify-end space-x-2">
-                    <a href="{{ route('pengajuan.show', $request->id) }}" class="text-blue-600 hover:text-blue-900" title="Lihat Detail">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current">
-                            <path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"/>
-                        </svg>
-                    </a>
-                        
-                        @if(in_array($request->status, ['Menunggu Persetujuan', 'Selesai', 'Ditolak']) && $request->requested_by == Auth::id())
-                            <form action="{{ route('pengajuan.destroy', $request->id) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengajuan ini?')">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="text-red-600 hover:text-red-900" title="Hapus">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            </form>
-                        @endif
-                    </div>
                 </td>
             </tr>
             @empty

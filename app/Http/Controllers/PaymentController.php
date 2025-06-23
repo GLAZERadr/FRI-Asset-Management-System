@@ -79,7 +79,7 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'no_invoice' => 'required|string|unique:payments,no_invoice',
+            'no_invoice' => 'required|string',
             'jatuh_tempo' => 'required|date|after_or_equal:today',
             'vendor' => 'required|string|max:255',
             'total_tagihan' => 'required|numeric|min:0',
@@ -88,7 +88,6 @@ class PaymentController extends Controller
             'status' => ['nullable', Rule::in(array_keys(Payment::STATUS))],
             'tanggal_pembayaran' => 'nullable|date',
         ], [
-            'no_invoice.unique' => 'Nomor invoice sudah digunakan.',
             'jatuh_tempo.after_or_equal' => 'Tanggal jatuh tempo tidak boleh sebelum hari ini.',
             'file_invoice.mimes' => 'File invoice harus berformat PDF, JPG, JPEG, atau PNG.',
             'file_invoice.max' => 'Ukuran file invoice maksimal 10MB.',

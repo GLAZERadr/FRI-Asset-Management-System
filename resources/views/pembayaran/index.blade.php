@@ -69,13 +69,20 @@
                     </select>
                 </div>
                 
-                <div class="flex items-end">
+                <div class="flex items-end space-x-2">
                     <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                         </svg>
-                        Hapus Filter
+                        Filter
                     </button>
+                    
+                    <a href="{{ route('pembayaran.index') }}" class="px-4 py-2 bg-gray-500 text-white rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Reset
+                    </a>
                 </div>
             </div>
         </form>
@@ -181,7 +188,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex justify-end space-x-2">
-                                @if($payment->status == 'belum_dibayar' && Auth::user()->hasAnyRole(['kaur_keuangan_logistik_sdm', 'wakil_dekan_2']))
+                                @if($payment->status == 'belum_dibayar' && Auth::user()->hasAnyRole(['staff_keuangan']))
                                 <form action="{{ route('pembayaran.mark-paid', $payment) }}" method="POST" class="inline">
                                     @csrf
                                     @method('PATCH')

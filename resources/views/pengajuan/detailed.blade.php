@@ -239,23 +239,23 @@
                         $statusClasses = [
                             'Menunggu Persetujuan' => 'bg-yellow-100 text-yellow-800',
                             'Diterima' => 'bg-blue-100 text-blue-800',
-                            'Dikerjakan' => 'bg-yellow-100 text-yellow-800', 
+                            'Dikerjakan' => 'bg-gray-100 text-gray-800', 
                             'Selesai' => 'bg-green-100 text-green-800',
                             'Ditolak' => 'bg-red-100 text-red-800'
                         ];
                         $class = $statusClasses[$status] ?? 'bg-gray-100 text-gray-800';
-                        $isDisabled = in_array($status, ['Selesai', 'Ditolak']);
+                        $isDisabled = in_array($status, ['Selesai', 'Ditolak', 'Menunggu Persetujuan']);
                     @endphp
                     @if($isDisabled)
                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $class }}">
                             {{ $status }}
                         </span>
-                    @else
-                        <form action="{{ route('pengajuan.update-status', $request->id) }}" method="POST" class="inline-block">
+                        @else
+                        <form action="{{ route('pengajuan.update-status', $request->id) }}" method="POST" class="inline-block status-form" data-maintenance-id="{{ $request->id }}">
                             @csrf
                             @method('PATCH')
-                            <select name="status" onchange="this.form.submit()" 
-                                    class="text-xs font-semibold rounded-full border-0 focus:ring-0 {{ $class }} appearance-none pr-6 pl-2 py-1">
+                            <select name="status" data-current-status="{{ $status }}"
+                                    class="text-xs font-semibold rounded-full border-0 focus:ring-0 {{ $class }} appearance-none pr-6 pl-2 py-1 status-select">
                                 <option value="Diterima" {{ $status == 'Diterima' ? 'selected' : '' }}>Diterima</option>
                                 <option value="Menunggu Persetujuan" {{ $status == 'Menunggu Persetujuan' ? 'selected' : '' }}>Menunggu Persetujuan</option>
                                 <option value="Dikerjakan" {{ $status == 'Dikerjakan' ? 'selected' : '' }}>Dikerjakan</option>
@@ -291,7 +291,7 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div class="flex justify-end space-x-2">
-                        @if($request->status == 'Diterima')
+                        @if(in_array($request->status, ['Selesai', 'Ditolak']))
                         <form action="{{ route('pengajuan.destroy', $request->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengajuan ini?');">
                             @csrf
                             @method('DELETE')
@@ -357,6 +357,76 @@
     </div>
 </div>
 
+<!-- Photo Upload Modal -->
+<div id="photoUploadModal" class="fixed inset-0 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-4 border-b">
+                <h3 class="text-lg font-medium text-gray-900">Upload Foto Penyelesaian Perbaikan</h3>
+                <button type="button" id="closeModal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="mt-4">
+                <form id="photoUploadForm" enctype="multipart/form-data">
+                    @csrf
+                    <input type="hidden" id="maintenanceId" name="maintenance_id" value="">
+                    <input type="hidden" name="status" value="Selesai">
+                    
+                    <!-- Drag and Drop Area -->
+                    <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer">
+                        <div id="dropZoneContent">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <div class="mt-4">
+                                <p class="text-lg text-gray-600">Seret dan letakkan foto di sini</p>
+                                <p class="text-sm text-gray-500 mt-1">atau</p>
+                                <button type="button" id="selectFilesBtn" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md">
+                                    Pilih File
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-2">PNG, JPG, GIF hingga 5MB (Maksimal 10 foto)</p>
+                        </div>
+                    </div>
+
+                    <!-- Hidden File Input -->
+                    <input type="file" id="fileInput" name="photos[]" multiple accept="image/*" class="hidden">
+
+                    <!-- Preview Container -->
+                    <div id="previewContainer" class="mt-4 hidden">
+                        <h4 class="text-md font-medium text-gray-700 mb-2">Foto yang akan diupload:</h4>
+                        <div id="previewGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+                    </div>
+
+                    <!-- Upload Progress -->
+                    <div id="uploadProgress" class="mt-4 hidden">
+                        <div class="bg-gray-200 rounded-full h-2">
+                            <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p id="progressText" class="text-sm text-gray-600 mt-1">Uploading...</p>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="flex items-center justify-end pt-4 border-t mt-6">
+                        <button type="button" id="cancelBtn" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 mr-2">
+                            Batal
+                        </button>
+                        <button type="submit" id="uploadBtn" class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50" disabled>
+                            Upload & Selesaikan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Pengajuan page loaded');
@@ -376,19 +446,10 @@ document.addEventListener('DOMContentLoaded', function() {
         dropdown.classList.toggle('hidden', !isDropdownOpen);
         dropdownArrow.style.transform = isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)';
         
-        // Ensure the dropdown closes if it was previously opened
         if (!isDropdownOpen) {
             closeDropdown();
         }
     }
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(e) {
-        if (!dropdown.contains(e.target) && !lokasiInput.contains(e.target)) {
-            closeDropdown();
-        }
-    });
-
 
     // Filter options based on input
     function filterOptions() {
@@ -463,28 +524,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(e) {
-        if (dropdown && !dropdown.contains(e.target) && 
-            lokasiInput && !lokasiInput.contains(e.target) && 
-            dropdownBtn && !dropdownBtn.contains(e.target)) {
-            closeDropdown();
-        }
-    });
-    
-    // Auto-hide success/error messages after 5 seconds
-    const alerts = document.querySelectorAll('.alert-message');
-    alerts.forEach(alert => {
-        setTimeout(() => {
-            alert.style.transition = 'opacity 0.5s';
-            alert.style.opacity = '0';
-            setTimeout(() => alert.remove(), 500);
-        }, 5000);
-    });
-});
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
     // === Petugas Dropdown ===
     const petugasInput = document.getElementById('petugas');
     const petugasDropdownBtn = document.getElementById('petugas-dropdown-btn');
@@ -519,29 +558,17 @@ document.addEventListener('DOMContentLoaded', function () {
         closePetugasDropdown();
     }
 
-    petugasDropdownBtn.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        togglePetugasDropdown();
-    });
-
-    petugasInput.addEventListener('input', function () {
-        if (isPetugasOpen) filterPetugasOptions();
-    });
-
-    petugasOptions.forEach(option => {
-        option.addEventListener('click', function (e) {
+    if (petugasDropdownBtn) {
+        petugasDropdownBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            selectPetugas(this.getAttribute('data-petugas'));
+            togglePetugasDropdown();
         });
-    });
+    }
 
     if (petugasInput) {
-        petugasInput.addEventListener('input', function() {
-            if (isPetugasOpen) {
-                filterOptions();
-            }
+        petugasInput.addEventListener('input', function () {
+            if (isPetugasOpen) filterPetugasOptions();
         });
 
         petugasInput.addEventListener('focus', function() {
@@ -561,6 +588,14 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    petugasOptions.forEach(option => {
+        option.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectPetugas(this.getAttribute('data-petugas'));
+        });
+    });
 
     // === Status Dropdown ===
     const statusInput = document.getElementById('status');
@@ -596,29 +631,17 @@ document.addEventListener('DOMContentLoaded', function () {
         closeStatusDropdown();
     }
 
-    statusDropdownBtn.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleStatusDropdown();
-    });
-
-    statusInput.addEventListener('input', function () {
-        if (isStatusOpen) filterStatusOptions();
-    });
-
-    statusOptions.forEach(option => {
-        option.addEventListener('click', function (e) {
+    if (statusDropdownBtn) {
+        statusDropdownBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            selectStatus(this.getAttribute('data-status'));
+            toggleStatusDropdown();
         });
-    });
+    }
 
     if (statusInput) {
-        statusInput.addEventListener('input', function() {
-            if (isStatusOpen) {
-                filterOptions();
-            }
+        statusInput.addEventListener('input', function () {
+            if (isStatusOpen) filterStatusOptions();
         });
 
         statusInput.addEventListener('focus', function() {
@@ -630,7 +653,7 @@ document.addEventListener('DOMContentLoaded', function () {
         statusInput.addEventListener('keydown', function(e) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                if (!isPetugasOpen) {
+                if (!isStatusOpen) {
                     toggleStatusDropdown();
                 }
             } else if (e.key === 'Escape') {
@@ -639,22 +662,344 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    statusOptions.forEach(option => {
+        option.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectStatus(this.getAttribute('data-status'));
+        });
+    });
+
     // === Close dropdowns when clicking outside ===
     document.addEventListener('click', function (e) {
-        if (!petugasDropdown.contains(e.target) &&
-            !petugasInput.contains(e.target) &&
-            !petugasDropdownBtn.contains(e.target)) {
+        if (petugasDropdown && !petugasDropdown.contains(e.target) &&
+            petugasInput && !petugasInput.contains(e.target) &&
+            petugasDropdownBtn && !petugasDropdownBtn.contains(e.target)) {
             closePetugasDropdown();
         }
 
-        if (!statusDropdown.contains(e.target) &&
-            !statusInput.contains(e.target) &&
-            !statusDropdownBtn.contains(e.target)) {
+        if (statusDropdown && !statusDropdown.contains(e.target) &&
+            statusInput && !statusInput.contains(e.target) &&
+            statusDropdownBtn && !statusDropdownBtn.contains(e.target)) {
             closeStatusDropdown();
+        }
+
+        if (dropdown && !dropdown.contains(e.target) && 
+            lokasiInput && !lokasiInput.contains(e.target) && 
+            dropdownBtn && !dropdownBtn.contains(e.target)) {
+            closeDropdown();
         }
     });
 
-    // === Auto-hide alerts ===
+    // === PHOTO UPLOAD MODAL FUNCTIONALITY ===
+    const modal = document.getElementById('photoUploadModal');
+    const closeModalBtn = document.getElementById('closeModal');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const selectFilesBtn = document.getElementById('selectFilesBtn');
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const previewContainer = document.getElementById('previewContainer');
+    const previewGrid = document.getElementById('previewGrid');
+    const uploadForm = document.getElementById('photoUploadForm');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const maintenanceIdInput = document.getElementById('maintenanceId');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    let selectedFiles = [];
+    let currentMaintenanceId = null;
+
+    console.log('Photo modal elements found:', {
+        modal: !!modal,
+        closeModalBtn: !!closeModalBtn,
+        selectFilesBtn: !!selectFilesBtn,
+        fileInput: !!fileInput,
+        dropZone: !!dropZone
+    });
+
+    // Handle status change for all select elements
+    document.querySelectorAll('.status-select').forEach(select => {
+        console.log('Found status select:', select);
+        select.addEventListener('change', function(e) {
+            console.log('Status changed to:', this.value);
+            const selectedStatus = this.value;
+            const form = this.closest('.status-form');
+            const maintenanceId = form.getAttribute('data-maintenance-id');
+            const currentStatus = this.getAttribute('data-current-status');
+
+            if (selectedStatus === 'Selesai') {
+                console.log('Selesai selected, showing modal for maintenance ID:', maintenanceId);
+                e.preventDefault();
+                // Reset the select to previous value temporarily
+                this.value = currentStatus;
+                
+                // Show photo upload modal
+                showPhotoModal(maintenanceId);
+            } else {
+                console.log('Other status selected, submitting form');
+                // For other statuses, submit form via AJAX
+                submitStatusChange(form, selectedStatus);
+            }
+        });
+    });
+
+    // Submit status change via AJAX
+    function submitStatusChange(form, status) {
+        const formData = new FormData(form);
+        formData.set('status', status);
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json',
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating status');
+        });
+    }
+
+    // Show Photo Modal
+    function showPhotoModal(maintenanceId) {
+        console.log('Showing photo modal for maintenance ID:', maintenanceId);
+        
+        if (!modal) {
+            console.error('Modal element not found!');
+            return;
+        }
+
+        currentMaintenanceId = maintenanceId;
+        maintenanceIdInput.value = maintenanceId;
+        resetModal();
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        
+        console.log('Modal should now be visible');
+    }
+
+    // Close Modal
+    function closeModal() {
+        console.log('Closing modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            resetModal();
+        }
+    }
+
+    // Reset Modal
+    function resetModal() {
+        selectedFiles = [];
+        if (previewContainer) previewContainer.classList.add('hidden');
+        if (previewGrid) previewGrid.innerHTML = '';
+        if (uploadBtn) uploadBtn.disabled = true;
+        if (uploadProgress) uploadProgress.classList.add('hidden');
+        if (progressBar) progressBar.style.width = '0%';
+        if (fileInput) fileInput.value = '';
+    }
+
+    // Event Listeners
+    if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    if (selectFilesBtn) selectFilesBtn.addEventListener('click', () => {
+        console.log('Select files clicked');
+        if (fileInput) fileInput.click();
+    });
+
+    // File Input Change
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            console.log('Files selected:', e.target.files.length);
+            handleFiles(e.target.files);
+        });
+    }
+
+    // Drag and Drop
+    if (dropZone) {
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('border-blue-400', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('border-blue-400', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('border-blue-400', 'bg-blue-50');
+            console.log('Files dropped:', e.dataTransfer.files.length);
+            handleFiles(e.dataTransfer.files);
+        });
+    }
+
+    // Handle Files
+    function handleFiles(files) {
+        console.log('Handling files:', files.length);
+        const fileArray = Array.from(files);
+        const imageFiles = fileArray.filter(file => file.type.startsWith('image/'));
+        
+        if (imageFiles.length === 0) {
+            alert('Pilih file gambar yang valid (PNG, JPG, GIF)');
+            return;
+        }
+
+        if (selectedFiles.length + imageFiles.length > 10) {
+            alert('Maksimal 10 foto yang dapat diupload');
+            return;
+        }
+
+        // Check file sizes
+        const oversizedFiles = imageFiles.filter(file => file.size > 5 * 1024 * 1024);
+        if (oversizedFiles.length > 0) {
+            alert('Beberapa file melebihi ukuran maksimal 5MB');
+            return;
+        }
+
+        selectedFiles = [...selectedFiles, ...imageFiles];
+        updateFileInput();
+        showPreview();
+        updateUploadBtn();
+    }
+
+    // Update File Input
+    function updateFileInput() {
+        if (!fileInput) return;
+        const dt = new DataTransfer();
+        selectedFiles.forEach(file => dt.items.add(file));
+        fileInput.files = dt.files;
+    }
+
+    // Show Preview
+    function showPreview() {
+        if (selectedFiles.length === 0) {
+            if (previewContainer) previewContainer.classList.add('hidden');
+            return;
+        }
+
+        if (previewContainer) previewContainer.classList.remove('hidden');
+        if (previewGrid) previewGrid.innerHTML = '';
+
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'relative group';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="w-full h-24 object-cover rounded-lg border">
+                    <button type="button" onclick="removeFile(${index})" 
+                            class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">
+                        ×
+                    </button>
+                    <p class="text-xs text-gray-600 mt-1 truncate">${file.name}</p>
+                `;
+                if (previewGrid) previewGrid.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Remove File (make it global)
+    window.removeFile = function(index) {
+        console.log('Removing file at index:', index);
+        selectedFiles.splice(index, 1);
+        updateFileInput();
+        showPreview();
+        updateUploadBtn();
+    };
+
+    // Update Upload Button
+    function updateUploadBtn() {
+        if (uploadBtn) {
+            uploadBtn.disabled = selectedFiles.length === 0;
+        }
+    }
+
+    // Form Submit
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Form submitted with', selectedFiles.length, 'files');
+            
+            if (selectedFiles.length === 0) {
+                alert('Pilih minimal 1 foto untuk diupload');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+            formData.append('status', 'Selesai');
+            
+            selectedFiles.forEach(file => {
+                formData.append('photos[]', file);
+            });
+
+            // Show progress
+            if (uploadProgress) uploadProgress.classList.remove('hidden');
+            if (uploadBtn) uploadBtn.disabled = true;
+
+            // Upload with XMLHttpRequest for progress tracking
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    if (progressBar) progressBar.style.width = percentComplete + '%';
+                    if (progressText) progressText.textContent = `Uploading... ${Math.round(percentComplete)}%`;
+                }
+            });
+
+            xhr.addEventListener('load', function() {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        console.log('Upload successful');
+                        closeModal();
+                        location.reload(); // Refresh page to show updated status
+                    } else {
+                        alert('Error: ' + response.message);
+                        if (uploadBtn) uploadBtn.disabled = false;
+                        if (uploadProgress) uploadProgress.classList.add('hidden');
+                    }
+                } else {
+                    alert('Upload failed. Please try again.');
+                    if (uploadBtn) uploadBtn.disabled = false;
+                    if (uploadProgress) uploadProgress.classList.add('hidden');
+                }
+            });
+
+            xhr.addEventListener('error', function() {
+                alert('Upload failed. Please check your connection.');
+                if (uploadBtn) uploadBtn.disabled = false;
+                if (uploadProgress) uploadProgress.classList.add('hidden');
+            });
+
+            xhr.open('POST', `/pengajuan/${currentMaintenanceId}/update-photos`);
+            xhr.send(formData);
+        });
+    }
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+
+    // Auto-hide success/error messages after 5 seconds
     const alerts = document.querySelectorAll('.alert-message');
     alerts.forEach(alert => {
         setTimeout(() => {

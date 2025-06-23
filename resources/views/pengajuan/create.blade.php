@@ -119,12 +119,19 @@
                     </div>
                 </div>
                 
-                <div class="flex items-end">
+                <div class="flex items-end space-x-2">
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        Filter
+                    </button>
+                    
                     <a href="{{ route('pengajuan.baru') }}" class="px-4 py-2 bg-gray-500 text-white rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                        Hapus Filter
+                        Reset
                     </a>
                 </div>
             </div>
@@ -145,19 +152,6 @@
             @else
                 <div class="flex items-center justify-between w-full">
                     <h3 class="text-lg font-medium text-gray-900">Daftar Pengajuan Perbaikan</h3>
-                    @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']) && !empty($priorityScores))
-                    <div class="flex items-center space-x-4">
-                        <div class="flex items-center space-x-2 text-sm text-gray-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>Prioritas TOPSIS telah dihitung</span>
-                        </div>
-                        <a href="{{ route('kriteria.create') }}" class="text-blue-600 hover:text-blue-800 text-sm">
-                            Ubah Kriteria AHP
-                        </a>
-                    </div>
-                    @endif
                 </div>
             @endif
         </div>

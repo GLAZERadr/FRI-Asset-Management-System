@@ -1,23 +1,32 @@
 <?php
 namespace App\Http\Controllers;
+
 use App\Models\Criteria;
 use App\Models\CriteriaComparison;
+use App\Models\AhpWeight;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class CriteriaController extends Controller
 {
     public function index()
     {
         $criteria = Criteria::all();
-        return view('kriteria.index', compact('criteria'));
+        $calculationHistory = AhpWeight::getCalculationHistory();
+        $activeWeights = AhpWeight::getActiveWeights();
+        
+        return view('kriteria.index', compact('criteria', 'calculationHistory', 'activeWeights'));
     }
 
     public function create()
     {
         $criteria = Criteria::all();
-        return view('kriteria.create', compact('criteria'));
+        $activeWeights = AhpWeight::getActiveWeights();
+        $isConsistent = AhpWeight::areCurrentWeightsConsistent();
+        
+        return view('kriteria.create', compact('criteria', 'activeWeights', 'isConsistent'));
     }
 
     public function store(Request $request)
@@ -66,7 +75,7 @@ class CriteriaController extends Controller
     public function calculate(Request $request)
     {
         try {
-            \Log::info('AHP Calculate request received', ['request' => $request->all()]);
+            Log::info('AHP Calculate request received', ['request' => $request->all()]);
             
             $criteria = Criteria::all();
             
@@ -78,18 +87,18 @@ class CriteriaController extends Controller
 
             // Save pairwise comparisons
             if ($request->has('comparisons')) {
-                \Log::info('Saving comparisons', ['comparisons' => $request->comparisons]);
+                Log::info('Saving comparisons', ['comparisons' => $request->comparisons]);
                 $this->saveComparisons($request->comparisons);
             }
 
             // Calculate AHP
             $result = $this->calculateAHP($criteria);
             
-            \Log::info('AHP calculation successful', ['result' => $result]);
+            Log::info('AHP calculation successful', ['result' => $result]);
             return response()->json($result);
             
         } catch (\Exception $e) {
-            \Log::error('AHP calculation error', [
+            Log::error('AHP calculation error', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -107,7 +116,7 @@ class CriteriaController extends Controller
             CriteriaComparison::truncate();
             
             foreach ($comparisons as $comparison) {
-                \Log::info('Saving comparison', $comparison);
+                Log::info('Saving comparison', $comparison);
                 
                 CriteriaComparison::create([
                     'criteria_1' => $comparison['criteria_1'],
@@ -125,9 +134,9 @@ class CriteriaController extends Controller
                 }
             }
             
-            \Log::info('All comparisons saved successfully');
+            Log::info('All comparisons saved successfully');
         } catch (\Exception $e) {
-            \Log::error('Error saving comparisons', ['error' => $e->getMessage()]);
+            Log::error('Error saving comparisons', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -138,7 +147,7 @@ class CriteriaController extends Controller
             $n = $criteria->count();
             $criteriaIds = $criteria->pluck('kriteria_id')->toArray();
             
-            \Log::info('Starting AHP calculation', [
+            Log::info('Starting AHP calculation', [
                 'criteria_count' => $n,
                 'criteria_ids' => $criteriaIds
             ]);
@@ -158,7 +167,7 @@ class CriteriaController extends Controller
                 }
             }
             
-            \Log::info('Comparison matrix built', ['matrix' => $matrix]);
+            Log::info('Comparison matrix built', ['matrix' => $matrix]);
             
             // Calculate column sums
             $columnSums = [];
@@ -170,7 +179,7 @@ class CriteriaController extends Controller
                 $columnSums[$j] = $sum;
             }
             
-            \Log::info('Column sums calculated', ['column_sums' => $columnSums]);
+            Log::info('Column sums calculated', ['column_sums' => $columnSums]);
             
             // Normalize matrix
             $normalizedMatrix = [];
@@ -180,7 +189,7 @@ class CriteriaController extends Controller
                 }
             }
             
-            \Log::info('Normalized matrix calculated');
+            Log::info('Normalized matrix calculated');
             
             // Calculate priority weights (row averages)
             $weights = [];
@@ -192,11 +201,11 @@ class CriteriaController extends Controller
                 $weights[$i] = $sum / $n;
             }
             
-            \Log::info('Weights calculated', ['weights' => $weights]);
+            Log::info('Weights calculated', ['weights' => $weights]);
             
             // Calculate consistency
             $consistency = $this->calculateConsistency($matrix, $weights, $n);
-            \Log::info('Consistency calculated', ['consistency' => $consistency]);
+            Log::info('Consistency calculated', ['consistency' => $consistency]);
             
             return [
                 'matrix' => $matrix,
@@ -218,7 +227,7 @@ class CriteriaController extends Controller
             ];
             
         } catch (\Exception $e) {
-            \Log::error('Error in calculateAHP', ['error' => $e->getMessage()]);
+            Log::error('Error in calculateAHP', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -265,12 +274,12 @@ class CriteriaController extends Controller
             return [
                 'lambda_max' => $lambdaMax,
                 'ci' => $ci,
-                'ri' => $ri,  // ADD THIS LINE
+                'ri' => $ri,
                 'cr' => $cr
             ];
             
         } catch (\Exception $e) {
-            \Log::error('Error in calculateConsistency', ['error' => $e->getMessage()]);
+            Log::error('Error in calculateConsistency', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -281,40 +290,68 @@ class CriteriaController extends Controller
             $validated = $request->validate([
                 'criteria' => 'required|array',
                 'weights' => 'required|array',
-                'consistency_ratio' => 'required|numeric'
+                'consistency_ratio' => 'required|numeric',
+                'consistency_index' => 'numeric',
+                'lambda_max' => 'numeric',
+                'random_index' => 'numeric',
+                'matrix' => 'array',
+                'normalized_matrix' => 'array'
             ]);
             
-            // Store weights in session for use in TOPSIS with criteria mapping
-            $criteriaWeightMapping = [];
-            foreach ($validated['criteria'] as $index => $criterion) {
-                $criteriaWeightMapping[$criterion['kriteria_id']] = [
-                    'weight' => $validated['weights'][$index],
-                    'nama_kriteria' => $criterion['nama_kriteria'],
-                    'tipe_kriteria' => $criterion['tipe_kriteria']
-                ];
-            }
+            DB::beginTransaction();
             
-            session([
-                'ahp_weights' => $validated['weights'],
-                'ahp_criteria' => $validated['criteria'],
-                'ahp_criteria_weights' => $criteriaWeightMapping,
-                'ahp_consistency_ratio' => $validated['consistency_ratio'],
-                'ahp_calculation_time' => now()->toDateTimeString()
+            // Prepare consistency data
+            $consistencyData = [
+                'cr' => $validated['consistency_ratio'],
+                'ci' => $validated['consistency_index'] ?? 0,
+                'lambda_max' => $validated['lambda_max'] ?? 0,
+                'ri' => $validated['random_index'] ?? 0
+            ];
+            
+            // Prepare matrix data for storage
+            $matrixData = [
+                'comparison_matrix' => $validated['matrix'] ?? null,
+                'normalized_matrix' => $validated['normalized_matrix'] ?? null,
+                'calculation_date' => now()->toDateTimeString()
+            ];
+            
+            // Store in database
+            $calculationId = AhpWeight::storeCalculation(
+                $validated['criteria'],
+                $validated['weights'],
+                $consistencyData,
+                Auth::user()->username ?? 'System',
+                $matrixData
+            );
+            
+            DB::commit();
+            
+            Log::info('AHP weights stored successfully', [
+                'calculation_id' => $calculationId,
+                'criteria_count' => count($validated['criteria']),
+                'consistency_ratio' => $validated['consistency_ratio']
             ]);
             
             return response()->json([
                 'success' => true,
-                'message' => 'AHP weights stored successfully'
+                'message' => 'AHP weights stored successfully in database',
+                'calculation_id' => $calculationId,
+                'debug_info' => [
+                    'criteria_count' => count($validated['criteria']),
+                    'consistency_ratio' => $validated['consistency_ratio']
+                ]
             ]);
             
         } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error storing AHP weights: ' . $e->getMessage(), [
+            DB::rollBack();
+            Log::error('Error storing AHP weights: ' . $e->getMessage(), [
                 'request_data' => $request->all(),
                 'stack_trace' => $e->getTraceAsString()
             ]);
@@ -322,6 +359,76 @@ class CriteriaController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error storing weights: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get active weights for TOPSIS calculation
+     */
+    public function getActiveWeights()
+    {
+        try {
+            $activeWeights = AhpWeight::getActiveWeightsForTopsis();
+            
+            if (!$activeWeights) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No active AHP weights found',
+                    'data' => null
+                ]);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'data' => $activeWeights,
+                'criteria_count' => count($activeWeights),
+                'is_consistent' => AhpWeight::areCurrentWeightsConsistent()
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error getting active weights: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving weights: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Set specific calculation as active
+     */
+    public function setActiveWeights(Request $request, $calculationId)
+    {
+        try {
+            DB::beginTransaction();
+            
+            // Deactivate all current weights
+            AhpWeight::where('is_active', true)->update(['is_active' => false]);
+            
+            // Activate specified calculation
+            $updated = AhpWeight::where('calculation_id', $calculationId)
+                               ->update(['is_active' => true]);
+            
+            if ($updated === 0) {
+                throw new \Exception('Calculation ID not found');
+            }
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'AHP weights activated successfully'
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error setting active weights: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error activating weights: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -334,6 +441,9 @@ class CriteriaController extends Controller
         CriteriaComparison::where('criteria_1', $id)
             ->orWhere('criteria_2', $id)
             ->delete();
+            
+        // Delete related AHP weights
+        AhpWeight::where('criteria_id', $id)->delete();
             
         $criteria->delete();
         

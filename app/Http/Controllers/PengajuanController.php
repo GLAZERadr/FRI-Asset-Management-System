@@ -8,6 +8,7 @@ use App\Models\Asset;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\ApprovalLog;
+use App\Models\AhpWeight;
 use App\Services\NotificationService;
 use App\Services\TopsisService;
 use Illuminate\Http\Request;
@@ -88,6 +89,7 @@ class PengajuanController extends Controller
         if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
             // Get damaged assets without maintenance requests or not completed
             $query = DamagedAsset::with(['asset', 'maintenanceAsset'])
+                ->where('validated', 'Yes')
                 ->whereDoesntHave('maintenanceAsset') // No maintenance request at all
                 ->orWhereHas('maintenanceAsset', function($q) {
                     $q->whereIn('status', ['Ditolak']); // Only show rejected ones
@@ -118,7 +120,7 @@ class PengajuanController extends Controller
             $query = MaintenanceAsset::with(['asset', 'damagedAsset'])
                 ->where('requested_by_role', 'staff_laboratorium')
                 ->whereNull('kaur_lab_approved_at')
-                ->where('status', 'Menunggu Persetujuan');
+                ->where('maintenance_assets.status', 'Menunggu Persetujuan');  // Specify table name
                 
             // Apply filters BEFORE getting the data
             if ($request->has('lokasi') && $request->lokasi) {
@@ -143,15 +145,15 @@ class PengajuanController extends Controller
             
             switch ($sortField) {
                 case 'estimasi_biaya':
-                    $query->leftJoin('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
+                    $query->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
                         ->orderBy('damaged_assets.estimasi_biaya', $sortDirection)
                         ->select('maintenance_assets.*');
                     break;
                 case 'priority':
-                    $query->orderBy('priority_score', $sortDirection);
+                    $query->orderByRaw("COALESCE(priority_score, 0) {$sortDirection}");
                     break;
                 default:
-                    $query->orderBy('created_at', $sortDirection);
+                    $query->orderBy('maintenance_assets.created_at', $sortDirection);  // Specify table name
                     break;
             }
             
@@ -160,16 +162,17 @@ class PengajuanController extends Controller
         } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
             // Show data from kaur lab (approved) and staff logistik
             $query = MaintenanceAsset::with(['asset', 'damagedAsset'])
-                ->where('status', 'Menunggu Persetujuan')
+                ->where('maintenance_assets.status', 'Menunggu Persetujuan')  // Specify table name
                 ->where(function($q) {
                     // From staff logistik
                     $q->where('requested_by_role', 'staff_logistik')
-                      ->whereNull('kaur_keuangan_approved_at');
+                    ->whereNull('kaur_keuangan_approved_at');
                 })->orWhere(function($q) {
                     // From staff lab that has been approved by kaur lab
-                    $q->where('requested_by_role', 'staff_laboratorium')
-                      ->whereNotNull('kaur_lab_approved_at')
-                      ->whereNull('kaur_keuangan_approved_at');
+                    $q->where('maintenance_assets.status', 'Menunggu Persetujuan')  // Add this line
+                    ->where('requested_by_role', 'staff_laboratorium')
+                    ->whereNotNull('kaur_lab_approved_at')
+                    ->whereNull('kaur_keuangan_approved_at');
                 });
             
             // Apply filters BEFORE getting the data
@@ -195,15 +198,15 @@ class PengajuanController extends Controller
             
             switch ($sortField) {
                 case 'estimasi_biaya':
-                    $query->leftJoin('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
+                    $query->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
                         ->orderBy('damaged_assets.estimasi_biaya', $sortDirection)
                         ->select('maintenance_assets.*');
                     break;
                 case 'priority':
-                    $query->orderBy('priority_score', $sortDirection);
+                    $query->orderByRaw("COALESCE(priority_score, 0) {$sortDirection}");
                     break;
                 default:
-                    $query->orderBy('created_at', $sortDirection);
+                    $query->orderBy('maintenance_assets.created_at', $sortDirection);  // Specify table name
                     break;
             }
             
@@ -212,7 +215,7 @@ class PengajuanController extends Controller
         } elseif ($user->hasRole('wakil_dekan_2')) {
             // Wakil Dekan 2 sees all maintenance requests that need approval
             $query = MaintenanceAsset::with(['asset', 'damagedAsset'])
-                ->where('status', 'Menunggu Persetujuan');
+                ->where('maintenance_assets.status', 'Menunggu Persetujuan');  // Specify table name
             
             // Apply filters BEFORE getting the data
             if ($request->has('lokasi') && $request->lokasi) {
@@ -237,15 +240,15 @@ class PengajuanController extends Controller
             
             switch ($sortField) {
                 case 'estimasi_biaya':
-                    $query->leftJoin('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
+                    $query->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
                         ->orderBy('damaged_assets.estimasi_biaya', $sortDirection)
                         ->select('maintenance_assets.*');
                     break;
                 case 'priority':
-                    $query->orderBy('priority_score', $sortDirection);
+                    $query->orderByRaw("COALESCE(priority_score, 0) {$sortDirection}");
                     break;
                 default:
-                    $query->orderBy('created_at', $sortDirection);
+                    $query->orderBy('maintenance_assets.created_at', $sortDirection);  // Specify table name
                     break;
             }
             
@@ -271,17 +274,17 @@ class PengajuanController extends Controller
             }
         }
         
-        // Calculate and store priority scores consistently
+        // Calculate and store priority scores consistently (MOVED UP BEFORE SORTING)
         $priorityScores = [];
-        if ($user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']) && $damagedAssets->count() > 0) {
+        if ($user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']) && isset($damagedAssets) && $damagedAssets->count() > 0) {
             
             // Always use stored priority scores first
             $priorityScores = $this->getStoredPriorityScores($damagedAssets);
             
             // If no stored scores and not Wakil Dekan 2, check if we can calculate
             if (empty($priorityScores) && !$user->hasRole('wakil_dekan_2')) {
-                // Get AHP criteria weights from session
-                $ahpCriteriaWeights = session('ahp_criteria_weights');
+                // Get AHP criteria weights from database instead of session
+                $ahpCriteriaWeights = AhpWeight::getActiveWeightsForTopsis();
                 
                 if ($ahpCriteriaWeights) {
                     // Automatically calculate TOPSIS with AHP weights
@@ -313,18 +316,22 @@ class PengajuanController extends Controller
                 }
             }
         }
-
-        // Sort by priority if available
+    
+        // Sort by priority if available for kaur roles
         if (!empty($priorityScores) && $user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2'])) {
-            // Sort the collection by priority score (descending - highest priority first)
-            $damagedAssets = $damagedAssets->sortByDesc(function($item) use ($priorityScores) {
-                return $priorityScores[$item->id]['score'] ?? 0;
-            })->values();
+            // Only sort if priority sorting wasn't already applied in the query
+            $sortField = $request->get('sort', 'created_at');
+            if ($sortField !== 'priority' && $sortField !== 'estimasi_biaya') {
+                // Sort the collection by priority score (descending - highest priority first)
+                $damagedAssets = $damagedAssets->sortByDesc(function($item) use ($priorityScores) {
+                    return $priorityScores[$item->id]['score'] ?? 0;
+                })->values();
+            }
         }
         
         // Handle sorting for staff roles only (other roles already sorted above)
         if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
-            $sortField = $request->get('sort', 'created_at');
+            $sortField = $request->get('sort', 'tanggal_pelaporan');
             $sortDirection = $request->get('direction', 'desc');
             
             // Validate sort direction
@@ -341,13 +348,22 @@ class PengajuanController extends Controller
                     break;
                 case 'priority':
                     if (!empty($priorityScores)) {
-                        $damagedAssets = $damagedAssets->sortBy(function($item) use ($priorityScores, $sortDirection) {
-                            $score = $priorityScores[$item->id]['score'] ?? 0;
-                            return $sortDirection === 'asc' ? $score : -$score;
-                        });
+                        $damagedAssets = $sortDirection === 'asc' 
+                            ? $damagedAssets->sortBy(function($item) use ($priorityScores) {
+                                return $priorityScores[$item->id]['score'] ?? 0;
+                            })
+                            : $damagedAssets->sortByDesc(function($item) use ($priorityScores) {
+                                return $priorityScores[$item->id]['score'] ?? 0;
+                            });
                     }
                     break;
+                default:
+                    $damagedAssets = $sortDirection === 'asc' 
+                        ? $damagedAssets->sortBy('tanggal_pelaporan')
+                        : $damagedAssets->sortByDesc('tanggal_pelaporan');
+                    break;
             }
+            $damagedAssets = $damagedAssets->values(); // Reset keys
         }
         
         // Convert to paginated result for consistency
@@ -370,14 +386,27 @@ class PengajuanController extends Controller
 
     public function getTopsisStatus()
     {
-        $lastCalculation = session('last_topsis_calculation');
-        $ahpWeights = session('ahp_criteria_weights');
+        // Get last calculation from database instead of session
+        $activeWeights = AhpWeight::getActiveWeights();
+        $ahpWeights = AhpWeight::getActiveWeightsForTopsis();
+        
+        $lastCalculation = null;
+        if ($activeWeights && $activeWeights->isNotEmpty()) {
+            $firstWeight = $activeWeights->first();
+            $lastCalculation = [
+                'timestamp' => $firstWeight->created_at->toDateTimeString(),
+                'calculated_by' => $firstWeight->calculated_by,
+                'consistency_ratio' => $firstWeight->consistency_ratio,
+                'criteria_count' => $firstWeight->criteria_count
+            ];
+        }
         
         return response()->json([
             'ahp_available' => !empty($ahpWeights),
             'last_calculation' => $lastCalculation,
             'criteria_count' => $ahpWeights ? count($ahpWeights) : 0,
             'pending_assets_count' => MaintenanceAsset::where('status', 'Menunggu Persetujuan')->count(),
+            'is_consistent' => AhpWeight::areCurrentWeightsConsistent(),
             'ahp_weights_sample' => $ahpWeights ? array_slice($ahpWeights, 0, 2, true) : null // For debugging
         ]);
     }
@@ -619,27 +648,6 @@ class PengajuanController extends Controller
                     ->get();
             }
             
-            // Get IDs of unchecked damaged assets
-            $checkedDamagedAssetIds = $validated['damaged_asset_ids'];
-            $allAvailableIds = $availableDamagedAssets->pluck('id')->toArray();
-            $uncheckedDamagedAssetIds = array_diff($allAvailableIds, $checkedDamagedAssetIds);
-            
-            // Delete unchecked damaged assets that don't have active maintenance requests
-            if (!empty($uncheckedDamagedAssetIds)) {
-                $damagedAssetsToDelete = DamagedAsset::whereIn('id', $uncheckedDamagedAssetIds)
-                    ->whereDoesntHave('maintenanceAsset', function($q) {
-                        $q->whereNotIn('status', ['Ditolak', 'Selesai']);
-                    })
-                    ->get();
-                
-                foreach ($damagedAssetsToDelete as $damagedAsset) {
-                    // Delete related rejected maintenance requests first
-                    $damagedAsset->maintenanceAsset()->where('status', 'Ditolak')->delete();
-                    // Then delete the damaged asset
-                    $damagedAsset->delete();
-                }
-            }
-            
             // Process checked damaged assets
             foreach ($validated['damaged_asset_ids'] as $damagedAssetId) {
                 $damagedAsset = DamagedAsset::findOrFail($damagedAssetId);
@@ -823,7 +831,7 @@ class PengajuanController extends Controller
             $user = Auth::user();
             $action = $validated['action'];
             $processedCount = 0;
-            $deletedCount = 0;
+            $rejectedCount = 0;
             
             // Get all maintenance assets that should be available to this user for approval
             $availableMaintenanceAssets = collect();
@@ -850,17 +858,54 @@ class PengajuanController extends Controller
             $allAvailableIds = $availableMaintenanceAssets->pluck('id')->toArray();
             $uncheckedMaintenanceIds = array_diff($allAvailableIds, $checkedMaintenanceIds);
             
-            // Delete unchecked maintenance assets and their damaged assets
+            // Handle unchecked maintenance assets - both roles now reject instead of delete
             if (!empty($uncheckedMaintenanceIds)) {
-                $maintenanceAssetsToDelete = MaintenanceAsset::whereIn('id', $uncheckedMaintenanceIds)->get();
+                $uncheckedMaintenanceAssets = MaintenanceAsset::whereIn('id', $uncheckedMaintenanceIds)->get();
                 
-                foreach ($maintenanceAssetsToDelete as $maintenanceAsset) {
-                    $damagedAsset = $maintenanceAsset->damagedAsset;
-                    $maintenanceAsset->delete();
-                    if ($damagedAsset) {
-                        $damagedAsset->delete();
-                        $deletedCount++;
+                foreach ($uncheckedMaintenanceAssets as $maintenanceAsset) {
+                    if ($user->hasRole('kaur_laboratorium')) {
+                        $maintenanceAsset->update([
+                            'status' => 'Ditolak',
+                            'kaur_lab_approved_at' => now(),
+                            'kaur_lab_approved_by' => $user->username,
+                        ]);
+                        
+                        ApprovalLog::create([
+                            'maintenance_asset_id' => $maintenanceAsset->id,
+                            'action' => 'rejected',
+                            'performed_by' => $user->username,
+                            'role' => $user->roles->first()->name,
+                            'notes' => 'Ditolak karena tidak dipilih dalam bulk approval'
+                        ]);
+                    } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
+                        $maintenanceAsset->update([
+                            'status' => 'Ditolak',
+                            'kaur_keuangan_approved_at' => now(),
+                            'kaur_keuangan_approved_by' => $user->username,
+                        ]);
+                        
+                        // Log the rejection
+                        ApprovalLog::create([
+                            'maintenance_asset_id' => $maintenanceAsset->id,
+                            'action' => 'rejected',
+                            'performed_by' => $user->username,
+                            'role' => $user->roles->first()->name,
+                            'notes' => 'Ditolak karena tidak dipilih dalam bulk approval'
+                        ]);
                     }
+                    
+                    // Send notification to original requester
+                    $requester = User::find($maintenanceAsset->requested_by);
+                    if ($requester) {
+                        $this->notificationService->sendApprovalResult(
+                            $maintenanceAsset,
+                            $requester,
+                            'Ditolak',
+                            $user->roles->first()->name
+                        );
+                    }
+                    
+                    $rejectedCount++;
                 }
             }
             
@@ -877,12 +922,13 @@ class PengajuanController extends Controller
                             'status' => 'Menunggu Persetujuan'
                         ]);
                     } else {
-                        // Rejected - delete maintenance and damaged asset
-                        $damagedAsset = $maintenanceAsset->damagedAsset;
-                        $maintenanceAsset->delete();
-                        if ($damagedAsset) {
-                            $damagedAsset->delete();
-                        }
+                        // Explicitly rejected - change status to 'Ditolak'
+                        $maintenanceAsset->update([
+                            'status' => 'Ditolak',
+                            'kaur_lab_approved_at' => now(),
+                            'kaur_lab_approved_by' => $user->username,
+                            'rejection_reason' => $validated['notes'] ?? 'Ditolak'
+                        ]);
                     }
                 } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
                     if ($action === 'approve') {
@@ -892,24 +938,34 @@ class PengajuanController extends Controller
                             'status' => 'Diterima'
                         ]);
                     } else {
-                        // Rejected - delete maintenance and damaged asset
-                        $damagedAsset = $maintenanceAsset->damagedAsset;
-                        $maintenanceAsset->delete();
-                        if ($damagedAsset) {
-                            $damagedAsset->delete();
-                        }
+                        // Explicitly rejected
+                        $maintenanceAsset->update([
+                            'status' => 'Ditolak',
+                            'kaur_keuangan_approved_at' => now(),
+                            'kaur_keuangan_approved_by' => $user->username,
+                            'rejection_reason' => $validated['notes'] ?? 'Ditolak'
+                        ]);
                     }
                 }
                 
-                // Log the action (only if maintenance asset still exists)
-                if ($action === 'approve' || MaintenanceAsset::find($maintenanceId)) {
-                    ApprovalLog::create([
-                        'maintenance_asset_id' => $maintenanceAsset->id,
-                        'action' => $action === 'approve' ? 'approved' : 'rejected',
-                        'performed_by' => $user->username,
-                        'role' => $user->roles->first()->name,
-                        'notes' => $validated['notes'] ?? 'Bulk action'
-                    ]);
+                // Log the action
+                ApprovalLog::create([
+                    'maintenance_asset_id' => $maintenanceAsset->id,
+                    'action' => $action === 'approve' ? 'approved' : 'rejected',
+                    'performed_by' => $user->username,
+                    'role' => $user->roles->first()->name,
+                    'notes' => $validated['notes'] ?? 'Bulk action'
+                ]);
+                
+                // Send notification to original requester
+                $requester = User::find($maintenanceAsset->requested_by);
+                if ($requester) {
+                    $this->notificationService->sendApprovalResult(
+                        $maintenanceAsset,
+                        $requester,
+                        $action === 'approve' ? 'Diterima' : 'Ditolak',
+                        $user->roles->first()->name
+                    );
                 }
                 
                 $processedCount++;
@@ -921,8 +977,8 @@ class PengajuanController extends Controller
                 ? "Berhasil menyetujui {$processedCount} pengajuan"
                 : "Berhasil menolak {$processedCount} pengajuan";
                 
-            if ($deletedCount > 0) {
-                $message .= " dan menghapus {$deletedCount} data yang tidak dipilih";
+            if ($rejectedCount > 0) {
+                $message .= " dan menolak {$rejectedCount} pengajuan yang tidak dipilih";
             }
             
             return response()->json([
@@ -1131,24 +1187,40 @@ class PengajuanController extends Controller
     
     private function canViewMaintenanceAsset($user, $maintenanceAsset)
     {
-        // Users can view their own requests
+        // Users can always view their own requests
         if ($maintenanceAsset->requested_by == $user->id) {
             return true;
         }
         
-        // Kaur roles can view requests they need to approve
-        if ($user->hasRole('kaur_laboratorium') && $maintenanceAsset->requested_by_role == 'staff_laboratorium') {
-            return true;
+        // Get asset location to determine department
+        $isLaboratoryAsset = str_contains($maintenanceAsset->asset->lokasi, 'Laboratorium');
+        
+        // Staff Laboratorium permissions - can view all laboratory department requests
+        if ($user->hasRole('staff_laboratorium')) {
+            return $isLaboratoryAsset;
         }
         
+        // Staff Logistik permissions - can view all logistic department requests
+        if ($user->hasRole('staff_logistik')) {
+            return !$isLaboratoryAsset;
+        }
+        
+        // Kaur Laboratorium permissions - can view all laboratory-related requests
+        if ($user->hasRole('kaur_laboratorium')) {
+            return $isLaboratoryAsset;
+        }
+        
+        // Kaur Keuangan Logistik SDM permissions - can view all requests
         if ($user->hasRole('kaur_keuangan_logistik_sdm')) {
             return true;
         }
         
+        // Wakil Dekan 2 permissions - can view all requests
         if ($user->hasRole('wakil_dekan_2')) {
             return true;
         }
         
+        // Default: deny access
         return false;
     }
     
@@ -1318,20 +1390,127 @@ class PengajuanController extends Controller
         
         return view('pengajuan.detailed', compact('maintenanceRequests', 'locations', 'petugasList', 'statusList'));
     }
+
+    public function updatePhotos(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'photos.*' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max per image
+            'status' => 'required|in:Selesai'
+        ]);
+
+        DB::beginTransaction();
+        
+        try {
+            $maintenanceAsset = MaintenanceAsset::findOrFail($id);
+            
+            // Only allow updating photos when changing to "Selesai"
+            if ($request->status !== 'Selesai') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Photos can only be uploaded when status is changed to Selesai.'
+                ], 400);
+            }
+
+            $uploadedPhotos = [];
+            
+            // Handle multiple photo uploads
+            if ($request->hasFile('photos')) {
+                foreach ($request->file('photos') as $photo) {
+                    // Generate unique filename
+                    $filename = time() . '_' . uniqid() . '.' . $photo->getClientOriginalExtension();
+                    
+                    // Store in storage/app/public/maintenance_photos
+                    $path = $photo->storeAs('maintenance_photos', $filename, 'public');
+                    
+                    $uploadedPhotos[] = [
+                        'filename' => $filename,
+                        'path' => $path,
+                        'original_name' => $photo->getClientOriginalName(),
+                        'uploaded_at' => now()->toDateTimeString()
+                    ];
+                }
+            }
+
+            // Merge with existing photos if any
+            $existingPhotos = $maintenanceAsset->photos ?? [];
+            $allPhotos = array_merge($existingPhotos, $uploadedPhotos);
+
+            // Update maintenance asset with photos and status
+            $maintenanceAsset->update([
+                'photos' => $allPhotos,
+                'status' => 'Selesai',
+                'tanggal_selesai' => now()
+            ]);
+
+            // Log the status change
+            ApprovalLog::create([
+                'maintenance_asset_id' => $maintenanceAsset->id,
+                'action' => 'status_updated',
+                'performed_by' => Auth::user()->username,
+                'role' => Auth::user()->roles->first()->name,
+                'notes' => 'Status changed to Selesai with ' . count($uploadedPhotos) . ' photos uploaded'
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status updated to Selesai and photos uploaded successfully.',
+                'photos_count' => count($uploadedPhotos),
+                'total_photos' => count($allPhotos)
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error uploading photos: ' . $e->getMessage()
+            ], 500);
+        }
+    }
     
     public function updateStatus(Request $request, $id)
     {
         $validated = $request->validate([
             'status' => 'required|in:Diterima,Dikerjakan,Selesai,Ditolak'
         ]);
-        
+    
         $maintenanceAsset = MaintenanceAsset::findOrFail($id);
         
         // Only update if current status allows it
         if (!in_array($maintenanceAsset->status, ['Selesai', 'Ditolak'])) {
-            $maintenanceAsset->update(['status' => $validated['status']]);
+            
+            // If changing to "Selesai", we'll handle this via the photo upload modal
+            if ($validated['status'] === 'Selesai') {
+                // For AJAX requests, return JSON
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success' => true,
+                        'show_photo_modal' => true,
+                        'maintenance_id' => $id,
+                        'message' => 'Please upload completion photos.'
+                    ]);
+                }
+                // For regular form submissions, redirect back with a flag
+                return back()->with('show_photo_modal', $id);
+            }
+            
+            // For other status changes, update normally
+            $maintenanceAsset->update([
+                'status' => $validated['status'],
+                'tanggal_perbaikan' => $validated['status'] === 'Dikerjakan' ? now() : $maintenanceAsset->tanggal_perbaikan
+            ]);
+            
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['success' => true, 'message' => 'Status berhasil diperbarui.']);
+            }
             
             return back()->with('success', 'Status berhasil diperbarui.');
+        }
+        
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['success' => false, 'message' => 'Status tidak dapat diubah.']);
         }
         
         return back()->with('error', 'Status tidak dapat diubah.');
@@ -1458,61 +1637,8 @@ class PengajuanController extends Controller
         }
         
         try {
-            // Debug: Check all AHP-related session data
-            Log::info('All AHP session data', [
-                'ahp_weights' => session('ahp_weights'),
-                'ahp_criteria' => session('ahp_criteria'),
-                'ahp_criteria_weights' => session('ahp_criteria_weights'),
-                'all_session_keys' => array_keys(session()->all())
-            ]);
-            
-            // Get the correct session key
-            $ahpCriteriaWeights = session('ahp_criteria_weights');
-            
-            // If that's empty, check if weights are stored differently
-            if (empty($ahpCriteriaWeights)) {
-                // Check if we have the raw weights and criteria
-                $weights = session('ahp_weights');
-                $criteria = session('ahp_criteria');
-                
-                Log::info('Building criteria weights from raw data', [
-                    'weights' => $weights,
-                    'criteria' => $criteria
-                ]);
-                
-                if ($weights && $criteria) {
-                    // Rebuild the mapping
-                    $ahpCriteriaWeights = [];
-                    foreach ($criteria as $index => $criterion) {
-                        // Make sure we're accessing the right properties
-                        if (is_array($criterion)) {
-                            $criteriaId = $criterion['kriteria_id'] ?? null;
-                            $criteriaName = $criterion['nama_kriteria'] ?? '';
-                            $criteriaType = $criterion['tipe_kriteria'] ?? 'benefit';
-                        } else {
-                            // If it's an object
-                            $criteriaId = $criterion->kriteria_id ?? null;
-                            $criteriaName = $criterion->nama_kriteria ?? '';
-                            $criteriaType = $criterion->tipe_kriteria ?? 'benefit';
-                        }
-                        
-                        if ($criteriaId && isset($weights[$index])) {
-                            $ahpCriteriaWeights[$criteriaId] = [
-                                'weight' => floatval($weights[$index]),
-                                'nama_kriteria' => $criteriaName,
-                                'tipe_kriteria' => $criteriaType
-                            ];
-                        }
-                    }
-                    
-                    // Store it back in session for future use
-                    session(['ahp_criteria_weights' => $ahpCriteriaWeights]);
-                    
-                    Log::info('Rebuilt criteria weights mapping', [
-                        'mapping' => $ahpCriteriaWeights
-                    ]);
-                }
-            }
+            // Get AHP criteria weights from database instead of session
+            $ahpCriteriaWeights = AhpWeight::getActiveWeightsForTopsis();
             
             if (!$ahpCriteriaWeights) {
                 return response()->json([
@@ -1535,6 +1661,15 @@ class PengajuanController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Bobot kriteria AHP tidak valid (semua bobot bernilai 0). Silakan lakukan kalkulasi AHP ulang.',
+                    'redirect_url' => route('kriteria.create')
+                ]);
+            }
+            
+            // Check if weights are consistent
+            if (!AhpWeight::areCurrentWeightsConsistent()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bobot kriteria AHP tidak konsisten (CR > 0.1). Silakan lakukan kalkulasi AHP ulang.',
                     'redirect_url' => route('kriteria.create')
                 ]);
             }
@@ -1573,24 +1708,13 @@ class PengajuanController extends Controller
             // Count updated assets
             $updatedCount = count($priorityScores);
             
-            // Store calculation metadata
-            session([
-                'last_topsis_calculation' => [
-                    'timestamp' => now()->toDateTimeString(),
-                    'updated_count' => $updatedCount,
-                    'method' => 'TOPSIS_AHP_Dynamic',
-                    'criteria_count' => count($ahpCriteriaWeights),
-                    'calculated_by' => $user->name
-                ]
-            ]);
-            
             return response()->json([
                 'success' => true,
-                'message' => "Berhasil menghitung prioritas untuk {$updatedCount} pengajuan menggunakan metode TOPSIS dengan bobot AHP dinamis.",
+                'message' => "Berhasil menghitung prioritas untuk {$updatedCount} pengajuan menggunakan metode TOPSIS dengan bobot AHP dari database.",
                 'data' => [
                     'updated_count' => $updatedCount,
                     'total_criteria' => count($ahpCriteriaWeights),
-                    'method' => 'TOPSIS_AHP_Dynamic',
+                    'method' => 'TOPSIS_AHP_Database',
                     'calculation_time' => now()->toDateTimeString()
                 ]
             ]);
@@ -1605,6 +1729,96 @@ class PengajuanController extends Controller
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat menghitung prioritas: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function downloadPhoto(Request $request, $id, $photoIndex)
+    {
+        try {
+            $maintenanceAsset = MaintenanceAsset::findOrFail($id);
+            
+            // Check if user has permission to view this maintenance asset
+            $user = Auth::user();
+            if (!$this->canViewMaintenanceAsset($user, $maintenanceAsset)) {
+                abort(403, 'Unauthorized action.');
+            }
+            
+            // Check if photos exist
+            if (!$maintenanceAsset->photos || !is_array($maintenanceAsset->photos)) {
+                abort(404, 'No photos found.');
+            }
+            
+            // Check if photo index is valid
+            if (!isset($maintenanceAsset->photos[$photoIndex])) {
+                abort(404, 'Photo not found.');
+            }
+            
+            $photo = $maintenanceAsset->photos[$photoIndex];
+            $filePath = storage_path('app/public/' . $photo['path']);
+            
+            // Check if file exists
+            if (!file_exists($filePath)) {
+                abort(404, 'Photo file not found.');
+            }
+            
+            // Get original filename or create a default one
+            $filename = $photo['original_name'] ?? 'foto-perbaikan-' . ($photoIndex + 1) . '.jpg';
+            
+            // Return file download response
+            return response()->download($filePath, $filename);
+            
+        } catch (\Exception $e) {
+            abort(404, 'Photo not found.');
+        }
+    }
+
+    public function downloadAllPhotos($id)
+    {
+        try {
+            $maintenanceAsset = MaintenanceAsset::findOrFail($id);
+            
+            // Check if user has permission to view this maintenance asset
+            $user = Auth::user();
+            if (!$this->canViewMaintenanceAsset($user, $maintenanceAsset)) {
+                abort(403, 'Unauthorized action.');
+            }
+            
+            // Check if photos exist
+            if (!$maintenanceAsset->photos || !is_array($maintenanceAsset->photos) || count($maintenanceAsset->photos) === 0) {
+                abort(404, 'No photos found.');
+            }
+            
+            // Create a ZIP file
+            $zip = new \ZipArchive();
+            $zipFileName = 'foto-perbaikan-' . $maintenanceAsset->maintenance_id . '.zip';
+            $zipFilePath = storage_path('app/temp/' . $zipFileName);
+            
+            // Create temp directory if it doesn't exist
+            if (!file_exists(storage_path('app/temp'))) {
+                mkdir(storage_path('app/temp'), 0755, true);
+            }
+            
+            if ($zip->open($zipFilePath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
+                abort(500, 'Could not create ZIP file.');
+            }
+            
+            // Add each photo to the ZIP
+            foreach ($maintenanceAsset->photos as $index => $photo) {
+                $filePath = storage_path('app/public/' . $photo['path']);
+                
+                if (file_exists($filePath)) {
+                    $filename = $photo['original_name'] ?? 'foto-perbaikan-' . ($index + 1) . '.jpg';
+                    $zip->addFile($filePath, $filename);
+                }
+            }
+            
+            $zip->close();
+            
+            // Return ZIP file download and then delete it
+            return response()->download($zipFilePath, $zipFileName)->deleteFileAfterSend(true);
+            
+        } catch (\Exception $e) {
+            abort(500, 'Could not create photo archive.');
         }
     }
     

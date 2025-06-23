@@ -229,6 +229,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/{id}', [PengajuanController::class, 'update'])->name('update');
         Route::delete('/{id}', [PengajuanController::class, 'destroy'])->name('destroy');
         Route::patch('/{id}/status', [PengajuanController::class, 'updateStatus'])->name('update-status');
+        Route::post('/{id}/update-photos', [PengajuanController::class, 'updatePhotos'])->name('update-photos');
+        Route::get('/{id}/photo/{photoIndex}/download', [PengajuanController::class, 'downloadPhoto'])->name('photo.download');
+        Route::get('/{id}/photos/download-all', [PengajuanController::class, 'downloadAllPhotos'])->name('photos.download-all');
         
         // Approval routes (dynamic)
         Route::post('/{id}/approve', [PengajuanController::class, 'approve'])->name('approve');

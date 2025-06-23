@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             
             // Payment details based on the form
-            $table->string('no_invoice')->unique()->comment('Invoice number');
+            $table->string('no_invoice')->comment('Invoice number');
             $table->date('jatuh_tempo')->comment('Due date');
             $table->string('vendor')->comment('Vendor name');
             $table->decimal('total_tagihan', 15, 2)->comment('Total bill amount');

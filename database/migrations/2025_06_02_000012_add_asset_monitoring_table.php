@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('validated')->nullable();
             $table->date('validated_at')->nullable();
             $table->string('catatan')->nullable();
-            $table->foreignId('user_id')->constrained();
+            $table->string('user_id')->nullable();
             $table->timestamps();
             
             // Add indexes for better performance

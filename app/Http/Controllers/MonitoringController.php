@@ -206,16 +206,6 @@ class MonitoringController extends Controller
                 'foto_path' => $photoPath,
                 'id_laporan' => $idLaporan // Add report ID to each asset data
             ];
-    
-            // If asset needs maintenance, prepare for DamagedAsset record
-            if ($assetData['status'] === 'butuh_perawatan') {
-                $damagedAssets[] = [
-                    'asset_id' => $assetData['asset_id'],
-                    'deskripsi_kerusakan' => $assetData['deskripsi'] ?? 'Butuh perawatan dari monitoring',
-                    'foto_path' => $photoPath,
-                    'id_laporan' => $idLaporan
-                ];
-            }
         }
     
         // Create monitoring record
@@ -231,20 +221,20 @@ class MonitoringController extends Controller
             'user_id' => auth()->id()
         ]);
     
-        // Create DamagedAsset records for assets that need maintenance
-        foreach ($damagedAssets as $damagedData) {
-            DamagedAsset::create([
-                'damage_id' => 'DMG-' . date('Ymd') . '-' . Str::random(6),
-                'asset_id' => $damagedData['asset_id'],
-                'tingkat_kerusakan' => 'Sedang', // Default level
-                'estimasi_biaya' => 0, // To be filled later
-                'deskripsi_kerusakan' => $damagedData['deskripsi_kerusakan'],
-                'tanggal_pelaporan' => $request->tanggal_laporan,
-                'pelapor' => $request->nama_pelapor,
-                'vendor' => null, // To be assigned later
-                'id_laporan' => $idLaporan // Link to monitoring report
-            ]);
-        }
+        // // Create DamagedAsset records for assets that need maintenance
+        // foreach ($damagedAssets as $damagedData) {
+        //     DamagedAsset::create([
+        //         'damage_id' => 'DMG-' . date('Ymd') . '-' . Str::random(6),
+        //         'asset_id' => $damagedData['asset_id'],
+        //         'tingkat_kerusakan' => 'Sedang', // Default level
+        //         'estimasi_biaya' => 0, // To be filled later
+        //         'deskripsi_kerusakan' => $damagedData['deskripsi_kerusakan'],
+        //         'tanggal_pelaporan' => $request->tanggal_laporan,
+        //         'pelapor' => $request->nama_pelapor,
+        //         'vendor' => null, // To be assigned later
+        //         'id_laporan' => $idLaporan // Link to monitoring report
+        //     ]);
+        // }
     
         return redirect()->route('dashboard')->with('success', 
             "Monitoring report submitted successfully! Report ID: {$idLaporan}" . 

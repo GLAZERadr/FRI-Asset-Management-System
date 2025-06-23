@@ -17,6 +17,7 @@ use App\Http\Controllers\FixValidationController;
 use App\Http\Controllers\MaintenanceScheduleController;
 use App\Http\Controllers\FixStatusController;
 use App\Http\Controllers\MonitoringValidationController;
+use App\Http\Controllers\PublicMonitoringController;
 use App\Http\Controllers\DamagedAssetController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\PaymentController;
@@ -55,6 +56,44 @@ Route::middleware('guest')->group(function () {
         ->name('password.reset');
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.update');
+});
+
+Route::prefix('public')->name('public.')->group(function () {
+    // Public QR Scanner Landing Page
+    Route::get('/', [PublicMonitoringController::class, 'index'])->name('index');
+    
+    // QR Code processing for public access
+    Route::post('/qr/process', [PublicMonitoringController::class, 'processQR'])->name('qr.process');
+    
+    Route::get('/debug/asset/{assetId}', function($assetId) {
+        $asset = App\Models\Asset::where('asset_id', $assetId)->first();
+        if ($asset) {
+            return response()->json([
+                'asset_found' => true,
+                'asset_id' => $asset->asset_id,
+                'asset_name' => $asset->nama_asset,
+                'kode_ruangan' => $asset->kode_ruangan,
+                'monitoring_url' => route('public.monitoring.form', ['kodeRuangan' => $asset->kode_ruangan])
+            ]);
+        }
+        return response()->json(['asset_found' => false]);
+    })->name('debug.asset');
+    
+    Route::get('/debug/room/{kodeRuangan}', function($kodeRuangan) {
+        $assets = App\Models\Asset::where('kode_ruangan', $kodeRuangan)->get();
+        return response()->json([
+            'kode_ruangan' => $kodeRuangan,
+            'asset_count' => $assets->count(),
+            'assets' => $assets->pluck(['asset_id', 'nama_asset'])->toArray(),
+            'monitoring_url' => route('public.monitoring.form', ['kodeRuangan' => $kodeRuangan])
+        ]);
+    })->name('debug.room');
+    // Public monitoring form
+    Route::get('/monitoring/{kodeRuangan}', [PublicMonitoringController::class, 'showMonitoring'])->name('monitoring.form');
+    Route::post('/monitoring/store', [PublicMonitoringController::class, 'storeMonitoring'])->name('monitoring.store');
+    
+    // Success page
+    Route::get('/monitoring/success/{id}', [PublicMonitoringController::class, 'monitoringSuccess'])->name('monitoring.success');
 });
 
 // Damaged Assets

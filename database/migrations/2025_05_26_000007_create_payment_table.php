@@ -32,7 +32,7 @@ return new class extends Migration
                   ->default('setelah_perbaikan');
             
             // Payment status
-            $table->enum('status', ['belum_dibayar', 'sudah_dibayar', 'terlambat', 'dibatalkan'])
+            $table->enum('status', ['belum_dibayar', 'sudah_dibayar', 'terlambat', 'dibatalkan', 'revisi'])
                   ->default('belum_dibayar')
                   ->comment('Payment status');
             
@@ -46,6 +46,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
             
+            $table->string('alasan_revisi')->nullable();
+            $table->string('photo_pembayaran')->nullable()->comment('Foto aset file path');
             // Foreign keys for user tracking
             $table->foreign('updated_by')->references('id')->on('users')->onDelete('set null');
             

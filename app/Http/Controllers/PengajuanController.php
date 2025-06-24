@@ -85,39 +85,42 @@ class PengajuanController extends Controller
     {
         $user = Auth::user();
         
+        // Log the start of the method
+        Log::info('PengajuanController::create called', [
+            'user_role' => $user->roles->first()->name,
+            'request_params' => $request->all()
+        ]);
+        
+        // Your existing code for getting $damagedAssets...
+        // ... (keep your existing logic for staff/kaur roles)
+        
         if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
-            // Start with base query
+            // ... your existing staff logic
             $query = DamagedAsset::with(['asset', 'maintenanceAsset'])
                 ->where('validated', 'Yes');
             
-            // Apply division filter first, then maintenance conditions within that scope
             if ($user->hasRole('staff_laboratorium')) {
-                // Laboratory staff - only see laboratory assets
                 $query->whereHas('asset', function($q) {
                     $q->where('lokasi', 'LIKE', '%Laboratorium%');
                 })
                 ->where(function($q) {
-                    // Within laboratory assets, show those without maintenance OR rejected
-                    $q->whereDoesntHave('maintenanceAsset') // No maintenance request at all
+                    $q->whereDoesntHave('maintenanceAsset')
                     ->orWhereHas('maintenanceAsset', function($subQ) {
-                        $subQ->whereIn('status', ['Ditolak']); // Only show rejected ones
+                        $subQ->whereIn('status', ['Ditolak']);
                     });
                 });
             } else {
-                // Logistics staff - only see non-laboratory (logistics) assets  
                 $query->whereHas('asset', function($q) {
                     $q->where('lokasi', 'NOT LIKE', '%Laboratorium%');
                 })
                 ->where(function($q) {
-                    // Within logistics assets, show those without maintenance OR rejected
-                    $q->whereDoesntHave('maintenanceAsset') // No maintenance request at all
+                    $q->whereDoesntHave('maintenanceAsset')
                     ->orWhereHas('maintenanceAsset', function($subQ) {
-                        $subQ->whereIn('status', ['Ditolak']); // Only show rejected ones
+                        $subQ->whereIn('status', ['Ditolak']);
                     });
                 });
             }
             
-            // Group by asset_id and get the latest damage report for each asset
             $damagedAssets = $query->orderBy('tanggal_pelaporan', 'desc')
                 ->get()
                 ->groupBy('asset_id')
@@ -125,67 +128,28 @@ class PengajuanController extends Controller
                     return $group->first();
                 })
                 ->values();
-        }elseif ($user->hasRole('kaur_laboratorium')) {
-            // Show maintenance requests submitted by staff lab
-            $query = MaintenanceAsset::with(['asset', 'damagedAsset'])
-                ->where('requested_by_role', 'staff_laboratorium')
-                ->whereNull('kaur_lab_approved_at')
-                ->where('maintenance_assets.status', 'Menunggu Persetujuan');  // Specify table name
                 
-            // Apply filters BEFORE getting the data
-            if ($request->has('lokasi') && $request->lokasi) {
-                $query->whereHas('asset', function($q) use ($request) {
-                    $q->where('lokasi', $request->lokasi);
-                });
-            }
-            
-            if ($request->has('tingkat_kerusakan') && $request->tingkat_kerusakan) {
-                $query->whereHas('damagedAsset', function($q) use ($request) {
-                    $q->where('tingkat_kerusakan', $request->tingkat_kerusakan);
-                });
-            }
-            
-            // Apply sorting BEFORE getting the data
-            $sortField = $request->get('sort', 'created_at');
-            $sortDirection = $request->get('direction', 'desc');
-            
-            if (!in_array($sortDirection, ['asc', 'desc'])) {
-                $sortDirection = 'desc';
-            }
-            
-            switch ($sortField) {
-                case 'estimasi_biaya':
-                    $query->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
-                        ->orderBy('damaged_assets.estimasi_biaya', $sortDirection)
-                        ->select('maintenance_assets.*');
-                    break;
-                case 'priority':
-                    $query->orderByRaw("COALESCE(priority_score, 0) {$sortDirection}");
-                    break;
-                default:
-                    $query->orderBy('maintenance_assets.created_at', $sortDirection);  // Specify table name
-                    break;
-            }
-            
-            $damagedAssets = $query->get();
-            
-        } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
-            // Show data from kaur lab (approved) and staff logistik
+        } elseif ($user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2'])) {
+            // Get MaintenanceAssets for kaur roles
             $query = MaintenanceAsset::with(['asset', 'damagedAsset'])
-                ->where('maintenance_assets.status', 'Menunggu Persetujuan')  // Specify table name
-                ->where(function($q) {
-                    // From staff logistik
+                ->where('status', 'Menunggu Persetujuan');
+                
+            // Apply role-specific filters
+            if ($user->hasRole('kaur_laboratorium')) {
+                $query->where('requested_by_role', 'staff_laboratorium')
+                    ->whereNull('kaur_lab_approved_at');
+            } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
+                $query->where(function($q) {
                     $q->where('requested_by_role', 'staff_logistik')
                     ->whereNull('kaur_keuangan_approved_at');
                 })->orWhere(function($q) {
-                    // From staff lab that has been approved by kaur lab
-                    $q->where('maintenance_assets.status', 'Menunggu Persetujuan')  // Add this line
-                    ->where('requested_by_role', 'staff_laboratorium')
+                    $q->where('requested_by_role', 'staff_laboratorium')
                     ->whereNotNull('kaur_lab_approved_at')
                     ->whereNull('kaur_keuangan_approved_at');
                 });
+            }
             
-            // Apply filters BEFORE getting the data
+            // Apply user filters
             if ($request->has('lokasi') && $request->lokasi) {
                 $query->whereHas('asset', function($q) use ($request) {
                     $q->where('lokasi', $request->lokasi);
@@ -198,185 +162,102 @@ class PengajuanController extends Controller
                 });
             }
             
-            // Apply sorting BEFORE getting the data
-            $sortField = $request->get('sort', 'created_at');
-            $sortDirection = $request->get('direction', 'desc');
-            
-            if (!in_array($sortDirection, ['asc', 'desc'])) {
-                $sortDirection = 'desc';
-            }
-            
-            switch ($sortField) {
-                case 'estimasi_biaya':
-                    $query->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
-                        ->orderBy('damaged_assets.estimasi_biaya', $sortDirection)
-                        ->select('maintenance_assets.*');
-                    break;
-                case 'priority':
-                    $query->orderByRaw("COALESCE(priority_score, 0) {$sortDirection}");
-                    break;
-                default:
-                    $query->orderBy('maintenance_assets.created_at', $sortDirection);  // Specify table name
-                    break;
-            }
-            
             $damagedAssets = $query->get();
             
-        } elseif ($user->hasRole('wakil_dekan_2')) {
-            // Wakil Dekan 2 sees all maintenance requests that need approval
-            $query = MaintenanceAsset::with(['asset', 'damagedAsset'])
-                ->where('maintenance_assets.status', 'Menunggu Persetujuan');  // Specify table name
-            
-            // Apply filters BEFORE getting the data
-            if ($request->has('lokasi') && $request->lokasi) {
-                $query->whereHas('asset', function($q) use ($request) {
-                    $q->where('lokasi', $request->lokasi);
-                });
-            }
-            
-            if ($request->has('tingkat_kerusakan') && $request->tingkat_kerusakan) {
-                $query->whereHas('damagedAsset', function($q) use ($request) {
-                    $q->where('tingkat_kerusakan', $request->tingkat_kerusakan);
-                });
-            }
-            
-            // Apply sorting BEFORE getting the data
-            $sortField = $request->get('sort', 'created_at');
-            $sortDirection = $request->get('direction', 'desc');
-            
-            if (!in_array($sortDirection, ['asc', 'desc'])) {
-                $sortDirection = 'desc';
-            }
-            
-            switch ($sortField) {
-                case 'estimasi_biaya':
-                    $query->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
-                        ->orderBy('damaged_assets.estimasi_biaya', $sortDirection)
-                        ->select('maintenance_assets.*');
-                    break;
-                case 'priority':
-                    $query->orderByRaw("COALESCE(priority_score, 0) {$sortDirection}");
-                    break;
-                default:
-                    $query->orderBy('maintenance_assets.created_at', $sortDirection);  // Specify table name
-                    break;
-            }
-            
-            $damagedAssets = $query->get();
-            
+            Log::info('Maintenance assets retrieved for kaur role', [
+                'total_assets' => $damagedAssets->count(),
+                'assets_without_priority' => $damagedAssets->whereNull('priority_score')->count(),
+                'user_role' => $user->roles->first()->name
+            ]);
         } else {
-            // Default empty collection for other roles
             $damagedAssets = collect();
         }
-    
-        // Apply filters for staff roles only (since other roles already applied filters above)
-        if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
-            if ($request->has('lokasi') && $request->lokasi) {
-                $damagedAssets = $damagedAssets->filter(function($item) use ($request) {
-                    return $item->asset->lokasi == $request->lokasi;
-                });
-            }
+        
+        // ===== ENHANCED AUTOMATIC TOPSIS CALCULATION =====
+        $priorityScores = [];
+        
+        if ($user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']) && 
+            $damagedAssets->count() > 0) {
             
-            if ($request->has('tingkat_kerusakan') && $request->tingkat_kerusakan) {
-                $damagedAssets = $damagedAssets->filter(function($item) use ($request) {
-                    return $item->tingkat_kerusakan == $request->tingkat_kerusakan;
-                });
+            // First, get existing priority scores
+            $priorityScores = $this->getStoredPriorityScores($damagedAssets);
+            
+            // Find assets without priority scores
+            $assetsWithoutScores = $damagedAssets->filter(function($asset) use ($priorityScores) {
+                return $asset instanceof \App\Models\MaintenanceAsset && 
+                       !isset($priorityScores[$asset->id]) && 
+                       is_null($asset->priority_score);
+            });
+            
+            Log::info('TOPSIS calculation assessment', [
+                'total_assets' => $damagedAssets->count(),
+                'existing_scores' => count($priorityScores),
+                'assets_needing_calculation' => $assetsWithoutScores->count(),
+                'user_role' => $user->roles->first()->name
+            ]);
+            
+            // Calculate TOPSIS for assets without scores
+            if ($assetsWithoutScores->count() > 0 && !$user->hasRole('wakil_dekan_2')) {
+                
+                Log::info('Starting TOPSIS calculation for assets without scores');
+                
+                $calculatedScores = [];
+                
+                if ($user->hasRole('kaur_laboratorium')) {
+                    $ahpWeights = AhpWeight::getActiveWeightsForTopsis('laboratorium');
+                    if ($ahpWeights) {
+                        $calculatedScores = $this->calculateTopsisWithRetry($assetsWithoutScores, $ahpWeights, 'laboratorium');
+                    }
+                } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
+                    // Separate by department
+                    $labAssets = $assetsWithoutScores->filter(function($asset) {
+                        return str_contains($asset->asset->lokasi, 'Laboratorium');
+                    });
+                    
+                    $logisticAssets = $assetsWithoutScores->filter(function($asset) {
+                        return !str_contains($asset->asset->lokasi, 'Laboratorium');
+                    });
+                    
+                    if ($labAssets->count() > 0) {
+                        $labWeights = AhpWeight::getActiveWeightsForTopsis('laboratorium');
+                        if ($labWeights) {
+                            $labScores = $this->calculateTopsisWithRetry($labAssets, $labWeights, 'laboratorium');
+                            $calculatedScores = array_merge($calculatedScores, $labScores);
+                        }
+                    }
+                    
+                    if ($logisticAssets->count() > 0) {
+                        $logisticWeights = AhpWeight::getActiveWeightsForTopsis('keuangan_logistik');
+                        if ($logisticWeights) {
+                            $logisticScores = $this->calculateTopsisWithRetry($logisticAssets, $logisticWeights, 'keuangan_logistik');
+                            $calculatedScores = array_merge($calculatedScores, $logisticScores);
+                        }
+                    }
+                }
+                
+                // Merge calculated scores with existing ones
+                $priorityScores = array_merge($priorityScores, $calculatedScores);
+                
+                Log::info('TOPSIS calculation completed', [
+                    'new_scores_calculated' => count($calculatedScores),
+                    'total_scores_available' => count($priorityScores)
+                ]);
             }
         }
         
-        // Calculate and store priority scores consistently (MOVED UP BEFORE SORTING)
-        $priorityScores = [];
-        if ($user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']) && isset($damagedAssets) && $damagedAssets->count() > 0) {
-            
-            // Always use stored priority scores first
-            $priorityScores = $this->getStoredPriorityScores($damagedAssets);
-            
-            // If no stored scores and not Wakil Dekan 2, check if we can calculate
-            if (empty($priorityScores) && !$user->hasRole('wakil_dekan_2')) {
-                // Get AHP criteria weights from database instead of session
-                $ahpCriteriaWeights = AhpWeight::getActiveWeightsForTopsis();
-                
-                if ($ahpCriteriaWeights) {
-                    // Automatically calculate TOPSIS with AHP weights
-                    Log::info('Automatically calculating TOPSIS priorities', [
-                        'user' => $user->name,
-                        'assets_count' => $damagedAssets->count()
-                    ]);
-                    
-                    try {
-                        // Calculate TOPSIS scores
-                        $priorityScores = $this->topsisService->calculatePriorityWithWeights($damagedAssets, $ahpCriteriaWeights);
-                        
-                        // The calculatePriorityWithWeights method already updates the database
-                        // so we don't need to update again here
-                        
-                    } catch (\Exception $e) {
-                        Log::error('Auto TOPSIS calculation failed', [
-                            'error' => $e->getMessage(),
-                            'user' => $user->name
-                        ]);
-                        
-                        // Continue without priority scores
-                        $priorityScores = [];
-                    }
-                } else {
-                    Log::info('No AHP weights available for TOPSIS calculation', [
-                        'user' => $user->name
-                    ]);
-                }
-            }
-        }
-    
-        // Sort by priority if available for kaur roles
-        if (!empty($priorityScores) && $user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2'])) {
-            // Only sort if priority sorting wasn't already applied in the query
+        // Apply sorting and pagination
+        if ($user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2'])) {
             $sortField = $request->get('sort', 'created_at');
-            if ($sortField !== 'priority' && $sortField !== 'estimasi_biaya') {
-                // Sort the collection by priority score (descending - highest priority first)
+            $sortDirection = $request->get('direction', 'desc');
+            
+            if ($sortField === 'priority' && !empty($priorityScores)) {
                 $damagedAssets = $damagedAssets->sortByDesc(function($item) use ($priorityScores) {
                     return $priorityScores[$item->id]['score'] ?? 0;
                 })->values();
             }
         }
         
-        // Handle sorting for staff roles only (other roles already sorted above)
-        if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
-            $sortField = $request->get('sort', 'tanggal_pelaporan');
-            $sortDirection = $request->get('direction', 'desc');
-            
-            // Validate sort direction
-            if (!in_array($sortDirection, ['asc', 'desc'])) {
-                $sortDirection = 'desc';
-            }
-            
-            // Apply sorting for collections
-            switch ($sortField) {
-                case 'estimasi_biaya':
-                    $damagedAssets = $sortDirection === 'asc' 
-                        ? $damagedAssets->sortBy('estimasi_biaya')
-                        : $damagedAssets->sortByDesc('estimasi_biaya');
-                    break;
-                case 'priority':
-                    if (!empty($priorityScores)) {
-                        $damagedAssets = $sortDirection === 'asc' 
-                            ? $damagedAssets->sortBy(function($item) use ($priorityScores) {
-                                return $priorityScores[$item->id]['score'] ?? 0;
-                            })
-                            : $damagedAssets->sortByDesc(function($item) use ($priorityScores) {
-                                return $priorityScores[$item->id]['score'] ?? 0;
-                            });
-                    }
-                    break;
-                default:
-                    $damagedAssets = $sortDirection === 'asc' 
-                        ? $damagedAssets->sortBy('tanggal_pelaporan')
-                        : $damagedAssets->sortByDesc('tanggal_pelaporan');
-                    break;
-            }
-            $damagedAssets = $damagedAssets->values(); // Reset keys
-        }
-        
-        // Convert to paginated result for consistency
+        // Convert to paginated result
         $page = $request->get('page', 1);
         $perPage = 10;
         $paginatedItems = $damagedAssets->slice(($page - 1) * $perPage, $perPage);
@@ -391,7 +272,138 @@ class PengajuanController extends Controller
         $locations = Asset::distinct()->pluck('lokasi');
         $tingkatKerusakanOptions = ['Ringan', 'Sedang', 'Berat'];
         
+        Log::info('PengajuanController::create completed', [
+            'final_priority_scores_count' => count($priorityScores),
+            'maintenance_assets_count' => $maintenanceAssets->count()
+        ]);
+        
         return view('pengajuan.create', compact('maintenanceAssets', 'locations', 'tingkatKerusakanOptions', 'priorityScores'));
+    }
+
+    private function calculateTopsisWithRetry($assets, $ahpWeights, $department, $maxRetries = 3)
+    {
+        $retryCount = 0;
+        $calculatedScores = [];
+        
+        while ($retryCount < $maxRetries && empty($calculatedScores)) {
+            try {
+                Log::info('Attempting TOPSIS calculation', [
+                    'department' => $department,
+                    'assets_count' => $assets->count(),
+                    'retry_count' => $retryCount,
+                    'ahp_weights_count' => count($ahpWeights)
+                ]);
+                
+                $calculatedScores = $this->topsisService->calculatePriorityWithWeights($assets, $ahpWeights);
+                
+                if (!empty($calculatedScores)) {
+                    Log::info('TOPSIS calculation successful', [
+                        'department' => $department,
+                        'scores_calculated' => count($calculatedScores)
+                    ]);
+                    break;
+                }
+                
+            } catch (\Exception $e) {
+                Log::error('TOPSIS calculation attempt failed', [
+                    'department' => $department,
+                    'retry_count' => $retryCount,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+            
+            $retryCount++;
+            
+            if ($retryCount < $maxRetries) {
+                // Wait a bit before retrying
+                sleep(1);
+            }
+        }
+        
+        if (empty($calculatedScores) && $retryCount >= $maxRetries) {
+            Log::error('TOPSIS calculation failed after all retries', [
+                'department' => $department,
+                'max_retries' => $maxRetries
+            ]);
+        }
+        
+        return $calculatedScores;
+    }
+
+    public function forceCalculateAllPriorities()
+    {
+        $user = Auth::user();
+        
+        if (!$user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm'])) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        
+        try {
+            Log::info('Force calculating all priority scores', [
+                'triggered_by' => $user->name
+            ]);
+            
+            // Get all maintenance assets without priority scores
+            $allAssetsWithoutScores = MaintenanceAsset::with(['asset', 'damagedAsset'])
+                ->where('status', 'Menunggu Persetujuan')
+                ->whereNull('priority_score')
+                ->get();
+            
+            if ($allAssetsWithoutScores->count() === 0) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'All assets already have priority scores'
+                ]);
+            }
+            
+            $totalCalculated = 0;
+            
+            // Separate by department and calculate
+            $labAssets = $allAssetsWithoutScores->filter(function($asset) {
+                return str_contains($asset->asset->lokasi, 'Laboratorium');
+            });
+            
+            $logisticAssets = $allAssetsWithoutScores->filter(function($asset) {
+                return !str_contains($asset->asset->lokasi, 'Laboratorium');
+            });
+            
+            // Calculate for lab assets
+            if ($labAssets->count() > 0) {
+                $labWeights = AhpWeight::getActiveWeightsForTopsis('laboratorium');
+                if ($labWeights) {
+                    $labScores = $this->calculateTopsisWithRetry($labAssets, $labWeights, 'laboratorium');
+                    $totalCalculated += count($labScores);
+                }
+            }
+            
+            // Calculate for logistic assets
+            if ($logisticAssets->count() > 0) {
+                $logisticWeights = AhpWeight::getActiveWeightsForTopsis('keuangan_logistik');
+                if ($logisticWeights) {
+                    $logisticScores = $this->calculateTopsisWithRetry($logisticAssets, $logisticWeights, 'keuangan_logistik');
+                    $totalCalculated += count($logisticScores);
+                }
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => "Priority scores calculated for {$totalCalculated} out of {$allAssetsWithoutScores->count()} assets",
+                'calculated' => $totalCalculated,
+                'total' => $allAssetsWithoutScores->count()
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Force calculate all priorities failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to calculate priorities: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function getTopsisStatus()

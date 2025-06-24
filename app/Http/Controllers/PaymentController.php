@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Payment;
@@ -94,7 +93,7 @@ class PaymentController extends Controller
             'tipe_pembayaran.in' => 'Tipe pembayaran tidak valid.',
             'status.in' => 'Status pembayaran tidak valid.',
         ]);
-    
+
         // Handle file upload
         $filePath = null;
         if ($request->hasFile('file_invoice')) {
@@ -102,7 +101,7 @@ class PaymentController extends Controller
             $fileName = time() . '_' . $file->getClientOriginalName();
             $filePath = $file->storeAs('invoices', $fileName, 'public');
         }
-    
+
         // Determine status - default to 'belum_dibayar' if not provided
         $status = $validated['status'] ?? 'belum_dibayar';
         
@@ -111,7 +110,7 @@ class PaymentController extends Controller
         if ($status === 'sudah_dibayar') {
             $tanggalPembayaran = $validated['tanggal_pembayaran'] ?? now();
         }
-    
+
         // Create payment
         $payment = Payment::create([
             'no_invoice' => $validated['no_invoice'],
@@ -123,7 +122,7 @@ class PaymentController extends Controller
             'status' => $status,
             'tanggal_pembayaran' => $tanggalPembayaran,
         ]);
-    
+
         return redirect()->route('pembayaran.index', $payment->id)
             ->with('success', 'Data pembayaran berhasil dibuat.');
     }
@@ -141,16 +140,16 @@ class PaymentController extends Controller
      */
     public function edit(Payment $payment)
     {
-    // Prevent editing paid payments
-    if ($payment->status === 'sudah_dibayar') {
-        return redirect()->route('pembayaran.show', $payment->id)
-            ->with('error', 'Pembayaran yang sudah dibayar tidak dapat diubah.');
-    }
-    
-    $paymentTypes = Payment::TIPE_PEMBAYARAN;
-    $statusOptions = Payment::STATUS;
-    
-    return view('pembayaran.edit', compact('payment', 'paymentTypes', 'statusOptions'));
+        // Prevent editing paid payments
+        if ($payment->status === 'sudah_dibayar') {
+            return redirect()->route('pembayaran.show', $payment->id)
+                ->with('error', 'Pembayaran yang sudah dibayar tidak dapat diubah.');
+        }
+        
+        $paymentTypes = Payment::TIPE_PEMBAYARAN;
+        $statusOptions = Payment::STATUS;
+        
+        return view('pembayaran.edit', compact('payment', 'paymentTypes', 'statusOptions'));
     }
 
     /**
@@ -163,7 +162,7 @@ class PaymentController extends Controller
             return redirect()->route('pembayaran.show', $payment->id)
                 ->with('error', 'Pembayaran yang sudah dibayar tidak dapat diubah.');
         }
-
+        
         $validated = $request->validate([
             'no_invoice' => [
                 'required',
@@ -184,30 +183,113 @@ class PaymentController extends Controller
             'tipe_pembayaran.in' => 'Tipe pembayaran tidak valid.',
             'status.in' => 'Status pembayaran tidak valid.',
         ]);
-
+        
         // Handle file upload
         if ($request->hasFile('file_invoice')) {
             // Delete old file
             if ($payment->file_invoice && Storage::disk('public')->exists($payment->file_invoice)) {
                 Storage::disk('public')->delete($payment->file_invoice);
             }
-
             $file = $request->file('file_invoice');
             $fileName = time() . '_' . $file->getClientOriginalName();
             $validated['file_invoice'] = $file->storeAs('invoices', $fileName, 'public');
         }
-
+        
         // Handle payment date logic
         if ($validated['status'] === 'sudah_dibayar' && !$validated['tanggal_pembayaran']) {
             $validated['tanggal_pembayaran'] = now();
         } elseif ($validated['status'] !== 'sudah_dibayar') {
             $validated['tanggal_pembayaran'] = null;
         }
-
+        
         $payment->update($validated);
-
+        
         return redirect()->route('pembayaran.index', $payment->id)
             ->with('success', 'Data pembayaran berhasil diperbarui.');
+    }
+
+    /**
+     * Update payment status (for AJAX calls from dropdown)
+     */
+    public function updateStatus(Request $request, Payment $payment)
+    {
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(array_keys(Payment::STATUS))],
+        ]);
+
+        // For 'sudah_dibayar' status without photo, don't update yet
+        if ($validated['status'] === 'sudah_dibayar' && !$request->hasFile('payment_photo')) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Bukti pembayaran diperlukan untuk status sudah dibayar'
+            ], 400);
+        }
+
+        $updateData = [
+            'status' => $validated['status']
+        ];
+
+        // Set payment date if status is 'sudah_dibayar'
+        if ($validated['status'] === 'sudah_dibayar') {
+            $updateData['tanggal_pembayaran'] = now();
+        } elseif ($validated['status'] !== 'sudah_dibayar') {
+            $updateData['tanggal_pembayaran'] = null;
+        }
+
+        $payment->update($updateData);
+
+        return response()->json([
+            'success' => true, 
+            'message' => 'Status pembayaran berhasil diperbarui'
+        ]);
+    }
+
+    /**
+     * Update payment photo (for 'sudah_dibayar' status)
+     */
+    public function updatePhoto(Request $request, Payment $payment)
+    {
+        $validated = $request->validate([
+            'payment_photo' => 'required|file|mimes:jpg,jpeg,png,gif,pdf|max:5120', // 5MB max
+            'status' => 'required|in:sudah_dibayar',
+        ], [
+            'payment_photo.required' => 'Bukti pembayaran diperlukan.',
+            'payment_photo.mimes' => 'File harus berformat JPG, PNG, GIF, atau PDF.',
+            'payment_photo.max' => 'Ukuran file maksimal 5MB.',
+        ]);
+
+        try {
+            // Handle photo upload
+            $photoPath = null;
+            if ($request->hasFile('payment_photo')) {
+                // Delete old photo if exists
+                if ($payment->photo_pembayaran && Storage::disk('public')->exists($payment->photo_pembayaran)) {
+                    Storage::disk('public')->delete($payment->photo_pembayaran);
+                }
+
+                $file = $request->file('payment_photo');
+                $fileName = 'payment_' . $payment->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $photoPath = $file->storeAs('payment_photos', $fileName, 'public');
+            }
+
+            // Update payment with photo and status
+            $payment->update([
+                'photo_pembayaran' => $photoPath,
+                'status' => 'sudah_dibayar',
+                'tanggal_pembayaran' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Bukti pembayaran berhasil diupload dan status diperbarui'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengupload bukti pembayaran: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -219,12 +301,12 @@ class PaymentController extends Controller
             return redirect()->back()
                 ->with('info', 'Pembayaran sudah ditandai sebagai dibayar.');
         }
-    
+
         $payment->update([
             'status' => 'sudah_dibayar',
             'tanggal_pembayaran' => now(),
         ]);
-    
+
         return redirect()->route('pembayaran.show', $payment->id)
             ->with('success', 'Pembayaran berhasil ditandai sebagai sudah dibayar.');
     }
@@ -232,20 +314,37 @@ class PaymentController extends Controller
     /**
      * Cancel payment
      */
-    public function cancel(Payment $payment)
+    public function cancel(Request $request, Payment $payment)
     {
         if ($payment->status === 'sudah_dibayar') {
             return redirect()->back()
                 ->with('error', 'Pembayaran yang sudah dibayar tidak dapat dibatalkan.');
         }
     
+        // Validate revision reason
+        $validated = $request->validate([
+            'alasan_revisi' => 'required|string|max:1000',
+        ], [
+            'alasan_revisi.required' => 'Alasan revisi harus diisi.',
+            'alasan_revisi.max' => 'Alasan revisi maksimal 1000 karakter.',
+        ]);
+    
         $payment->update([
-            'status' => 'dibatalkan',
+            'status' => 'revisi',
+            'alasan_revisi' => $validated['alasan_revisi'],
             'tanggal_pembayaran' => null,
         ]);
     
+        // Handle AJAX requests
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Pembayaran berhasil direvisi.'
+            ]);
+        }
+    
         return redirect()->route('pembayaran.show', $payment->id)
-            ->with('success', 'Pembayaran berhasil dibatalkan.');
+            ->with('success', 'Pembayaran berhasil direvisi.');
     }
 
     /**
@@ -258,14 +357,18 @@ class PaymentController extends Controller
             return redirect()->route('payments.index')
                 ->with('error', 'Pembayaran yang sudah dibayar tidak dapat dihapus.');
         }
-
-        // Delete associated file
+        
+        // Delete associated files
         if ($payment->file_invoice && Storage::disk('public')->exists($payment->file_invoice)) {
             Storage::disk('public')->delete($payment->file_invoice);
         }
-
+        
+        if ($payment->photo_pembayaran && Storage::disk('public')->exists($payment->photo_pembayaran)) {
+            Storage::disk('public')->delete($payment->photo_pembayaran);
+        }
+        
         $payment->delete();
-
+        
         return redirect()->route('pembayaran.index')
             ->with('success', 'Data pembayaran berhasil dihapus.');
     }
@@ -279,8 +382,21 @@ class PaymentController extends Controller
             return redirect()->back()
                 ->with('error', 'File invoice tidak ditemukan.');
         }
-    
+
         return Storage::disk('public')->download($payment->file_invoice);
+    }
+
+    /**
+     * Download payment photo
+     */
+    public function downloadPaymentPhoto(Payment $payment)
+    {
+        if (!$payment->photo_pembayaran || !Storage::disk('public')->exists($payment->photo_pembayaran)) {
+            return redirect()->back()
+                ->with('error', 'Bukti pembayaran tidak ditemukan.');
+        }
+
+        return Storage::disk('public')->download($payment->photo_pembayaran);
     }
 
     /**

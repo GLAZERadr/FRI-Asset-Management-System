@@ -61,7 +61,6 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
             </h2>
-            <a href="{{ route('pengajuan.daftar') }}" class="text-sm text-blue-600 hover:text-blue-800">Lihat Semua</a>
         </div>
         
         <div class="overflow-x-auto">

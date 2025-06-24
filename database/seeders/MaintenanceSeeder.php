@@ -4,6 +4,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Asset;
 use App\Models\DamagedAsset;
 use App\Models\MaintenanceAsset;
+use App\Models\AssetMonitoring;
 use App\Models\User;
 use App\Models\ApprovalLog;
 use Carbon\Carbon;
@@ -17,24 +18,420 @@ class MaintenanceSeeder extends Seeder
     {
         // Only create data if tables are empty or specific flag is set
         if (Asset::count() == 0 || $this->command->option('force')) {
+            $this->command->info('🚀 Starting MaintenanceSeeder...');
+            
             // Create Assets first
+            $this->command->info('📦 Creating Assets...');
             $assets = $this->createAssets();
+            $this->command->info('✅ Created ' . count($assets) . ' assets');
             
             // Create Damaged Assets based on the created assets
+            $this->command->info('🔧 Creating Damaged Assets...');
             $damagedAssets = $this->createDamagedAssets($assets);
+            $this->command->info('✅ Created ' . count($damagedAssets) . ' damage reports');
             
             // Create Maintenance Assets for only SOME damaged assets (not all)
+            $this->command->info('🛠️ Creating Maintenance Assets...');
             $this->createMaintenanceAssets($assets, array_slice($damagedAssets, 0, 4)); // Only first 4
+            $this->command->info('✅ Created 4 maintenance requests');
             
             // Create additional standalone damaged assets (without maintenance requests)
+            $this->command->info('📋 Creating standalone damaged assets...');
             $this->createStandaloneDamagedAssets($assets);
             
+            // Get users for monitoring and unvalidated damaged assets
+            $this->command->info('👥 Getting users...');
+            $users = $this->getUsers();
+            $this->command->info('Found users: ' . json_encode(array_map(function($user) {
+                return $user ? $user->name : 'not found';
+            }, $users)));
+            
+            // Create unvalidated damaged assets with verified = 'No' and validated = 'No'
+            $this->command->info('🚨 Creating unvalidated damaged assets...');
+            $unvalidatedDamagedAssets = $this->createUnvalidatedDamagedAssets($assets);
+            $this->command->info("✅ Created " . count($unvalidatedDamagedAssets) . " unvalidated damaged assets");
+            
+            // Verify what was actually created
+            $allDamagedAssets = DamagedAsset::all();
+            $validatedCount = $allDamagedAssets->where('validated', 'Yes')->count();
+            $unvalidatedCount = $allDamagedAssets->where('validated', 'No')->count();
+            $this->command->info("📊 Database verification:");
+            $this->command->info("  - Total damaged assets: " . $allDamagedAssets->count());
+            $this->command->info("  - Validated (Yes): " . $validatedCount);
+            $this->command->info("  - Unvalidated (No): " . $unvalidatedCount);
+            
+            // Create Asset Monitoring reports with validated = 'not_validated'
+            $this->command->info('📊 Creating Asset Monitoring reports...');
+            $monitoringReports = $this->createAssetMonitoringReports($assets, $users);
+            
             $this->command->info('✅ MaintenanceSeeder completed successfully!');
-            $this->command->info('📊 Created: ' . count($assets) . ' assets, ' . count($damagedAssets) . ' damage reports, 4 maintenance requests');
-            $this->command->info('📋 Additional standalone damaged assets created for staff to submit');
+            $this->command->info('📊 Summary:');
+            $this->command->info('  - Assets: ' . count($assets));
+            $this->command->info('  - Validated damage reports: ' . count($damagedAssets));
+            $this->command->info('  - Maintenance requests: 4');
+            $this->command->info('  - Unvalidated damage reports: ' . count($unvalidatedDamagedAssets));
+            $this->command->info('  - Asset monitoring reports: ' . count($monitoringReports));
         } else {
             $this->command->warn('⚠️  Data already exists. Use --force to override or clear tables manually.');
         }
+    }
+
+    /**
+     * Get users for different roles
+     */
+    private function getUsers(): array
+    {
+        return [
+            'staff_laboratorium' => User::where('email', 'like', '%laboratorium%')->orWhere('username', 'like', '%lab%')->first() ?? User::first(),
+            'staff_logistik' => User::where('email', 'like', '%logistik%')->orWhere('username', 'like', '%logistik%')->first() ?? User::first(),
+            'kaur_laboratorium' => User::where('email', 'like', '%kaur%')->orWhere('username', 'like', '%kaur%')->first() ?? User::first(),
+            'kaur_keuangan' => User::where('email', 'like', '%keuangan%')->orWhere('username', 'like', '%keuangan%')->first() ?? User::first(),
+        ];
+    }
+
+    /**
+     * Create Asset Monitoring reports with validated = 'not_validated'
+     */
+    private function createAssetMonitoringReports($assets, array $users): array
+    {
+        $this->command->info('🔍 Starting to create Asset Monitoring reports...');
+        
+        $monitoringReports = [];
+        $roomGroups = collect($assets)->groupBy('kode_ruangan');
+        
+        $reportCounter = 1;
+        
+        foreach ($roomGroups as $kodeRuangan => $roomAssets) {
+            $this->command->info("📍 Processing room: {$kodeRuangan} with " . $roomAssets->count() . " assets");
+            
+            // Create 2-3 monitoring reports per room
+            $reportsPerRoom = rand(2, 3);
+            
+            for ($i = 0; $i < $reportsPerRoom; $i++) {
+                // Determine which user creates this report
+                $isLabRoom = str_contains($kodeRuangan, 'TULT') || str_contains($kodeRuangan, 'LAB');
+                $user = $isLabRoom ? $users['staff_laboratorium'] : $users['staff_logistik'];
+                
+                if (!$user) {
+                    $this->command->warn("⚠️  No user found for room {$kodeRuangan}, using first available user");
+                    $user = User::first();
+                }
+                
+                if (!$user) {
+                    $this->command->error("❌ No users found in database, skipping monitoring reports");
+                    continue;
+                }
+                
+                // Generate report ID
+                $idLaporan = $this->generateMonitoringReportId($user, $reportCounter);
+                $reportCounter++;
+                
+                // Create monitoring data for assets in this room
+                $monitoringData = $this->generateMonitoringData($roomAssets, $idLaporan);
+                
+                // Create monitoring report
+                $reportDate = Carbon::now()->subDays(rand(1, 45));
+                
+                $this->command->info("📝 Creating monitoring report: {$idLaporan}");
+                
+                $monitoring = AssetMonitoring::create([
+                    'id_laporan' => $idLaporan,
+                    'kode_ruangan' => $kodeRuangan,
+                    'nama_pelapor' => $user->name ?? 'System User',
+                    'reviewer' => $user->name ?? 'System User',
+                    'tanggal_laporan' => $reportDate,
+                    'validated' => 'not_validated', // Not validated yet
+                    'validated_at' => null,
+                    'catatan' => $this->generateReportNotes(),
+                    'monitoring_data' => $monitoringData,
+                    'user_id' => $user->id
+                ]);
+                
+                $monitoringReports[] = $monitoring;
+            }
+        }
+        
+        $this->command->info('✅ Asset Monitoring reports creation completed. Created: ' . count($monitoringReports) . ' reports');
+        return $monitoringReports;
+    }
+
+    /**
+     * Generate monitoring report ID based on user role
+     */
+    private function generateMonitoringReportId(User $user, int $counter): string
+    {
+        $monthYear = date('mY');
+        
+        $userRoles = $user->getRoleNames();
+        $primaryRole = $userRoles->first();
+        
+        $roleCode = match($primaryRole) {
+            'staff_laboratorium' => 'LAB',
+            'staff_logistik' => 'LOG',
+            'kaur_laboratorium' => 'KLAB',
+            'kaur_keuangan_logistik_sdm' => 'KKEU',
+            default => 'GEN'
+        };
+        
+        $sequenceFormatted = str_pad($counter, 3, '0', STR_PAD_LEFT);
+        return "LAP-{$monthYear}-{$roleCode}-{$sequenceFormatted}";
+    }
+
+    /**
+     * Generate monitoring data for assets
+     */
+    private function generateMonitoringData($assets, string $idLaporan): array
+    {
+        $monitoringData = [];
+        
+        foreach ($assets as $asset) {
+            // 70% chance asset is in good condition, 30% needs maintenance
+            $needsMaintenance = rand(1, 100) <= 30;
+            
+            $status = $needsMaintenance ? 'butuh_perawatan' : 'baik';
+            $verification = 'not_verified'; // All assets start as not verified
+            
+            $deskripsi = null;
+            if ($needsMaintenance) {
+                $deskripsi = $this->generateMaintenanceDescription($asset->kategori);
+            }
+            
+            $monitoringData[] = [
+                'asset_id' => $asset->asset_id,
+                'status' => $status,
+                'verification' => $verification,
+                'deskripsi' => $deskripsi,
+                'foto_path' => null, // No photos in seeder
+                'id_laporan' => $idLaporan
+            ];
+        }
+        
+        return $monitoringData;
+    }
+
+    /**
+     * Generate maintenance descriptions based on asset category
+     */
+    private function generateMaintenanceDescription(string $category): string
+    {
+        $descriptions = [
+            'Elektronik' => [
+                'Layar berkedip-kedip',
+                'Suara bising dari kipas',
+                'Port USB tidak berfungsi',
+                'Kabel power longgar',
+                'Software perlu update',
+                'Overheating saat digunakan',
+                'Koneksi jaringan tidak stabil',
+                'Battery backup lemah'
+            ],
+            'Furnitur' => [
+                'Permukaan meja tergores',
+                'Laci susah dibuka',
+                'Roda kursi macet',
+                'Cat mulai mengelupas',
+                'Handle pintu lemari rusak',
+                'Kunci tidak berfungsi',
+                'Permukaan tidak rata',
+                'Sambungan kayu longgar'
+            ],
+            'Mesin' => [
+                'Suara mesin tidak normal',
+                'Getaran berlebihan',
+                'Konsumsi listrik tinggi',
+                'Filter perlu diganti',
+                'Oli perlu service',
+                'Belt kendor',
+                'Sensor error',
+                'Coolant system warning'
+            ]
+        ];
+        
+        $categoryDescriptions = $descriptions[$category] ?? $descriptions['Elektronik'];
+        return $categoryDescriptions[array_rand($categoryDescriptions)];
+    }
+
+    /**
+     * Generate report notes
+     */
+    private function generateReportNotes(): ?string
+    {
+        $notes = [
+            'Pemantauan rutin bulanan',
+            'Inspeksi kondisi aset setelah pembersihan',
+            'Pengecekan berkala sesuai jadwal',
+            'Monitoring pasca maintenance',
+            'Evaluasi kondisi aset semester ini',
+            null, // Some reports don't have notes
+            null,
+            'Pengecekan sebelum periode ujian',
+            'Monitoring kondisi lab praktikum'
+        ];
+        
+        return $notes[array_rand($notes)];
+    }
+
+    /**
+     * Create unvalidated damaged assets with verified = 'No' and validated = 'No'
+     */
+    private function createUnvalidatedDamagedAssets(array $assets): array
+    {
+        $this->command->info('🚨 Starting to create unvalidated damaged assets...');
+        
+        $damagedAssets = [];
+        $damageReports = [
+            'Screen flickering terus menerus',
+            'Hardware malfunction terdeteksi sistem',
+            'Software tidak kompatibel dengan sistem',
+            'Physical damage pada casing luar',
+            'Power supply tidak stabil saat operasi',
+            'Network connectivity bermasalah',
+            'Printer sering paper jam',
+            'Keyboard beberapa tombol tidak responsif',
+            'Mouse scroll wheel macet',
+            'Audio output suara pecah',
+            'Port USB tidak terdeteksi device',
+            'Cooling system tidak berfungsi optimal',
+            'Memory error saat startup',
+            'Hard drive mengeluarkan bunyi aneh',
+            'Battery tidak dapat di-charge',
+            'Monitor tidak menampilkan output',
+            'Webcam image buram dan tidak fokus',
+            'Microphone pickup suara sangat rendah',
+            'Ethernet port koneksi terputus-putus',
+            'Bluetooth pairing gagal terus'
+        ];
+        
+        $damageLevels = ['Ringan', 'Sedang', 'Berat'];
+        $pelapors = ['Laboratorium', 'Logistik dan SDM', 'Mahasiswa', 'Dosen', 'Staff IT'];
+        
+        // Create 10-15 unvalidated damage reports
+        $numberOfReports = rand(10, 15);
+        $selectedAssets = collect($assets)->random(min($numberOfReports, count($assets)));
+        
+        $this->command->info("📊 Creating {$numberOfReports} unvalidated damaged assets...");
+        
+        foreach ($selectedAssets as $index => $asset) {
+            $damageId = 'UDM' . str_pad(200 + $index, 3, '0', STR_PAD_LEFT); // Start from UDM200 to avoid conflicts
+            
+            // Check if damage report already exists
+            $existingDamage = DamagedAsset::where('damage_id', $damageId)->first();
+            if ($existingDamage) {
+                $this->command->warn("⚠️  Damage ID {$damageId} already exists, skipping...");
+                continue;
+            }
+            
+            $reportingDate = Carbon::now()->subDays(rand(1, 30));
+            $damageLevel = $damageLevels[array_rand($damageLevels)];
+            $pelapor = $pelapors[array_rand($pelapors)];
+            
+            // Determine reporter roles based on asset location
+            $reporterRoles = ['mahasiswa', 'dosen', 'staff'];
+            if (str_contains($asset->lokasi, 'Laboratorium')) {
+                $reporterRoles[] = 'asisten'; // Add asisten for lab assets
+                $pelapor = 'Laboratorium'; // Also update pelapor for consistency
+            } else {
+                $pelapor = 'Logistik dan SDM';
+            }
+            
+            $reporterRole = $reporterRoles[array_rand($reporterRoles)];
+            
+            // Generate unique IDs using model methods
+            $verificationId = DamagedAsset::generateVerId();
+            $validationId = DamagedAsset::generateValId();
+            
+            // Calculate estimated cost based on damage level and asset importance
+            $baseCost = intval($asset->tingkat_kepentingan_asset) * 125000;
+            
+            switch ($damageLevel) {
+                case 'Ringan':
+                    $estimatedCost = $baseCost * rand(1, 3);
+                    break;
+                case 'Sedang':
+                    $estimatedCost = $baseCost * rand(3, 8);
+                    break;
+                case 'Berat':
+                    $estimatedCost = $baseCost * rand(8, 15);
+                    break;
+                default:
+                    $estimatedCost = $baseCost * rand(2, 5);
+            }
+            
+            // Calculate estimated completion time
+            $estimatedCompletionTime = $this->calculateEstimatedCompletionTime($reportingDate, $damageLevel);
+            
+            // Some damaged assets should require vendor
+            $needsVendor = rand(1, 100) <= 25; // 25% chance needs vendor
+            $vendor = null;
+            $technician = 'Staf';
+            
+            if ($needsVendor) {
+                $vendors = ['PT Teknologi Maju', 'CV Solusi Digital', 'PT Mitra Komputer', 'UD Teknik Jaya', 'PT Elektronik Prima'];
+                $vendor = $vendors[array_rand($vendors)];
+                $technician = 'Vendor';
+            }
+            
+            // Generate reporter names based on role
+            $reporterNames = [
+                'mahasiswa' => ['Ahmad Fadli', 'Siti Nurhaliza', 'Budi Santoso', 'Rani Widiastuti', 'Farhan Maulana'],
+                'dosen' => ['Dr. Bambang Wijaya', 'Prof. Siti Aminah', 'Dr. Ir. Agus Salim', 'Dr. Maya Sari'],
+                'staff' => ['Pak Joko Widodo', 'Bu Sri Mulyani', 'Pak Andi Susanto', 'Bu Dewi Kartika'],
+                'asisten' => ['Asisten Lab Andi', 'Asisten Lab Sari', 'Asisten Lab Budi', 'Asisten Lab Devi'],
+                'admin' => ['Admin Laboratorium', 'Admin Logistik', 'Admin Keuangan']
+            ];
+            
+            $reporterName = $reporterNames[$reporterRole][array_rand($reporterNames[$reporterRole])];
+            
+            $this->command->info("🔧 Creating unvalidated damage report: {$damageId} for asset {$asset->asset_id}");
+            
+            // Create unvalidated damaged asset with all required fields
+            $createData = [
+                'damage_id' => $damageId,
+                'asset_id' => $asset->asset_id,
+                'deskripsi_kerusakan' => $damageReports[array_rand($damageReports)],
+                'tanggal_pelaporan' => $reportingDate,
+                'pelapor' => $pelapor,
+                'status' => 'Baru',
+                'reporter_name' => $reporterName,
+                'reporter_role' => $reporterRole,
+                'damaged_image' => null, // No images in seeder
+                'verification_id' => $verificationId,
+                'verified' => 'No', // Not verified yet
+                'validation_id' => $validationId,
+                'validated' => 'No', // Not validated yet
+                // Add missing fields that might be required
+                'reviewer' => null,
+                'verified_at' => null,
+                'validated_at' => null,
+                'alasan_penolakan' => null,
+                'id_laporan' => null
+            ];
+            
+            // Only add vendor if it's in fillable fields (check model)
+            // Note: 'vendor' might not be in the fillable array, so we skip it for now
+            
+            try {
+                $this->command->info("🔧 Creating unvalidated damage: {$damageId} with data: " . json_encode([
+                    'damage_id' => $damageId,
+                    'asset_id' => $asset->asset_id,
+                    'verified' => 'No',
+                    'validated' => 'No',
+                    'verification_id' => $verificationId,
+                    'validation_id' => $validationId
+                ]));
+                
+                $damagedAsset = DamagedAsset::create($createData);
+                $damagedAssets[] = $damagedAsset;
+                $this->command->info("✅ Successfully created unvalidated damage: {$damageId}");
+            } catch (\Exception $e) {
+                $this->command->error("❌ Failed to create damage {$damageId}: " . $e->getMessage());
+                $this->command->info("🔍 Debug data: " . json_encode($createData));
+                $this->command->info("🔍 Error trace: " . $e->getTraceAsString());
+            }
+        }
+        
+        $this->command->info('✅ Unvalidated damaged assets creation completed. Created: ' . count($damagedAssets) . ' records');
+        return $damagedAssets;
     }
 
     /**

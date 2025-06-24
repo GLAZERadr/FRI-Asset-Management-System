@@ -644,17 +644,9 @@ class TopsisService
         }
         
         try {
-            // Get AHP weights from session
-            $ahpCriteriaWeights = session('ahp_criteria_weights');
+            $currentUserDepartment = AhpWeight::getUserDepartment($user);
             
-            if (!$ahpCriteriaWeights) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Bobot kriteria AHP belum tersedia. Silakan lakukan kalkulasi AHP terlebih dahulu.'
-                ]);
-            }
-            
-            // Get all pending maintenance assets
+            // Get all pending maintenance assets with their relationships
             $pendingAssets = MaintenanceAsset::with(['asset', 'damagedAsset'])
                 ->where('status', 'Menunggu Persetujuan')
                 ->get();
@@ -666,24 +658,163 @@ class TopsisService
                 ]);
             }
             
-            // Calculate TOPSIS scores with AHP weights
-            $priorityScores = $this->calculatePriorityWithWeights(
-                $pendingAssets->pluck('damagedAsset'), 
-                $ahpCriteriaWeights
-            );
+            $updatedCount = 0;
+            $totalAssets = $pendingAssets->count();
+            $departmentInfo = [];
             
-            // Update all maintenance assets with new scores
-            $updatedCount = $this->updateAssetsWithScores($pendingAssets, $priorityScores);
+            if ($user->hasRole('kaur_laboratorium')) {
+                // Use laboratorium department AHP weights for all assets under kaur_laboratorium
+                $ahpCriteriaWeights = AhpWeight::getActiveWeightsForTopsis('laboratorium');
+                
+                if (!$ahpCriteriaWeights) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bobot kriteria AHP untuk departemen laboratorium belum tersedia. Silakan lakukan kalkulasi AHP terlebih dahulu.',
+                        'redirect_url' => route('kriteria.create')
+                    ]);
+                }
+                
+                // Validate that weights have actual values
+                $hasValidWeights = false;
+                foreach ($ahpCriteriaWeights as $criteriaId => $data) {
+                    if (isset($data['weight']) && $data['weight'] > 0) {
+                        $hasValidWeights = true;
+                        break;
+                    }
+                }
+                
+                if (!$hasValidWeights) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bobot kriteria AHP laboratorium tidak valid (semua bobot bernilai 0). Silakan lakukan kalkulasi AHP ulang.',
+                        'redirect_url' => route('kriteria.create')
+                    ]);
+                }
+                
+                // Check if weights are consistent
+                if (!AhpWeight::areCurrentWeightsConsistent('laboratorium')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bobot kriteria AHP laboratorium tidak konsisten (CR > 0.1). Silakan lakukan kalkulasi AHP ulang.',
+                        'redirect_url' => route('kriteria.create')
+                    ]);
+                }
+                
+                Log::info('Starting TOPSIS calculation for kaur_laboratorium', [
+                    'pending_assets_count' => $pendingAssets->count(),
+                    'criteria_weights' => $ahpCriteriaWeights,
+                    'user' => $user->name
+                ]);
+                
+                // Calculate TOPSIS scores with laboratorium AHP weights
+                $priorityScores = $this->topsisService->calculatePriorityWithWeights(
+                    $pendingAssets, 
+                    $ahpCriteriaWeights
+                );
+                
+                $updatedCount = count($priorityScores);
+                $departmentInfo = [
+                    'laboratorium' => [
+                        'assets_count' => $pendingAssets->count(),
+                        'updated_count' => $updatedCount,
+                        'criteria_count' => count($ahpCriteriaWeights)
+                    ]
+                ];
+                
+            } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
+                // Separate assets by location/department and use appropriate weights
+                $labAssets = $pendingAssets->filter(function($asset) {
+                    return str_contains($asset->asset->lokasi, 'Laboratorium');
+                });
+                
+                $logisticAssets = $pendingAssets->filter(function($asset) {
+                    return !str_contains($asset->asset->lokasi, 'Laboratorium');
+                });
+                
+                $departmentInfo = [
+                    'laboratorium' => ['assets_count' => $labAssets->count(), 'updated_count' => 0],
+                    'keuangan_logistik' => ['assets_count' => $logisticAssets->count(), 'updated_count' => 0]
+                ];
+                
+                // Calculate for lab assets using laboratorium weights
+                if ($labAssets->count() > 0) {
+                    $labAhpWeights = AhpWeight::getActiveWeightsForTopsis('laboratorium');
+                    if ($labAhpWeights && AhpWeight::areCurrentWeightsConsistent('laboratorium')) {
+                        Log::info('Calculating TOPSIS for lab assets by kaur_keuangan', [
+                            'assets_count' => $labAssets->count(),
+                            'department' => 'laboratorium'
+                        ]);
+                        
+                        $labPriorityScores = $this->topsisService->calculatePriorityWithWeights($labAssets, $labAhpWeights);
+                        $updatedCount += count($labPriorityScores);
+                        $departmentInfo['laboratorium']['updated_count'] = count($labPriorityScores);
+                        $departmentInfo['laboratorium']['criteria_count'] = count($labAhpWeights);
+                    } else {
+                        Log::warning('Lab AHP weights not available or inconsistent for kaur_keuangan calculation');
+                    }
+                }
+                
+                // Calculate for logistic assets using keuangan_logistik weights
+                if ($logisticAssets->count() > 0) {
+                    $logisticAhpWeights = AhpWeight::getActiveWeightsForTopsis('keuangan_logistik');
+                    if ($logisticAhpWeights && AhpWeight::areCurrentWeightsConsistent('keuangan_logistik')) {
+                        Log::info('Calculating TOPSIS for logistic assets by kaur_keuangan', [
+                            'assets_count' => $logisticAssets->count(),
+                            'department' => 'keuangan_logistik'
+                        ]);
+                        
+                        $logisticPriorityScores = $this->topsisService->calculatePriorityWithWeights($logisticAssets, $logisticAhpWeights);
+                        $updatedCount += count($logisticPriorityScores);
+                        $departmentInfo['keuangan_logistik']['updated_count'] = count($logisticPriorityScores);
+                        $departmentInfo['keuangan_logistik']['criteria_count'] = count($logisticAhpWeights);
+                    } else {
+                        Log::warning('Logistic AHP weights not available or inconsistent for kaur_keuangan calculation');
+                    }
+                }
+                
+                if ($updatedCount === 0) {
+                    $missingDepartments = [];
+                    if ($labAssets->count() > 0 && $departmentInfo['laboratorium']['updated_count'] === 0) {
+                        $missingDepartments[] = 'laboratorium';
+                    }
+                    if ($logisticAssets->count() > 0 && $departmentInfo['keuangan_logistik']['updated_count'] === 0) {
+                        $missingDepartments[] = 'keuangan_logistik';
+                    }
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bobot kriteria AHP untuk departemen ' . implode(' dan ', $missingDepartments) . ' belum tersedia atau tidak konsisten. Silakan pastikan kalkulasi AHP sudah dilakukan untuk semua departemen.',
+                        'missing_departments' => $missingDepartments,
+                        'redirect_url' => route('kriteria.create')
+                    ]);
+                }
+            }
+            
+            if ($updatedCount === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal menghitung prioritas. Tidak ada data yang valid untuk dikalkulasi.'
+                ]);
+            }
             
             return response()->json([
                 'success' => true,
-                'message' => "Berhasil menghitung prioritas untuk {$updatedCount} pengajuan menggunakan metode TOPSIS dengan bobot AHP.",
-                'updated_count' => $updatedCount,
-                'total_criteria' => count($ahpCriteriaWeights)
+                'message' => "Berhasil menghitung prioritas untuk {$updatedCount} dari {$totalAssets} pengajuan menggunakan metode TOPSIS dengan bobot AHP departemen yang sesuai.",
+                'data' => [
+                    'updated_count' => $updatedCount,
+                    'total_assets' => $totalAssets,
+                    'current_user_department' => $currentUserDepartment,
+                    'department_breakdown' => $departmentInfo,
+                    'method' => 'TOPSIS_AHP_Department_Specific',
+                    'calculation_time' => now()->toDateTimeString()
+                ]
             ]);
             
         } catch (\Exception $e) {
-            Log::error('TOPSIS calculation error: ' . $e->getMessage());
+            Log::error('TOPSIS calculation error: ' . $e->getMessage(), [
+                'user' => $user->name,
+                'stack_trace' => $e->getTraceAsString()
+            ]);
             
             return response()->json([
                 'success' => false,

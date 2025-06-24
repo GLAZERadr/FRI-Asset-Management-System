@@ -1,3 +1,4 @@
+<!-- kriteria/create -->
 @extends('layouts.app')
 
 @section('header', 'Asset Management')
@@ -126,6 +127,11 @@
 document.addEventListener('DOMContentLoaded', function() {
     let criteriaData = @json($criteria);
     let calculationResult = null; // Store AHP calculation result
+    let savedPairwiseComparisons = []; // Store pairwise comparisons for saving
+    
+    // Get active configuration from backend
+    const activeConfiguration = @json($activeConfiguration);
+    console.log('Active configuration loaded:', activeConfiguration);
     
     // Add Criteria Button - Show inline form
     const addCriteriaBtn = document.getElementById('addCriteriaBtn');
@@ -232,6 +238,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Function to get saved comparison value for criteria pair
+    function getSavedComparisonValue(criteria1, criteria2) {
+        if (!activeConfiguration || !activeConfiguration.pairwise_comparisons) {
+            return null;
+        }
+        
+        // Look for the comparison in saved data
+        const savedComparison = activeConfiguration.pairwise_comparisons.find(comp => 
+            (comp.criteria_1 === criteria1 && comp.criteria_2 === criteria2) ||
+            (comp.criteria_1 === criteria2 && comp.criteria_2 === criteria1)
+        );
+        
+        if (savedComparison) {
+            if (savedComparison.criteria_1 === criteria1 && savedComparison.criteria_2 === criteria2) {
+                return {
+                    value: savedComparison.value,
+                    selectedCriteria: criteria1
+                };
+            } else {
+                return {
+                    value: savedComparison.value,
+                    selectedCriteria: criteria2
+                };
+            }
+        }
+        
+        return null;
+    }
+
     // Generate Pairwise Comparisons
     function updateComparisons() {
         const criteriaRows = document.querySelectorAll('.criteria-row[data-criteria-id]');
@@ -251,16 +286,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 const row = document.createElement('tr');
                 row.className = 'border-b border-gray-200';
                 
+                // Get saved comparison value if exists
+                const savedValue = getSavedComparisonValue(activeCriteria[i].id, activeCriteria[j].id);
+                
                 // Create the comparison scale (9 to 1 to 9)
                 let scaleHTML = '';
                 
                 // Left side (9-2)
                 for (let k = 9; k >= 2; k--) {
+                    const isChecked = savedValue && 
+                        savedValue.selectedCriteria === activeCriteria[i].id && 
+                        savedValue.value === k;
+                    
                     scaleHTML += `
                         <td class="px-2 py-4 text-center">
                             <div class="flex flex-col items-center">
                                 <input type="radio" name="comparison_${i}_${j}" value="${activeCriteria[i].id}_${k}" 
-                                    class="comparison-radio mb-1" ${k === 2 ? 'checked' : ''}>
+                                    class="comparison-radio mb-1" ${isChecked ? 'checked' : ''}>
                                 <span class="text-xs">${k}</span>
                             </div>
                         </td>
@@ -268,11 +310,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // Center (1)
+                const isEqualChecked = savedValue && savedValue.value === 1;
                 scaleHTML += `
                     <td class="px-2 py-4 text-center">
                         <div class="flex flex-col items-center">
                             <input type="radio" name="comparison_${i}_${j}" value="equal_1" 
-                                class="comparison-radio mb-1">
+                                class="comparison-radio mb-1" ${isEqualChecked ? 'checked' : ''}>
                             <span class="text-xs">1</span>
                         </div>
                     </td>
@@ -280,15 +323,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Right side (2-9)
                 for (let k = 2; k <= 9; k++) {
+                    const isChecked = savedValue && 
+                        savedValue.selectedCriteria === activeCriteria[j].id && 
+                        savedValue.value === k;
+                    
                     scaleHTML += `
                         <td class="px-2 py-4 text-center">
                             <div class="flex flex-col items-center">
                                 <input type="radio" name="comparison_${i}_${j}" value="${activeCriteria[j].id}_${k}" 
-                                    class="comparison-radio mb-1">
+                                    class="comparison-radio mb-1" ${isChecked ? 'checked' : ''}>
                                 <span class="text-xs">${k}</span>
                             </div>
                         </td>
                     `;
+                }
+                
+                // If no saved value found, default to value 2 for first criteria
+                if (!savedValue) {
+                    scaleHTML = scaleHTML.replace(`value="${activeCriteria[i].id}_2"`, `value="${activeCriteria[i].id}_2" checked`);
                 }
                 
                 row.innerHTML = `
@@ -306,6 +358,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         console.log(`Generated ${activeCriteria.length * (activeCriteria.length - 1) / 2} pairwise comparisons`);
+        
+        // Show existing results if we have active configuration
+        if (activeConfiguration && activeConfiguration.comparison_matrix) {
+            displayExistingResults();
+        }
+    }
+
+    // Function to display existing results from active configuration
+    function displayExistingResults() {
+        if (!activeConfiguration) return;
+        
+        // Create a result object from active configuration
+        const existingResult = {
+            matrix: activeConfiguration.comparison_matrix,
+            normalized_matrix: activeConfiguration.normalized_matrix,
+            weights: Object.values(activeConfiguration.weights),
+            criteria: activeConfiguration.criteria,
+            consistency_ratio: activeConfiguration.consistency_ratio,
+            consistency_index: activeConfiguration.consistency_index,
+            lambda_max: activeConfiguration.lambda_max,
+            random_index: activeConfiguration.random_index
+        };
+        
+        calculationResult = existingResult;
+        displayResults(existingResult);
     }
 
     // Calculate AHP
@@ -371,6 +448,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
+        // Store the pairwise comparisons for later saving
+        savedPairwiseComparisons = comparisons;
+
         console.log('Final comparisons to send:', comparisons);
 
         try {
@@ -383,7 +463,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ comparisons })
             });
             
-            // ADD THIS MISSING PART:
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -399,7 +478,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // Store the calculation result
             calculationResult = result;
             displayResults(result);
-            // END OF MISSING PART
             
         } catch (error) {
             console.error('Error details:', error);
@@ -583,9 +661,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const btn = document.getElementById('continueBtn');
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = 'Menyimpan bobot...';
+            btn.textContent = 'Menyimpan bobot untuk ' + @json($department === 'laboratorium' ? 'Laboratorium' : ($department === 'keuangan_logistik' ? 'Keuangan Logistik' : ucfirst($department))) + '...';
             
-            // Prepare data for database storage
+            // Prepare data for database storage including pairwise comparisons
             const weightsData = {
                 criteria: calculationResult.criteria,
                 weights: calculationResult.weights,
@@ -594,8 +672,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 lambda_max: calculationResult.lambda_max,
                 random_index: calculationResult.random_index,
                 matrix: calculationResult.matrix,
-                normalized_matrix: calculationResult.normalized_matrix
+                normalized_matrix: calculationResult.normalized_matrix,
+                pairwise_comparisons: savedPairwiseComparisons // Include the pairwise comparisons
             };
+            
+            console.log('Sending weights data with pairwise comparisons:', weightsData);
             
             // Store the AHP weights in database
             const storeResponse = await fetch('{{ route("kriteria.store-weights") }}', {
@@ -630,7 +711,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (topsisData.success) {
                 // Show success message
-                alert('Bobot AHP berhasil disimpan ke database dan prioritas TOPSIS telah dihitung!');
+                alert('Bobot AHP untuk departemen ' + @json($department === 'laboratorium' ? 'Laboratorium' : ($department === 'keuangan_logistik' ? 'Keuangan, Logistik & SDM' : ucfirst($department))) + ' berhasil disimpan ke database dan prioritas TOPSIS telah dihitung!');
                 
                 // Redirect to pengajuan create page
                 window.location.href = '{{ route("pengajuan.create") }}';
@@ -652,6 +733,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('recalculateBtn').addEventListener('click', () => {
         document.getElementById('resultsSection').style.display = 'none';
         calculationResult = null;
+        savedPairwiseComparisons = [];
     });
 
     // Initialize comparisons
@@ -660,3 +742,33 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 @endsection
+
+<style>
+.consistency-good {
+    background-color: #d1fae5;
+    border-color: #10b981;
+    color: #065f46;
+}
+
+.consistency-bad {
+    background-color: #fee2e2;
+    border-color: #ef4444;
+    color: #991b1b;
+}
+
+.result-matrix {
+    font-size: 0.875rem;
+}
+
+.result-matrix th,
+.result-matrix td {
+    padding: 0.5rem;
+    text-align: center;
+    border: 1px solid #d1d5db;
+}
+
+.result-matrix thead th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+}
+</style>

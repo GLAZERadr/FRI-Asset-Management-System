@@ -13,20 +13,29 @@ class CriteriaController extends Controller
 {
     public function index()
     {
-        $criteria = Criteria::all();
-        $calculationHistory = AhpWeight::getCalculationHistory();
-        $activeWeights = AhpWeight::getActiveWeights();
+        $user = Auth::user();
+        $department = AhpWeight::getUserDepartment($user);
         
-        return view('kriteria.index', compact('criteria', 'calculationHistory', 'activeWeights'));
+        $criteria = Criteria::all();
+        $calculationHistory = AhpWeight::getCalculationHistory($department);
+        $activeWeights = AhpWeight::getActiveWeights($department);
+        
+        return view('kriteria.index', compact('criteria', 'calculationHistory', 'activeWeights', 'department'));
     }
 
     public function create()
     {
-        $criteria = Criteria::all();
-        $activeWeights = AhpWeight::getActiveWeights();
-        $isConsistent = AhpWeight::areCurrentWeightsConsistent();
+        $user = Auth::user();
+        $department = AhpWeight::getUserDepartment($user);
         
-        return view('kriteria.create', compact('criteria', 'activeWeights', 'isConsistent'));
+        $criteria = Criteria::all();
+        $activeWeights = AhpWeight::getActiveWeights($department);
+        $isConsistent = AhpWeight::areCurrentWeightsConsistent($department);
+        
+        // Get active configuration for form population
+        $activeConfiguration = AhpWeight::getActiveConfiguration($department);
+        
+        return view('kriteria.create', compact('criteria', 'activeWeights', 'isConsistent', 'department', 'activeConfiguration'));
     }
 
     public function store(Request $request)
@@ -287,6 +296,9 @@ class CriteriaController extends Controller
     public function storeWeights(Request $request)
     {
         try {
+            $user = Auth::user();
+            $department = AhpWeight::getUserDepartment($user);
+            
             $validated = $request->validate([
                 'criteria' => 'required|array',
                 'weights' => 'required|array',
@@ -295,7 +307,8 @@ class CriteriaController extends Controller
                 'lambda_max' => 'numeric',
                 'random_index' => 'numeric',
                 'matrix' => 'array',
-                'normalized_matrix' => 'array'
+                'normalized_matrix' => 'array',
+                'pairwise_comparisons' => 'array' // Add pairwise comparisons validation
             ]);
             
             DB::beginTransaction();
@@ -311,34 +324,42 @@ class CriteriaController extends Controller
             // Prepare matrix data for storage
             $matrixData = [
                 'comparison_matrix' => $validated['matrix'] ?? null,
-                'normalized_matrix' => $validated['normalized_matrix'] ?? null,
-                'calculation_date' => now()->toDateTimeString()
+                'normalized_matrix' => $validated['normalized_matrix'] ?? null
             ];
             
-            // Store in database
+            // Get pairwise comparisons from request
+            $pairwiseComparisons = $validated['pairwise_comparisons'] ?? [];
+            
+            // Store in database with department and pairwise comparisons
             $calculationId = AhpWeight::storeCalculation(
                 $validated['criteria'],
                 $validated['weights'],
                 $consistencyData,
-                Auth::user()->username ?? 'System',
-                $matrixData
+                $user->username ?? 'System',
+                $department, // Add department parameter
+                $matrixData,
+                $pairwiseComparisons // Add pairwise comparisons parameter
             );
             
             DB::commit();
             
             Log::info('AHP weights stored successfully', [
                 'calculation_id' => $calculationId,
+                'department' => $department,
                 'criteria_count' => count($validated['criteria']),
-                'consistency_ratio' => $validated['consistency_ratio']
+                'consistency_ratio' => $validated['consistency_ratio'],
+                'pairwise_comparisons_count' => count($pairwiseComparisons)
             ]);
             
             return response()->json([
                 'success' => true,
-                'message' => 'AHP weights stored successfully in database',
+                'message' => "AHP weights stored successfully for {$department} department",
                 'calculation_id' => $calculationId,
+                'department' => $department,
                 'debug_info' => [
                     'criteria_count' => count($validated['criteria']),
-                    'consistency_ratio' => $validated['consistency_ratio']
+                    'consistency_ratio' => $validated['consistency_ratio'],
+                    'pairwise_comparisons_saved' => count($pairwiseComparisons)
                 ]
             ]);
             
@@ -364,26 +385,31 @@ class CriteriaController extends Controller
     }
 
     /**
-     * Get active weights for TOPSIS calculation
+     * Get active weights for TOPSIS calculation (department-specific)
      */
     public function getActiveWeights()
     {
         try {
-            $activeWeights = AhpWeight::getActiveWeightsForTopsis();
+            $user = Auth::user();
+            $department = AhpWeight::getUserDepartment($user);
+            
+            $activeWeights = AhpWeight::getActiveWeightsForTopsis($department);
             
             if (!$activeWeights) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No active AHP weights found',
-                    'data' => null
+                    'message' => "No active AHP weights found for {$department} department",
+                    'data' => null,
+                    'department' => $department
                 ]);
             }
             
             return response()->json([
                 'success' => true,
                 'data' => $activeWeights,
+                'department' => $department,
                 'criteria_count' => count($activeWeights),
-                'is_consistent' => AhpWeight::areCurrentWeightsConsistent()
+                'is_consistent' => AhpWeight::areCurrentWeightsConsistent($department)
             ]);
             
         } catch (\Exception $e) {
@@ -397,29 +423,35 @@ class CriteriaController extends Controller
     }
 
     /**
-     * Set specific calculation as active
+     * Set specific calculation as active for department
      */
     public function setActiveWeights(Request $request, $calculationId)
     {
         try {
+            $user = Auth::user();
+            $department = AhpWeight::getUserDepartment($user);
+            
             DB::beginTransaction();
             
-            // Deactivate all current weights
-            AhpWeight::where('is_active', true)->update(['is_active' => false]);
+            // Deactivate all current weights for this department
+            AhpWeight::where('is_active', true)
+                     ->where('department', $department)
+                     ->update(['is_active' => false]);
             
             // Activate specified calculation
             $updated = AhpWeight::where('calculation_id', $calculationId)
+                               ->where('department', $department)
                                ->update(['is_active' => true]);
             
             if ($updated === 0) {
-                throw new \Exception('Calculation ID not found');
+                throw new \Exception('Calculation ID not found for your department');
             }
             
             DB::commit();
             
             return response()->json([
                 'success' => true,
-                'message' => 'AHP weights activated successfully'
+                'message' => "AHP weights activated successfully for {$department} department"
             ]);
             
         } catch (\Exception $e) {
@@ -451,5 +483,57 @@ class CriteriaController extends Controller
             'success' => true,
             'message' => 'Kriteria berhasil dihapus'
         ]);
+    }
+
+    /**
+     * Get specific calculation configuration by calculation ID
+     */
+    public function getCalculationConfiguration($calculationId)
+    {
+        try {
+            $user = Auth::user();
+            $department = AhpWeight::getUserDepartment($user);
+            
+            $weights = AhpWeight::where('calculation_id', $calculationId)
+                              ->where('department', $department)
+                              ->get();
+            
+            if ($weights->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Calculation not found for your department'
+                ], 404);
+            }
+            
+            $firstWeight = $weights->first();
+            $matrixData = $firstWeight->matrix_data;
+            
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'calculation_id' => $calculationId,
+                    'criteria' => $matrixData['criteria_used'] ?? [],
+                    'pairwise_comparisons' => $matrixData['pairwise_comparisons'] ?? [],
+                    'weights' => $weights->pluck('weight', 'criteria_id')->toArray(),
+                    'consistency_ratio' => $firstWeight->consistency_ratio,
+                    'consistency_index' => $firstWeight->consistency_index,
+                    'lambda_max' => $firstWeight->lambda_max,
+                    'random_index' => $firstWeight->random_index,
+                    'calculated_by' => $firstWeight->calculated_by,
+                    'calculated_at' => $firstWeight->created_at,
+                    'department' => $firstWeight->department,
+                    'comparison_matrix' => $matrixData['comparison_matrix'] ?? null,
+                    'normalized_matrix' => $matrixData['normalized_matrix'] ?? null
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error getting calculation configuration: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving calculation: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

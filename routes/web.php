@@ -290,6 +290,11 @@ Route::middleware('auth')->group(function () {
         Route::patch('/{payment}/cancel', [PaymentController::class, 'cancel'])->name('cancel');
         Route::get('/{payment}/download-invoice', [PaymentController::class, 'downloadInvoice'])->name('download-invoice');
         
+        // NEW ROUTES - Add these lines to your existing routes
+        Route::patch('/{payment}/update-status', [PaymentController::class, 'updateStatus'])->name('update-status');
+        Route::post('/{payment}/update-photo', [PaymentController::class, 'updatePhoto'])->name('update-photo');
+        Route::get('/{payment}/download-payment-photo', [PaymentController::class, 'downloadPaymentPhoto'])->name('download-payment-photo');
+        
         // Dashboard and export
         Route::get('/export', [PaymentController::class, 'export'])->name('export');
     });

@@ -20,6 +20,8 @@ class Payment extends Model
         'jenis_pembayaran',
         'status',
         'tanggal_pembayaran',
+        'alasan_revisi',
+        'photo_pembayaran',
         'updated_by',
     ];
 

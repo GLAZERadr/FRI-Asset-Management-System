@@ -26,6 +26,7 @@ return new class extends Migration
             $table->decimal('random_index', 5, 4); // RI value
             $table->integer('criteria_count'); // Number of criteria in this calculation
             $table->string('calculated_by'); // User who performed the calculation
+            $table->string('department', 50)->default('general');
             $table->boolean('is_active')->default(true); // Mark current active weights
             $table->json('matrix_data')->nullable(); // Store comparison and normalized matrices
             $table->timestamps();

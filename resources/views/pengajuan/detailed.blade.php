@@ -245,25 +245,32 @@
                         ];
                         $class = $statusClasses[$status] ?? 'bg-gray-100 text-gray-800';
                         $isDisabled = in_array($status, ['Selesai', 'Ditolak', 'Menunggu Persetujuan']);
+                        
+                        // Roles that can modify status
+                        $canModifyStatus = Auth::user()->hasAnyRole(['staff_logistik', 'staff_laboratorium', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm']);
+                        
+                        // Roles that can view status but not modify
+                        $canViewOnly = Auth::user()->hasAnyRole(['wakil_dekan_2']);
                     @endphp
-                    @if($isDisabled)
+                    
+                    @if($isDisabled || $canViewOnly || !$canModifyStatus)
+                        <!-- Static status display for disabled statuses, view-only roles, or users without modify permissions -->
                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $class }}">
                             {{ $status }}
                         </span>
-                        @else
+                    @else
+                        <!-- Dropdown for users who can modify status -->
                         <form action="{{ route('pengajuan.update-status', $request->id) }}" method="POST" class="inline-block status-form" data-maintenance-id="{{ $request->id }}">
                             @csrf
                             @method('PATCH')
-                            @if(Auth::user()->hasAnyRole(['staff_logistik', 'staff_laboratorium', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
-                                <select name="status" data-current-status="{{ $status }}"
-                                        class="text-xs font-semibold rounded-full border-0 focus:ring-0 {{ $class }} appearance-none pr-6 pl-2 py-1 status-select">
-                                    <option value="Diterima" {{ $status == 'Diterima' ? 'selected' : '' }}>Diterima</option>
-                                    <option value="Menunggu Persetujuan" {{ $status == 'Menunggu Persetujuan' ? 'selected' : '' }}>Menunggu Persetujuan</option>
-                                    <option value="Dikerjakan" {{ $status == 'Dikerjakan' ? 'selected' : '' }}>Dikerjakan</option>
-                                    <option value="Selesai" {{ $status == 'Selesai' ? 'selected' : '' }}>Selesai</option>
-                                    <option value="Ditolak" {{ $status == 'Ditolak' ? 'selected' : '' }}>Ditolak</option>
-                                </select>
-                            @endif
+                            <select name="status" data-current-status="{{ $status }}"
+                                    class="text-xs font-semibold rounded-full border-0 focus:ring-0 {{ $class }} appearance-none pr-6 pl-2 py-1 status-select">
+                                <option value="Diterima" {{ $status == 'Diterima' ? 'selected' : '' }}>Diterima</option>
+                                <option value="Menunggu Persetujuan" {{ $status == 'Menunggu Persetujuan' ? 'selected' : '' }}>Menunggu Persetujuan</option>
+                                <option value="Dikerjakan" {{ $status == 'Dikerjakan' ? 'selected' : '' }}>Dikerjakan</option>
+                                <option value="Selesai" {{ $status == 'Selesai' ? 'selected' : '' }}>Selesai</option>
+                                <option value="Ditolak" {{ $status == 'Ditolak' ? 'selected' : '' }}>Ditolak</option>
+                            </select>
                         </form>
                     @endif
                 </td>

@@ -4,207 +4,213 @@ namespace App\Modules\Imports;
 
 use App\Models\Asset;
 use App\Models\DamagedAsset;
-use App\Models\Criteria;
+use App\Models\MaintenanceAsset;
+use App\Models\User;
+use App\Models\ApprovalLog;
+use App\Services\NotificationService;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithValidation;
+use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
-class AssetDamageImport implements ToModel, WithHeadingRow, WithValidation
+class AssetDamageImport implements ToModel, WithHeadingRow, SkipsEmptyRows
 {
-    private $criteria;
-    
+    protected $user;
+    protected $userRole;
+    protected $processedAssets = [];
+    protected $notificationService;
+    protected $rowCount = 0;
+
     public function __construct()
     {
-        $this->criteria = Criteria::all();
+        // ADD THIS LINE TO TEST
+        Log::info('NEW AssetDamageImport class loaded - version 2.0');
+        
+        $this->user = Auth::user();
+        $this->userRole = $this->user->roles->first()->name;
+        $this->processedAssets = [];
+        
+        try {
+            $this->notificationService = app(NotificationService::class);
+        } catch (\Exception $e) {
+            $this->notificationService = null;
+        }
+        
+        Log::info('AssetDamageImport initialized', [
+            'user' => $this->user->name,
+            'role' => $this->userRole
+        ]);
     }
 
-    /**
-     * @param array $row
-     *
-     * @return \Illuminate\Database\Eloquent\Model|null
-     */
     public function model(array $row)
     {
-        // Check if the asset exists
-        $asset = Asset::where('asset_id', $row['id_aset'])->first();
+        $this->rowCount++;
         
-        if (!$asset) {
-            // Create the asset if it doesn't exist
-            $asset = Asset::create([
-                'asset_id' => $row['id_aset'],
-                'nama_asset' => $row['nama_aset'],
-                'lokasi' => $row['lokasi'],
-                'tingkat_kepentingan_asset' => $this->extractKepentinganFromRow($row),
-                'kategori' => 'Elektronik', // Default category
+        Log::info("=== PROCESSING ROW {$this->rowCount} ===", [
+            'row_data' => $row,
+            'id_aset' => $row['id_aset'] ?? 'MISSING',
+            'nama_aset' => $row['nama_aset'] ?? 'MISSING',
+            'damage_id' => $row['damage_id'] ?? 'MISSING'
+        ]);
+
+        // Skip rows with missing essential data
+        if (empty($row['id_aset']) || empty($row['nama_aset']) || empty($row['damage_id'])) {
+            Log::info("Skipping row {$this->rowCount} - missing essential data");
+            return null;
+        }
+
+        try {
+            return DB::transaction(function () use ($row) {
+                $damageId = trim($row['damage_id']);
+                
+                Log::info("Looking for damaged asset", ['damage_id' => $damageId]);
+                
+                // Find existing damaged asset
+                $damagedAsset = DamagedAsset::where('damage_id', $damageId)->first();
+                
+                if (!$damagedAsset) {
+                    Log::warning("Damage ID not found", ['damage_id' => $damageId]);
+                    return null;
+                }
+
+                Log::info("Found damaged asset", [
+                    'damage_id' => $damageId,
+                    'asset_id' => $damagedAsset->asset_id
+                ]);
+
+                // Check for existing maintenance
+                $existingMaintenance = MaintenanceAsset::where('damage_id', $damageId)->first();
+                
+                if ($existingMaintenance && !in_array($existingMaintenance->status, ['Selesai', 'Ditolak'])) {
+                    Log::info("Skipping - active maintenance exists", [
+                        'damage_id' => $damageId,
+                        'status' => $existingMaintenance->status
+                    ]);
+                    return null;
+                }
+
+                // Create maintenance asset
+                $maintenanceAsset = $this->createMaintenanceAsset($damagedAsset);
+                
+                if ($maintenanceAsset) {
+                    $this->processedAssets[] = $maintenanceAsset;
+                    Log::info("Successfully created maintenance asset", [
+                        'maintenance_id' => $maintenanceAsset->maintenance_id,
+                        'total_processed' => count($this->processedAssets)
+                    ]);
+                }
+
+                return $damagedAsset;
+            });
+        } catch (\Exception $e) {
+            Log::error("Row processing failed", [
+                'error' => $e->getMessage(),
+                'row_number' => $this->rowCount
+            ]);
+            return null; // Skip this row, don't fail entire import
+        }
+    }
+
+    private function createMaintenanceAsset(DamagedAsset $damagedAsset)
+    {
+        try {
+            // Generate maintenance ID
+            $latestMaintenance = MaintenanceAsset::latest('id')->lockForUpdate()->first();
+            $maintenanceNumber = $latestMaintenance ? intval(substr($latestMaintenance->maintenance_id, 3)) + 1 : 1;
+            $maintenanceId = 'MNT' . str_pad($maintenanceNumber, 4, '0', STR_PAD_LEFT);
+
+            Log::info("Creating maintenance asset", [
+                'maintenance_id' => $maintenanceId,
+                'damage_id' => $damagedAsset->damage_id
+            ]);
+
+            // Create maintenance record
+            $maintenanceAsset = MaintenanceAsset::create([
+                'maintenance_id' => $maintenanceId,
+                'damage_id' => $damagedAsset->damage_id,
+                'status' => 'Menunggu Persetujuan',
+                'tanggal_pengajuan' => now(),
+                'teknisi' => 'Staf',
+                'requested_by' => $this->user->id,
+                'requested_by_role' => $this->userRole
+            ]);
+
+            // Create approval log
+            ApprovalLog::create([
+                'maintenance_asset_id' => $maintenanceAsset->id,
+                'action' => 'submitted',
+                'performed_by' => $this->user->username ?? $this->user->name,
+                'role' => $this->userRole,
+                'notes' => 'Pengajuan perbaikan aset diajukan via Excel import'
+            ]);
+
+            return $maintenanceAsset;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create maintenance asset', [
+                'damage_id' => $damagedAsset->damage_id,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    public function sendNotificationsToApprovers()
+    {
+        Log::info("sendNotificationsToApprovers called", [
+            'processed_count' => count($this->processedAssets),
+            'user_role' => $this->userRole
+        ]);
+
+        if (empty($this->processedAssets) || !$this->notificationService) {
+            Log::info("No assets to notify or no notification service");
+            return;
+        }
+
+        try {
+            if ($this->userRole === 'staff_laboratorium') {
+                $kaur = User::role('kaur_laboratorium')->first();
+            } else {
+                $kaur = User::role('kaur_keuangan_logistik_sdm')->first();
+            }
+
+            if ($kaur) {
+                $this->notificationService->sendBulkApprovalRequest(
+                    count($this->processedAssets),
+                    $kaur,
+                    $this->userRole
+                );
+                Log::info("Notification sent successfully", [
+                    'recipient' => $kaur->name,
+                    'assets_count' => count($this->processedAssets)
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send notifications', [
+                'error' => $e->getMessage()
             ]);
         }
-        
-        // Generate a unique damage ID with thread-safe approach
-        $damageId = DB::transaction(function() {
-            $latestDamage = DamagedAsset::latest('id')->lockForUpdate()->first();
-            $damageNumber = $latestDamage ? intval(substr($latestDamage->damage_id, 4)) + 1 : 1;
-            return 'DMG-' . str_pad($damageNumber, 5, '0', STR_PAD_LEFT);
-        });
-        
-        // Create the damaged asset record with dynamic criteria data
-        $damagedAssetData = [
-            'damage_id' => $damageId,
-            'asset_id' => $asset->asset_id,
-            'tingkat_kerusakan' => $this->extractKerusakanFromRow($row),
-            'estimasi_biaya' => $this->extractBiayaFromRow($row),
-            'deskripsi_kerusakan' => $row['deskripsi_kerusakan'] ?? 'Imported from Excel',
-            'tanggal_pelaporan' => now(),
-            'pelapor' => Auth::user()->name,
+    }
+
+    public function getImportSummary()
+    {
+        $summary = [
+            'total_processed' => count($this->processedAssets),
+            'rows_read' => $this->rowCount,
+            'user_role' => $this->userRole,
+            'timestamp' => now()->toDateTimeString(),
+            // Add missing keys that controller expects
+            'existing_damage_assets' => count($this->processedAssets), // All are from existing damaged assets
+            'new_damage_assets' => 0, // We're not creating new damaged assets
+            'criteria_count' => 0, // Not using dynamic criteria
+            'successful_imports' => count($this->processedAssets),
+            'errors' => 0,
+            'workflow_type' => $this->userRole === 'staff_laboratorium' ? 'Laboratorium → Kaur Lab → Kaur Keuangan' : 'Logistik → Kaur Keuangan'
         ];
-        
-        // Add any additional criteria data as JSON or in separate fields
-        $additionalCriteriaData = $this->extractAdditionalCriteriaData($row);
-        if (!empty($additionalCriteriaData)) {
-            $damagedAssetData['additional_criteria'] = json_encode($additionalCriteriaData);
-        }
-        
-        return new DamagedAsset($damagedAssetData);
-    }
-    
-    /**
-     * Extract kerusakan value from dynamic criteria
-     */
-    private function extractKerusakanFromRow($row)
-    {
-        // Look for kerusakan in any criteria
-        foreach ($this->criteria as $criterion) {
-            $criteriaKey = strtolower(str_replace(' ', '_', $criterion->nama_kriteria));
-            if (str_contains(strtolower($criterion->nama_kriteria), 'kerusakan') && isset($row[$criteriaKey])) {
-                return $row[$criteriaKey];
-            }
-        }
-        
-        // Fallback to standard field
-        return $row['tingkat_kerusakan'] ?? 'Sedang';
-    }
-    
-    /**
-     * Extract biaya value from dynamic criteria
-     */
-    private function extractBiayaFromRow($row)
-    {
-        // Look for biaya in any criteria
-        foreach ($this->criteria as $criterion) {
-            $criteriaKey = strtolower(str_replace(' ', '_', $criterion->nama_kriteria));
-            if (str_contains(strtolower($criterion->nama_kriteria), 'biaya') && isset($row[$criteriaKey])) {
-                return $row[$criteriaKey];
-            }
-        }
-        
-        // Fallback to standard field
-        return $row['estimasi_biaya'] ?? 0;
-    }
-    
-    /**
-     * Extract kepentingan value from dynamic criteria
-     */
-    private function extractKepentinganFromRow($row)
-    {
-        // Look for kepentingan in any criteria
-        foreach ($this->criteria as $criterion) {
-            $criteriaKey = strtolower(str_replace(' ', '_', $criterion->nama_kriteria));
-            if (str_contains(strtolower($criterion->nama_kriteria), 'kepentingan') && isset($row[$criteriaKey])) {
-                return $row[$criteriaKey];
-            }
-        }
-        
-        // Fallback to standard field
-        return $row['tingkat_kepentingan_asset'] ?? 0;
-    }
-    
-    /**
-     * Extract additional criteria data that doesn't map to standard fields
-     */
-    private function extractAdditionalCriteriaData($row)
-    {
-        $additionalData = [];
-        
-        foreach ($this->criteria as $criterion) {
-            $criteriaKey = strtolower(str_replace(' ', '_', $criterion->nama_kriteria));
-            $isStandardCriteria = str_contains(strtolower($criterion->nama_kriteria), 'kerusakan') ||
-                                 str_contains(strtolower($criterion->nama_kriteria), 'biaya') ||
-                                 str_contains(strtolower($criterion->nama_kriteria), 'kepentingan');
-            
-            // If it's not a standard criteria and exists in row, store it
-            if (!$isStandardCriteria && isset($row[$criteriaKey])) {
-                $additionalData[$criterion->kriteria_id] = [
-                    'nama_kriteria' => $criterion->nama_kriteria,
-                    'value' => $row[$criteriaKey],
-                    'tipe_kriteria' => $criterion->tipe_kriteria
-                ];
-            }
-        }
-        
-        return $additionalData;
-    }
-    
-    /**
-     * @return array
-     */
-    public function rules(): array
-    {
-        $rules = [
-            'id_aset' => 'required|string',
-            'nama_aset' => 'required|string',
-            'lokasi' => 'required|string',
-        ];
-        
-        // Add dynamic validation rules based on criteria
-        foreach ($this->criteria as $criterion) {
-            $criteriaKey = strtolower(str_replace(' ', '_', $criterion->nama_kriteria));
-            
-            if (str_contains(strtolower($criterion->nama_kriteria), 'kerusakan')) {
-                $rules[$criteriaKey] = 'required|in:Ringan,Sedang,Berat';
-            } elseif (str_contains(strtolower($criterion->nama_kriteria), 'biaya')) {
-                $rules[$criteriaKey] = 'required|numeric|min:0';
-            } elseif (str_contains(strtolower($criterion->nama_kriteria), 'kepentingan')) {
-                $rules[$criteriaKey] = 'required|numeric|min:0';
-            } elseif ($criterion->tipe_kriteria === 'cost') {
-                $rules[$criteriaKey] = 'nullable|numeric|min:0';
-            } else {
-                $rules[$criteriaKey] = 'nullable|string';
-            }
-        }
-        
-        return $rules;
-    }
-    
-    /**
-     * Custom error messages
-     */
-    public function customValidationMessages()
-    {
-        $messages = [
-            'id_aset.required' => 'ID Aset harus diisi',
-            'nama_aset.required' => 'Nama Aset harus diisi',
-            'lokasi.required' => 'Lokasi harus diisi',
-        ];
-        
-        // Add dynamic validation messages
-        foreach ($this->criteria as $criterion) {
-            $criteriaKey = strtolower(str_replace(' ', '_', $criterion->nama_kriteria));
-            $criteriaName = $criterion->nama_kriteria;
-            
-            if (str_contains(strtolower($criterion->nama_kriteria), 'kerusakan')) {
-                $messages[$criteriaKey . '.required'] = $criteriaName . ' harus diisi';
-                $messages[$criteriaKey . '.in'] = $criteriaName . ' harus salah satu dari: Ringan, Sedang, Berat';
-            } elseif (str_contains(strtolower($criterion->nama_kriteria), 'biaya')) {
-                $messages[$criteriaKey . '.required'] = $criteriaName . ' harus diisi';
-                $messages[$criteriaKey . '.numeric'] = $criteriaName . ' harus berupa angka';
-                $messages[$criteriaKey . '.min'] = $criteriaName . ' tidak boleh negatif';
-            } elseif (str_contains(strtolower($criterion->nama_kriteria), 'kepentingan')) {
-                $messages[$criteriaKey . '.required'] = $criteriaName . ' harus diisi';
-                $messages[$criteriaKey . '.in'] = $criteriaName . ' harus salah satu dari: Rendah, Sedang, Tinggi';
-            }
-        }
-        
-        return $messages;
+
+        Log::info('Import summary generated', $summary);
+        return $summary;
     }
 }

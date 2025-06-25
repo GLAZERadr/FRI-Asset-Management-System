@@ -446,10 +446,19 @@
                         </div>
                         <div class="flex-1">
                             <h4 class="text-sm font-medium text-gray-900 mb-2">Langkah 2 : Unduh Template</h4>
-                            <a href="{{ route('pengajuan.template.download') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                                Download Template
-                            </a>
-                            <p class="text-xs text-gray-500 mt-2">Template file excel dengan kriteria dinamis</p>
+                            <div class="space-y-2">
+                                <!-- Download Selected Assets -->
+                                <div>
+                                    <button type="button" onclick="downloadSelectedAssets()" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        Unduh
+                                        <span id="selected-download-count" class="ml-2 px-2 py-1 bg-green-700 text-xs rounded-full">0</span>
+                                    </button>
+                                    <p class="text-xs text-gray-500 mt-1">Download excel berisi data aset yang dipilih via checkbox</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -516,6 +525,75 @@
 </div>
 
 <script>
+function updateDownloadCount() {
+    const checkedAssets = document.querySelectorAll('.asset-checkbox:checked').length;
+    const downloadCountSpan = document.getElementById('selected-download-count');
+    if (downloadCountSpan) {
+        downloadCountSpan.textContent = checkedAssets;
+    }
+}
+
+async function downloadSelectedAssets() {
+    const checkboxes = document.querySelectorAll('.asset-checkbox:checked');
+    const selectedAssets = [];
+    let assetType = 'damaged_assets'; // default
+    
+    // Determine asset type and collect IDs
+    @if(Auth::user()->hasRole(['staff_laboratorium', 'staff_logistik']))
+        assetType = 'damaged_assets';
+        checkboxes.forEach(checkbox => {
+            selectedAssets.push(checkbox.value);
+        });
+    @else
+        assetType = 'maintenance_assets';
+        checkboxes.forEach(checkbox => {
+            const maintenanceId = checkbox.dataset.maintenanceId;
+            if (maintenanceId) {
+                selectedAssets.push(maintenanceId);
+            }
+        });
+    @endif
+    
+    try {
+        // Create a form and submit it for file download
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ route("pengajuan.template.download-selected") }}';
+        form.style.display = 'none';
+        
+        // Add CSRF token
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = '_token';
+        csrfToken.value = document.querySelector('meta[name="csrf-token"]').content;
+        form.appendChild(csrfToken);
+        
+        // Add asset type
+        const assetTypeInput = document.createElement('input');
+        assetTypeInput.type = 'hidden';
+        assetTypeInput.name = 'asset_type';
+        assetTypeInput.value = assetType;
+        form.appendChild(assetTypeInput);
+        
+        // Add selected assets
+        selectedAssets.forEach(assetId => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_assets[]';
+            input.value = assetId;
+            form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+        
+    } catch (error) {
+        console.error('Error downloading selected assets:', error);
+        alert('Terjadi kesalahan saat mengunduh data aset terpilih');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize variables for Kaur roles
     @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
@@ -572,6 +650,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const checkedCount = document.querySelectorAll('.asset-checkbox:checked').length;
                 selectAllCheckbox.checked = checkedCount === assetCheckboxes.length;
                 selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < assetCheckboxes.length;
+
+                updateDownloadCount();
                 
                 @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
                 // Update selected assets data
@@ -590,6 +670,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    updateDownloadCount();
     
     // Auto-submit filter form
     const lokasiSelect = document.getElementById('lokasi');
@@ -915,5 +997,189 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 5000);
     });
 });
+</script>
+<script>
+// Auto-calculate missing priority scores on page load
+document.addEventListener('DOMContentLoaded', function() {
+    @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']) && !$maintenanceAssets->isEmpty())
+    // Check if there are any assets with missing priority scores (showing as "-")
+    const priorityCells = document.querySelectorAll('td:nth-child(5)'); // Priority column
+    let hasMissingScores = false;
+    
+    priorityCells.forEach(cell => {
+        if (cell.textContent.trim() === '-') {
+            hasMissingScores = true;
+        }
+    });
+    
+    if (hasMissingScores) {
+        console.log('Detected missing priority scores, auto-calculating...');
+        
+        // Show a subtle loading indicator
+        const priorityColumn = document.querySelector('th:nth-child(5)');
+        if (priorityColumn) {
+            const originalText = priorityColumn.textContent;
+            priorityColumn.innerHTML = originalText + ' <span class="text-blue-600">⟳</span>';
+        }
+        
+        // Auto-trigger calculation
+        fetch('{{ route("pengajuan.ensure-priority-scores") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.calculated > 0) {
+                console.log('Priority scores calculated successfully:', data);
+                // Reload the page to show updated scores
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                console.log('No new calculations needed:', data);
+                // Remove loading indicator
+                if (priorityColumn) {
+                    priorityColumn.innerHTML = originalText;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Auto-calculation failed:', error);
+            // Remove loading indicator
+            if (priorityColumn) {
+                priorityColumn.innerHTML = originalText;
+            }
+        });
+    }
+    @endif
+    
+    // Rest of existing JavaScript code...
+    // Initialize variables for Kaur roles
+    @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+    const selectedAssets = new Map();
+    
+    // Update totals function
+    function updateTotals() {
+        let count = 0;
+        let totalCost = 0;
+        
+        selectedAssets.forEach((data, id) => {
+            if (data.checked) {
+                count++;
+                totalCost += data.cost;
+            }
+        });
+        
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('total-cost').textContent = 'Rp ' + totalCost.toLocaleString('id-ID');
+    }
+    @endif
+    
+    // Select All functionality
+    const selectAllCheckbox = document.getElementById('select-all');
+    const assetCheckboxes = document.querySelectorAll('.asset-checkbox');
+    
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            assetCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+                
+                @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                // Update selected assets data
+                const row = checkbox.closest('tr');
+                const maintenanceId = checkbox.dataset.maintenanceId;
+                const costText = row.querySelector('td:nth-last-child(2)').textContent;
+                const cost = parseInt(costText.replace(/[^0-9]/g, ''));
+                
+                selectedAssets.set(maintenanceId, {
+                    checked: this.checked,
+                    cost: cost
+                });
+                @endif
+            });
+            
+            @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+            updateTotals();
+            @endif
+        });
+        
+        // Update select all when individual checkboxes change
+        assetCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const checkedCount = document.querySelectorAll('.asset-checkbox:checked').length;
+                selectAllCheckbox.checked = checkedCount === assetCheckboxes.length;
+                selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < assetCheckboxes.length;
+
+                updateDownloadCount();
+                
+                @if(Auth::user()->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                // Update selected assets data
+                const row = checkbox.closest('tr');
+                const maintenanceId = checkbox.dataset.maintenanceId;
+                const costText = row.querySelector('td:nth-last-child(2)').textContent;
+                const cost = parseInt(costText.replace(/[^0-9]/g, ''));
+                
+                selectedAssets.set(maintenanceId, {
+                    checked: checkbox.checked,
+                    cost: cost
+                });
+                
+                updateTotals();
+                @endif
+            });
+        });
+    }
+
+    updateDownloadCount();
+    
+    // Auto-submit filter form
+    const lokasiSelect = document.getElementById('lokasi');
+    const tingkatSelect = document.getElementById('tingkat_kerusakan');
+    
+    if (lokasiSelect) {
+        lokasiSelect.addEventListener('change', function() {
+            document.getElementById('filter-form').submit();
+        });
+    }
+    
+    if (tingkatSelect) {
+        tingkatSelect.addEventListener('change', function() {
+            document.getElementById('filter-form').submit();
+        });
+    }
+});
+
+// Add manual trigger button functionality
+async function triggerPriorityCalculation() {
+    try {
+        console.log('Manually triggering priority calculation...');
+        
+        const response = await fetch('{{ route("pengajuan.ensure-priority-scores") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ Priority calculation completed! Calculated scores for ' + data.calculated + ' assets.');
+            if (data.calculated > 0) {
+                window.location.reload();
+            }
+        } else {
+            alert('❌ Priority calculation failed: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Priority calculation failed:', error);
+        alert('❌ Priority calculation failed: ' + error.message);
+    }
+}
 </script>
 @endsection

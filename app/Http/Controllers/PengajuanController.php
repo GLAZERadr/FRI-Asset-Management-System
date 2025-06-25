@@ -23,6 +23,8 @@ class PengajuanController extends Controller
 {
     protected $notificationService;
     protected $topsisService;
+    protected $processedAssets = [];
+    protected $userRole;
 
     public function __construct(NotificationService $notificationService, TopsisService $topsisService)
     {
@@ -91,11 +93,8 @@ class PengajuanController extends Controller
             'request_params' => $request->all()
         ]);
         
-        // Your existing code for getting $damagedAssets...
-        // ... (keep your existing logic for staff/kaur roles)
-        
         if ($user->hasRole(['staff_laboratorium', 'staff_logistik'])) {
-            // ... your existing staff logic
+            // Staff roles logic
             $query = DamagedAsset::with(['asset', 'maintenanceAsset'])
                 ->where('validated', 'Yes');
             
@@ -166,83 +165,90 @@ class PengajuanController extends Controller
             
             Log::info('Maintenance assets retrieved for kaur role', [
                 'total_assets' => $damagedAssets->count(),
-                'assets_without_priority' => $damagedAssets->whereNull('priority_score')->count(),
                 'user_role' => $user->roles->first()->name
             ]);
         } else {
             $damagedAssets = collect();
         }
         
-        // ===== ENHANCED AUTOMATIC TOPSIS CALCULATION =====
+        // ===== SIMPLIFIED AUTOMATIC TOPSIS CALCULATION =====
         $priorityScores = [];
-        
         if ($user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm', 'wakil_dekan_2']) && 
             $damagedAssets->count() > 0) {
             
-            // First, get existing priority scores
-            $priorityScores = $this->getStoredPriorityScores($damagedAssets);
-            
-            // Find assets without priority scores
-            $assetsWithoutScores = $damagedAssets->filter(function($asset) use ($priorityScores) {
-                return $asset instanceof \App\Models\MaintenanceAsset && 
-                       !isset($priorityScores[$asset->id]) && 
-                       is_null($asset->priority_score);
-            });
-            
-            Log::info('TOPSIS calculation assessment', [
+            Log::info('Starting priority score calculation/retrieval', [
                 'total_assets' => $damagedAssets->count(),
-                'existing_scores' => count($priorityScores),
-                'assets_needing_calculation' => $assetsWithoutScores->count(),
                 'user_role' => $user->roles->first()->name
             ]);
             
-            // Calculate TOPSIS for assets without scores
-            if ($assetsWithoutScores->count() > 0 && !$user->hasRole('wakil_dekan_2')) {
+            // First, try to get existing priority scores
+            $priorityScores = $this->getStoredPriorityScores($damagedAssets);
+            
+            // Check if we need to calculate new scores
+            $assetsWithoutScores = $damagedAssets->filter(function($asset) {
+                return $asset instanceof \App\Models\MaintenanceAsset && 
+                       is_null($asset->priority_score);
+            });
+            
+            Log::info('Priority score status check', [
+                'total_assets' => $damagedAssets->count(),
+                'assets_with_scores' => count($priorityScores),
+                'assets_without_scores' => $assetsWithoutScores->count()
+            ]);
+            
+            // If there are assets without scores, calculate them
+            if ($assetsWithoutScores->count() > 0) {
+                Log::info('Assets without scores detected, attempting calculation');
                 
-                Log::info('Starting TOPSIS calculation for assets without scores');
-                
-                $calculatedScores = [];
-                
+                // Determine user department for AHP weights
+                $department = null;
                 if ($user->hasRole('kaur_laboratorium')) {
-                    $ahpWeights = AhpWeight::getActiveWeightsForTopsis('laboratorium');
-                    if ($ahpWeights) {
-                        $calculatedScores = $this->calculateTopsisWithRetry($assetsWithoutScores, $ahpWeights, 'laboratorium');
-                    }
+                    $department = 'laboratorium';
                 } elseif ($user->hasRole('kaur_keuangan_logistik_sdm')) {
-                    // Separate by department
-                    $labAssets = $assetsWithoutScores->filter(function($asset) {
-                        return str_contains($asset->asset->lokasi, 'Laboratorium');
-                    });
-                    
-                    $logisticAssets = $assetsWithoutScores->filter(function($asset) {
-                        return !str_contains($asset->asset->lokasi, 'Laboratorium');
-                    });
-                    
-                    if ($labAssets->count() > 0) {
-                        $labWeights = AhpWeight::getActiveWeightsForTopsis('laboratorium');
-                        if ($labWeights) {
-                            $labScores = $this->calculateTopsisWithRetry($labAssets, $labWeights, 'laboratorium');
-                            $calculatedScores = array_merge($calculatedScores, $labScores);
-                        }
-                    }
-                    
-                    if ($logisticAssets->count() > 0) {
-                        $logisticWeights = AhpWeight::getActiveWeightsForTopsis('keuangan_logistik');
-                        if ($logisticWeights) {
-                            $logisticScores = $this->calculateTopsisWithRetry($logisticAssets, $logisticWeights, 'keuangan_logistik');
-                            $calculatedScores = array_merge($calculatedScores, $logisticScores);
-                        }
-                    }
+                    // For mixed department handling, we'll process separately
+                    $this->calculateMixedDepartmentScores($damagedAssets);
+                    // Refresh priority scores after calculation
+                    $priorityScores = $this->getStoredPriorityScores($damagedAssets);
                 }
                 
-                // Merge calculated scores with existing ones
-                $priorityScores = array_merge($priorityScores, $calculatedScores);
-                
-                Log::info('TOPSIS calculation completed', [
-                    'new_scores_calculated' => count($calculatedScores),
-                    'total_scores_available' => count($priorityScores)
-                ]);
+                // For single department (kaur_laboratorium)
+                if ($department === 'laboratorium') {
+                    $ahpWeights = AhpWeight::getActiveWeightsForTopsis($department);
+                    if ($ahpWeights && !empty($ahpWeights)) {
+                        Log::info('Calculating TOPSIS for single department', [
+                            'department' => $department,
+                            'assets_count' => $damagedAssets->count()
+                        ]);
+                        
+                        try {
+                            $calculatedScores = $this->topsisService->calculatePriorityWithWeights(
+                                $damagedAssets, 
+                                $ahpWeights
+                            );
+                            
+                            if (!empty($calculatedScores)) {
+                                $priorityScores = $calculatedScores;
+                                Log::info('TOPSIS calculation successful', [
+                                    'scores_calculated' => count($calculatedScores)
+                                ]);
+                            } else {
+                                Log::warning('TOPSIS calculation returned empty results');
+                            }
+                        } catch (\Exception $e) {
+                            Log::error('TOPSIS calculation failed', [
+                                'error' => $e->getMessage(),
+                                'department' => $department
+                            ]);
+                        }
+                    } else {
+                        Log::warning('No AHP weights available for department: ' . $department);
+                    }
+                }
             }
+            
+            Log::info('Priority score calculation completed', [
+                'final_scores_count' => count($priorityScores)
+            ]);
         }
         
         // Apply sorting and pagination
@@ -253,6 +259,13 @@ class PengajuanController extends Controller
             if ($sortField === 'priority' && !empty($priorityScores)) {
                 $damagedAssets = $damagedAssets->sortByDesc(function($item) use ($priorityScores) {
                     return $priorityScores[$item->id]['score'] ?? 0;
+                })->values();
+            } elseif ($sortField === 'estimasi_biaya') {
+                $damagedAssets = $damagedAssets->sortBy(function($item) use ($sortDirection) {
+                    $biaya = $item instanceof \App\Models\MaintenanceAsset ? 
+                        ($item->damagedAsset->estimasi_biaya ?? 0) : 
+                        ($item->estimasi_biaya ?? 0);
+                    return $sortDirection === 'asc' ? $biaya : -$biaya;
                 })->values();
             }
         }
@@ -280,10 +293,193 @@ class PengajuanController extends Controller
         return view('pengajuan.create', compact('maintenanceAssets', 'locations', 'tingkatKerusakanOptions', 'priorityScores'));
     }
 
+    /**
+     * Force calculation of priority scores for assets without scores
+     */
+    public function ensurePriorityScores()
+    {
+        $user = Auth::user();
+        
+        if (!$user->hasRole(['kaur_laboratorium', 'kaur_keuangan_logistik_sdm'])) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        
+        try {
+            // Get all maintenance assets without priority scores
+            $assetsWithoutScores = MaintenanceAsset::with(['asset', 'damagedAsset'])
+                ->where('status', 'Menunggu Persetujuan')
+                ->whereNull('priority_score')
+                ->get();
+            
+            if ($assetsWithoutScores->count() === 0) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'All assets already have priority scores',
+                    'calculated' => 0
+                ]);
+            }
+            
+            Log::info('Auto-calculating missing priority scores', [
+                'assets_without_scores' => $assetsWithoutScores->count(),
+                'user' => $user->name
+            ]);
+            
+            $totalCalculated = 0;
+            
+            // Separate by department
+            $labAssets = $assetsWithoutScores->filter(function($asset) {
+                return str_contains($asset->asset->lokasi, 'Laboratorium');
+            });
+            
+            $logisticAssets = $assetsWithoutScores->filter(function($asset) {
+                return !str_contains($asset->asset->lokasi, 'Laboratorium');
+            });
+            
+            // Calculate for lab assets
+            if ($labAssets->count() > 0) {
+                $labWeights = AhpWeight::getActiveWeightsForTopsis('laboratorium');
+                if ($labWeights && !empty($labWeights)) {
+                    try {
+                        $labScores = $this->topsisService->calculatePriorityWithWeights($labAssets, $labWeights);
+                        $totalCalculated += count($labScores);
+                        Log::info('Lab assets priority scores calculated', ['count' => count($labScores)]);
+                    } catch (\Exception $e) {
+                        Log::error('Lab assets calculation failed', ['error' => $e->getMessage()]);
+                    }
+                }
+            }
+            
+            // Calculate for logistic assets
+            if ($logisticAssets->count() > 0) {
+                $logisticWeights = AhpWeight::getActiveWeightsForTopsis('keuangan_logistik');
+                if ($logisticWeights && !empty($logisticWeights)) {
+                    try {
+                        $logisticScores = $this->topsisService->calculatePriorityWithWeights($logisticAssets, $logisticWeights);
+                        $totalCalculated += count($logisticScores);
+                        Log::info('Logistic assets priority scores calculated', ['count' => count($logisticScores)]);
+                    } catch (\Exception $e) {
+                        Log::error('Logistic assets calculation failed', ['error' => $e->getMessage()]);
+                    }
+                }
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => "Auto-calculated priority scores for {$totalCalculated} assets",
+                'calculated' => $totalCalculated,
+                'total_without_scores' => $assetsWithoutScores->count()
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Auto priority calculation failed', [
+                'error' => $e->getMessage(),
+                'user' => $user->name
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to calculate priority scores: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Calculate scores for mixed departments (for kaur_keuangan_logistik_sdm)
+     */
+    private function calculateMixedDepartmentScores($damagedAssets)
+    {
+        // Separate by department
+        $labAssets = $damagedAssets->filter(function($asset) {
+            return str_contains($asset->asset->lokasi, 'Laboratorium');
+        });
+        
+        $logisticAssets = $damagedAssets->filter(function($asset) {
+            return !str_contains($asset->asset->lokasi, 'Laboratorium');
+        });
+        
+        Log::info('Mixed department calculation initiated', [
+            'lab_assets' => $labAssets->count(),
+            'logistic_assets' => $logisticAssets->count()
+        ]);
+        
+        // Calculate Lab assets if any
+        if ($labAssets->count() > 0) {
+            $labWeights = AhpWeight::getActiveWeightsForTopsis('laboratorium');
+            if ($labWeights && !empty($labWeights)) {
+                try {
+                    $this->topsisService->calculatePriorityWithWeights($labAssets, $labWeights);
+                    Log::info('Lab assets calculation completed');
+                } catch (\Exception $e) {
+                    Log::error('Lab assets calculation failed', ['error' => $e->getMessage()]);
+                }
+            }
+        }
+        
+        // Calculate Logistic assets if any
+        if ($logisticAssets->count() > 0) {
+            $logisticWeights = AhpWeight::getActiveWeightsForTopsis('keuangan_logistik');
+            if ($logisticWeights && !empty($logisticWeights)) {
+                try {
+                    $this->topsisService->calculatePriorityWithWeights($logisticAssets, $logisticWeights);
+                    Log::info('Logistic assets calculation completed');
+                } catch (\Exception $e) {
+                    Log::error('Logistic assets calculation failed', ['error' => $e->getMessage()]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Get stored priority scores from database - IMPROVED VERSION
+     */
+    private function getStoredPriorityScores($damagedAssets)
+    {
+        $priorityScores = [];
+        
+        foreach ($damagedAssets as $asset) {
+            if ($asset instanceof MaintenanceAsset && $asset->priority_score !== null) {
+                $priorityScores[$asset->id] = [
+                    'score' => $asset->priority_score,
+                    'rank' => 1 // Will be recalculated based on current dataset
+                ];
+                
+                Log::debug('Retrieved existing priority score', [
+                    'asset_id' => $asset->id,
+                    'score' => $asset->priority_score
+                ]);
+            }
+        }
+        
+        // Recalculate ranks based on current scores
+        if (!empty($priorityScores)) {
+            $sortedScores = $priorityScores;
+            uasort($sortedScores, function($a, $b) {
+                return $b['score'] <=> $a['score'];
+            });
+            
+            $rank = 1;
+            foreach ($sortedScores as $id => $data) {
+                $priorityScores[$id]['rank'] = $rank++;
+            }
+            
+            Log::info('Retrieved and ranked existing priority scores', [
+                'scores_count' => count($priorityScores)
+            ]);
+        }
+        
+        return $priorityScores;
+    }
+
+    /**
+     * Enhanced TOPSIS calculation with retry logic and better error handling
+     */
     private function calculateTopsisWithRetry($assets, $ahpWeights, $department, $maxRetries = 3)
     {
         $retryCount = 0;
         $calculatedScores = [];
+        
+        // Debug the calculation setup
+        $this->debugTopsisCalculation($assets, $department);
         
         while ($retryCount < $maxRetries && empty($calculatedScores)) {
             try {
@@ -294,14 +490,69 @@ class PengajuanController extends Controller
                     'ahp_weights_count' => count($ahpWeights)
                 ]);
                 
-                $calculatedScores = $this->topsisService->calculatePriorityWithWeights($assets, $ahpWeights);
+                // Validate inputs before calculation
+                if ($assets->count() === 0) {
+                    Log::warning('No assets provided for TOPSIS calculation', [
+                        'department' => $department
+                    ]);
+                    break;
+                }
+                
+                if (empty($ahpWeights)) {
+                    Log::warning('No AHP weights provided for TOPSIS calculation', [
+                        'department' => $department
+                    ]);
+                    break;
+                }
+                
+                // Validate that all assets have required data
+                $validAssets = $assets->filter(function($asset) {
+                    if (!($asset instanceof \App\Models\MaintenanceAsset)) {
+                        return false;
+                    }
+                    
+                    $damagedAsset = $asset->damagedAsset;
+                    $relatedAsset = $asset->asset;
+                    
+                    return $damagedAsset && 
+                        $relatedAsset && 
+                        !is_null($damagedAsset->tingkat_kerusakan) &&
+                        !is_null($damagedAsset->estimasi_biaya) &&
+                        !is_null($relatedAsset->tingkat_kepentingan_asset);
+                });
+                
+                if ($validAssets->count() === 0) {
+                    Log::warning('No valid assets for TOPSIS calculation', [
+                        'department' => $department,
+                        'total_assets' => $assets->count(),
+                        'valid_assets' => $validAssets->count()
+                    ]);
+                    break;
+                }
+                
+                if ($validAssets->count() < $assets->count()) {
+                    Log::warning('Some assets filtered out due to missing data', [
+                        'department' => $department,
+                        'total_assets' => $assets->count(),
+                        'valid_assets' => $validAssets->count()
+                    ]);
+                }
+                
+                // Attempt calculation with valid assets
+                $calculatedScores = $this->topsisService->calculatePriorityWithWeights($validAssets, $ahpWeights);
                 
                 if (!empty($calculatedScores)) {
                     Log::info('TOPSIS calculation successful', [
                         'department' => $department,
-                        'scores_calculated' => count($calculatedScores)
+                        'scores_calculated' => count($calculatedScores),
+                        'retry_count' => $retryCount
                     ]);
                     break;
+                } else {
+                    Log::warning('TOPSIS calculation returned empty results', [
+                        'department' => $department,
+                        'retry_count' => $retryCount
+                    ]);
                 }
                 
             } catch (\Exception $e) {
@@ -311,20 +562,38 @@ class PengajuanController extends Controller
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
+                
+                // If it's a specific error we can't retry, break early
+                if (str_contains($e->getMessage(), 'weights') || 
+                    str_contains($e->getMessage(), 'criteria') ||
+                    str_contains($e->getMessage(), 'division by zero')) {
+                    Log::error('Non-retryable error encountered', [
+                        'department' => $department,
+                        'error' => $e->getMessage()
+                    ]);
+                    break;
+                }
             }
             
             $retryCount++;
             
-            if ($retryCount < $maxRetries) {
+            if ($retryCount < $maxRetries && empty($calculatedScores)) {
                 // Wait a bit before retrying
                 sleep(1);
+                Log::info('Retrying TOPSIS calculation', [
+                    'department' => $department,
+                    'retry_count' => $retryCount,
+                    'max_retries' => $maxRetries
+                ]);
             }
         }
         
         if (empty($calculatedScores) && $retryCount >= $maxRetries) {
             Log::error('TOPSIS calculation failed after all retries', [
                 'department' => $department,
-                'max_retries' => $maxRetries
+                'max_retries' => $maxRetries,
+                'final_assets_count' => $assets->count(),
+                'ahp_weights_available' => !empty($ahpWeights)
             ]);
         }
         
@@ -1541,9 +1810,39 @@ class PengajuanController extends Controller
     public function downloadTemplate()
     {
         try {
-            return Excel::download(new AssetTemplateExport, 'template_data_kerusakan_aset.xlsx');
+            // For GET requests (backward compatibility) - empty template
+            return Excel::download(new AssetTemplateExport([], 'damaged_assets'), 'template_data_kerusakan_aset.xlsx');
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal mengunduh template: ' . $e->getMessage());
+        }
+    }
+
+    public function downloadSelectedTemplate(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'selected_assets' => 'array',
+                'selected_assets.*' => 'integer',
+                'asset_type' => 'string|in:damaged_assets,maintenance_assets'
+            ]);
+
+            $selectedAssets = $validated['selected_assets'] ?? [];
+            $assetType = $validated['asset_type'] ?? 'damaged_assets';
+            
+            // Determine filename based on selection
+            $filename = empty($selectedAssets) 
+                ? 'template_data_kerusakan_aset.xlsx'
+                : 'data_aset_terpilih_' . date('Y-m-d_H-i-s') . '.xlsx';
+
+            return Excel::download(
+                new AssetTemplateExport($selectedAssets, $assetType), 
+                $filename
+            );
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengunduh template: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -1561,15 +1860,100 @@ class PengajuanController extends Controller
         
         try {
             $file = $request->file('excel_file');
+            $user = Auth::user();
             
-            // Import the Excel file
+            Log::info('Starting Excel import', [
+                'filename' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'user' => $user->name,
+                'role' => $user->roles->first()->name
+            ]);
+            
+            // Initialize the import class
             $import = new AssetDamageImport();
-            Excel::import($import, $file);
+            
+            // Perform the Excel import with error catching
+            try {
+                Excel::import($import, $file);
+                Log::info('Excel import completed successfully');
+            } catch (\Exception $importError) {
+                Log::error('Excel import process failed', [
+                    'error' => $importError->getMessage(),
+                    'trace' => $importError->getTraceAsString()
+                ]);
+                throw $importError;
+            }
+            
+            // In your controller, replace the problematic section with:
+            try {
+                if (method_exists($import, 'sendNotificationsToApprovers')) {
+                    $import->sendNotificationsToApprovers();
+                    Log::info('Notifications sent successfully');
+                } else {
+                    Log::warning('sendNotificationsToApprovers method does not exist');
+                }
+            } catch (\Exception $notificationError) {
+                Log::warning('Failed to send notifications', [
+                    'error' => $notificationError->getMessage()
+                ]);
+            }
+
+            // Get import summary
+            try {
+                if (method_exists($import, 'getImportSummary')) {
+                    $summary = $import->getImportSummary();
+                } else {
+                    Log::warning('getImportSummary method does not exist');
+                    $summary = [
+                        'total_processed' => 0,
+                        'user_role' => Auth::user()->roles->first()->name,
+                        'timestamp' => now()->toDateTimeString()
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to get import summary', ['error' => $e->getMessage()]);
+                $summary = ['total_processed' => 0];
+            }
+            
+            Log::info('Import summary retrieved', $summary);
             
             DB::commit();
             
+            Log::info('Excel import transaction committed successfully', $summary);
+            
+            // Create detailed success message based on what was processed
+            $message = "File Excel berhasil diproses! ";
+            
+            if ($summary['total_processed'] > 0) {
+                $message .= "{$summary['total_processed']} pengajuan perbaikan telah dibuat dan dikirim untuk persetujuan.";
+                
+                // Add breakdown if there were both existing and new assets
+                if ($summary['existing_damage_assets'] > 0 && $summary['new_damage_assets'] > 0) {
+                    $message .= " ({$summary['existing_damage_assets']} dari aset rusak yang sudah ada, {$summary['new_damage_assets']} aset rusak baru)";
+                } elseif ($summary['existing_damage_assets'] > 0) {
+                    $message .= " (Semua dari aset rusak yang sudah ada)";
+                } elseif ($summary['new_damage_assets'] > 0) {
+                    $message .= " (Semua aset rusak baru)";
+                }
+                
+                // Add role-specific workflow information
+                if ($user->hasRole('staff_laboratorium')) {
+                    $message .= " Pengajuan telah dikirim ke Kaur Laboratorium untuk persetujuan.";
+                } elseif ($user->hasRole('staff_logistik')) {
+                    $message .= " Pengajuan telah dikirim ke Kaur Keuangan Logistik SDM untuk persetujuan.";
+                }
+                
+                // Add criteria information
+                if ($summary['criteria_count'] > 0) {
+                    $message .= " Data kriteria dinamis ({$summary['criteria_count']} kriteria) telah diproses untuk kalkulasi TOPSIS.";
+                }
+            } else {
+                $message = "File Excel berhasil diproses, tetapi tidak ada pengajuan baru yang dibuat. Pastikan data dalam file sudah benar dan belum memiliki pengajuan aktif.";
+            }
+            
             return redirect()->route('pengajuan.create')
-                ->with('success', 'File Excel berhasil diproses. Data kerusakan aset telah ditambahkan.');
+                ->with('success', $message)
+                ->with('import_summary', $summary);
                 
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             DB::rollBack();
@@ -1579,17 +1963,47 @@ class PengajuanController extends Controller
             
             foreach ($failures as $failure) {
                 $errorMessages[] = "Baris {$failure->row()}: " . implode(', ', $failure->errors());
+                
+                // Log each validation failure for debugging
+                Log::error('Excel validation failure', [
+                    'row' => $failure->row(),
+                    'attribute' => $failure->attribute(),
+                    'errors' => $failure->errors(),
+                    'values' => $failure->values()
+                ]);
             }
+            
+            Log::error('Excel import validation failed', [
+                'total_failures' => count($failures),
+                'user' => $user->name
+            ]);
             
             return back()->with('error', 'Validasi gagal: ' . implode('<br>', $errorMessages));
             
         } catch (\Exception $e) {
             DB::rollBack();
             
-            // Log the error for debugging
-            \Log::error('Excel import error: ' . $e->getMessage());
+            Log::error('Excel import error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user' => $user->name,
+                'file' => $file ? $file->getClientOriginalName() : 'unknown'
+            ]);
             
-            return back()->with('error', 'Terjadi kesalahan saat memproses file: ' . $e->getMessage());
+            // Provide more specific error messages
+            $errorMessage = 'Terjadi kesalahan saat memproses file: ';
+            
+            if (str_contains($e->getMessage(), 'Class') && str_contains($e->getMessage(), 'not found')) {
+                $errorMessage .= 'Import class tidak ditemukan. Pastikan AssetDamageImport sudah ada.';
+            } elseif (str_contains($e->getMessage(), 'Connection') || str_contains($e->getMessage(), 'database')) {
+                $errorMessage .= 'Kesalahan koneksi database. Silakan coba lagi.';
+            } elseif (str_contains($e->getMessage(), 'Memory') || str_contains($e->getMessage(), 'memory')) {
+                $errorMessage .= 'File terlalu besar untuk diproses. Coba dengan file yang lebih kecil.';
+            } else {
+                $errorMessage .= $e->getMessage();
+            }
+            
+            return back()->with('error', $errorMessage);
         }
     }
 
@@ -1615,35 +2029,6 @@ class PengajuanController extends Controller
                 }
             }
         }
-    }
-
-    private function getStoredPriorityScores($damagedAssets)
-    {
-        $priorityScores = [];
-        
-        foreach ($damagedAssets as $asset) {
-            if ($asset instanceof MaintenanceAsset && $asset->priority_score !== null) {
-                $priorityScores[$asset->id] = [
-                    'score' => $asset->priority_score,
-                    'rank' => 1 // Will be recalculated based on current dataset
-                ];
-            }
-        }
-        
-        // Recalculate ranks based on current scores
-        if (!empty($priorityScores)) {
-            $sortedScores = $priorityScores;
-            uasort($sortedScores, function($a, $b) {
-                return $b['score'] <=> $a['score'];
-            });
-            
-            $rank = 1;
-            foreach ($sortedScores as $id => $data) {
-                $priorityScores[$id]['rank'] = $rank++;
-            }
-        }
-        
-        return $priorityScores;
     }
 
     public function triggerTopsisCalculation(Request $request)
@@ -1701,13 +2086,6 @@ class PengajuanController extends Controller
                 ->where('status', 'Menunggu Persetujuan')
                 ->get();
             
-            if ($pendingAssets->count() === 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Tidak ada pengajuan yang perlu dikalkulasi prioritasnya.'
-                ]);
-            }
-            
             Log::info('Starting TOPSIS calculation', [
                 'pending_assets_count' => $pendingAssets->count(),
                 'criteria_weights' => $ahpCriteriaWeights,
@@ -1719,13 +2097,6 @@ class PengajuanController extends Controller
                 $pendingAssets, 
                 $ahpCriteriaWeights
             );
-            
-            if (empty($priorityScores)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Gagal menghitung prioritas. Tidak ada data yang valid untuk dikalkulasi.'
-                ]);
-            }
             
             // Count updated assets
             $updatedCount = count($priorityScores);
@@ -1842,6 +2213,68 @@ class PengajuanController extends Controller
         } catch (\Exception $e) {
             abort(500, 'Could not create photo archive.');
         }
+    }
+
+    public function sendNotificationsToApprovers()
+    {
+        if (empty($this->processedAssets)) {
+            return;
+        }
+
+        try {
+            $user = Auth::user();
+            
+            // Group assets by workflow (lab vs logistic)
+            $labAssets = [];
+            $logisticAssets = [];
+
+            foreach ($this->processedAssets as $maintenanceAsset) {
+                if (str_contains($maintenanceAsset->asset->lokasi, 'Laboratorium')) {
+                    $labAssets[] = $maintenanceAsset;
+                } else {
+                    $logisticAssets[] = $maintenanceAsset;
+                }
+            }
+
+            // Send notifications based on workflow
+            if ($user->hasRole('staff_laboratorium') && !empty($labAssets)) {
+                $kaur = User::role('kaur_laboratorium')->first();
+                if ($kaur && $this->notificationService) {
+                    $this->notificationService->sendBulkApprovalRequest(
+                        count($labAssets),
+                        $kaur,
+                        'staff_laboratorium'
+                    );
+                }
+            } elseif ($user->hasRole('staff_logistik') && !empty($logisticAssets)) {
+                $kaur = User::role('kaur_keuangan_logistik_sdm')->first();
+                if ($kaur && $this->notificationService) {
+                    $this->notificationService->sendBulkApprovalRequest(
+                        count($logisticAssets),
+                        $kaur,
+                        'staff_logistik'
+                    );
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send import notifications', [
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    // Add this method too
+    public function getImportSummary()
+    {
+        return [
+            'total_processed' => count($this->processedAssets),
+            'existing_damage_assets' => 0,
+            'new_damage_assets' => count($this->processedAssets),
+            'user_role' => $this->userRole ?? Auth::user()->roles->first()->name,
+            'criteria_count' => Criteria::count(),
+            'timestamp' => now()->toDateTimeString()
+        ];
     }
     
     public function destroy($id)

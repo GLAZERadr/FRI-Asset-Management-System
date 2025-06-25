@@ -65,20 +65,6 @@ Route::prefix('public')->name('public.')->group(function () {
     // QR Code processing for public access
     Route::post('/qr/process', [PublicMonitoringController::class, 'processQR'])->name('qr.process');
     
-    Route::get('/debug/asset/{assetId}', function($assetId) {
-        $asset = App\Models\Asset::where('asset_id', $assetId)->first();
-        if ($asset) {
-            return response()->json([
-                'asset_found' => true,
-                'asset_id' => $asset->asset_id,
-                'asset_name' => $asset->nama_asset,
-                'kode_ruangan' => $asset->kode_ruangan,
-                'monitoring_url' => route('public.monitoring.form', ['kodeRuangan' => $asset->kode_ruangan])
-            ]);
-        }
-        return response()->json(['asset_found' => false]);
-    })->name('debug.asset');
-    
     Route::get('/debug/room/{kodeRuangan}', function($kodeRuangan) {
         $assets = App\Models\Asset::where('kode_ruangan', $kodeRuangan)->get();
         return response()->json([
@@ -117,8 +103,39 @@ Route::middleware('auth')->group(function () {
         Route::get('/damage-stats', [DashboardController::class, 'getDamageStats'])->name('damage.stats');
     });
 
+    Route::post('/debug-excel', function (Request $request) {
+        if ($request->hasFile('excel_file')) {
+            $file = $request->file('excel_file');
+            
+            // Read Excel and show raw data
+            $data = Excel::toArray([], $file);
+            
+            // Show first sheet data
+            $firstSheet = $data[0] ?? [];
+            
+            Log::info('Excel Debug - Raw Data', [
+                'total_sheets' => count($data),
+                'first_sheet_rows' => count($firstSheet),
+                'headers' => $firstSheet[0] ?? [],
+                'first_data_row' => $firstSheet[1] ?? [],
+                'all_data' => $firstSheet
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'total_sheets' => count($data),
+                'first_sheet_rows' => count($firstSheet),
+                'headers' => $firstSheet[0] ?? [],
+                'first_data_row' => $firstSheet[1] ?? [],
+                'sample_data' => array_slice($firstSheet, 0, 5) // First 5 rows
+            ]);
+        }
+        
+        return response()->json(['error' => 'No file uploaded']);
+    });
+
     Route::post('/qr/process', [AssetController::class, 'processQR'])->name('qr.process');
-    
+
     // Force mobile view for testing (optional)
     Route::get('/dashboard/mobile', function() {
         request()->merge(['mobile' => true]);
@@ -211,11 +228,13 @@ Route::middleware('auth')->group(function () {
         
         // Excel template routes (static)
         Route::get('/template/download', [PengajuanController::class, 'downloadTemplate'])->name('template.download');
+        Route::post('/template/download-selected', [PengajuanController::class, 'downloadSelectedTemplate'])->name('template.download-selected'); 
         Route::post('/template/upload', [PengajuanController::class, 'uploadTemplate'])->name('template.upload');
         
         Route::post('/topsis/calculate', [PengajuanController::class, 'triggerTopsisCalculation'])->name('topsis.calculate');
         Route::get('/topsis/status', [PengajuanController::class, 'getTopsisStatus'])->name('topsis.status');
         Route::get('/topsis/results', [PengajuanController::class, 'getTopsisResults'])->name('topsis.results');
+        Route::post('/ensure-priority-scores', [PengajuanController::class, 'ensurePriorityScores'])->name('ensure-priority-scores');
 
         // POST routes
         Route::post('/', [PengajuanController::class, 'store'])->name('store');

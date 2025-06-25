@@ -494,14 +494,44 @@
                 <form action="{{ route('pengajuan.template.upload') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
                     @csrf
                     <div class="mb-5">
+                        <!-- Upload Area (shown when no file selected) -->
                         <div class="relative border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center h-48 cursor-pointer hover:bg-gray-50 transition-colors duration-150" id="dropzone">
-                            <div class="text-center">
+                            <div class="text-center" id="upload-area">
                                 <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                 </svg>
                                 <p class="mt-2 text-sm text-gray-700">Drag or drop your files here to add them</p>
-                                <p class="text-xs text-gray-500 mt-1" id="file-name"></p>
+                                <p class="text-xs text-gray-500 mt-1">or click to browse</p>
                             </div>
+                            
+                            <!-- File Preview (shown when file selected) -->
+                            <div class="hidden text-center w-full" id="file-preview">
+                                <div class="flex items-center justify-center space-x-3 p-4 bg-gray-50 rounded-lg border">
+                                    <!-- Excel File Icon -->
+                                    <div class="flex-shrink-0">
+                                        <svg class="w-12 h-12 text-green-600" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                                            <path d="M9.5,11.5L11,13.8L12.5,11.5H14.5L12,15L14.5,18.5H12.5L11,16.2L9.5,18.5H7.5L10,15L7.5,11.5H9.5Z" fill="white"/>
+                                        </svg>
+                                    </div>
+                                    
+                                    <!-- File Info -->
+                                    <div class="flex-1 text-left min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 truncate" id="file-name-display"></p>
+                                        <p class="text-xs text-gray-500" id="file-size-display"></p>
+                                    </div>
+                                    
+                                    <!-- Remove Button -->
+                                    <div class="flex-shrink-0">
+                                        <button type="button" onclick="removeFile()" class="text-red-500 hover:text-red-700 focus:outline-none">
+                                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <input type="file" id="excel_file" name="excel_file" 
                                 class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 accept=".xlsx,.xls" required>
@@ -513,7 +543,7 @@
                         <button type="button" onclick="closeModal()" class="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 transition-colors duration-150">
                             Cancel
                         </button>
-                        <button type="submit" class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors duration-150">
+                        <button type="submit" id="submit-btn" disabled class="w-full px-4 py-2 bg-gray-400 text-white rounded-md cursor-not-allowed transition-colors duration-150">
                             Simpan
                         </button>
                     </div>
@@ -756,75 +786,153 @@ function openModal() {
 }
 
 function closeModal() {
-    const modal = document.getElementById('excelUploadModal');
-    modal.classList.add('hidden');
+    document.getElementById('excelUploadModal').classList.add('hidden');
+    // Reset the form when closing
+    document.getElementById('excel_file').value = '';
+    
+    const uploadArea = document.getElementById('upload-area');
+    const filePreview = document.getElementById('file-preview');
+    const dropzone = document.getElementById('dropzone');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    if (uploadArea) uploadArea.classList.remove('hidden');
+    if (filePreview) filePreview.classList.add('hidden');
+    if (dropzone) {
+        dropzone.classList.add('border-dashed', 'hover:bg-gray-50');
+        dropzone.classList.remove('border-solid', 'border-green-300');
+    }
+    
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        submitBtn.classList.remove('bg-green-600', 'hover:bg-green-700', 'focus:ring-2', 'focus:ring-green-500', 'focus:ring-opacity-50');
+    }
 }
 
-// File upload handling
+// File upload handling  
 document.addEventListener('DOMContentLoaded', function() {
-    const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('excel_file');
-    const fileNameDisplay = document.getElementById('file-name');
+    const dropzone = document.getElementById('dropzone');
+    const uploadArea = document.getElementById('upload-area');
+    const filePreview = document.getElementById('file-preview');
+    const fileNameDisplay = document.getElementById('file-name-display');
+    const fileSizeDisplay = document.getElementById('file-size-display');
+    const submitBtn = document.getElementById('submit-btn');
     
+    let selectedFile = null;
+
+    // File input change event
     if (fileInput) {
         fileInput.addEventListener('change', function(e) {
-            if (fileInput.files.length > 0) {
-                const fileName = fileInput.files[0].name;
-                const fileSize = (fileInput.files[0].size / 1024 / 1024).toFixed(2);
-                
-                fileNameDisplay.textContent = `${fileName} (${fileSize} MB)`;
-                dropzone.classList.add('border-green-500', 'bg-green-50');
-                dropzone.classList.remove('border-gray-300');
-            } else {
-                resetDropzone();
-            }
+            handleFileSelect(e.target.files[0]);
         });
-        
-        // Drag and drop functionality
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropzone.addEventListener(eventName, preventDefaults, false);
-        });
-        
-        function preventDefaults(e) {
+    }
+
+    // Drag and drop events
+    if (dropzone) {
+        dropzone.addEventListener('dragover', function(e) {
             e.preventDefault();
-            e.stopPropagation();
+            dropzone.classList.add('border-green-400', 'bg-green-50');
+        });
+
+        dropzone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            dropzone.classList.remove('border-green-400', 'bg-green-50');
+        });
+
+        dropzone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropzone.classList.remove('border-green-400', 'bg-green-50');
+            handleFileSelect(e.dataTransfer.files[0]);
+        });
+    }
+
+    function handleFileSelect(file) {
+        if (!file) return;
+        
+        // Validate file type
+        const allowedTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+        if (!allowedTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
+            alert('Please select a valid Excel file (.xlsx or .xls)');
+            resetFileInput();
+            return;
         }
         
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropzone.addEventListener(eventName, function() {
-                dropzone.classList.add('border-green-500', 'bg-green-50');
-                dropzone.classList.remove('border-gray-300');
-            }, false);
-        });
+        // Validate file size (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('File size must be less than 10MB');
+            resetFileInput();
+            return;
+        }
         
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropzone.addEventListener(eventName, function() {
-                dropzone.classList.remove('border-green-500', 'bg-green-50');
-                dropzone.classList.add('border-gray-300');
-            }, false);
-        });
-        
-        dropzone.addEventListener('drop', function(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
+        selectedFile = file;
+        showFilePreview(file);
+        enableSubmitButton();
+    }
+
+    function showFilePreview(file) {
+        if (uploadArea && filePreview && fileNameDisplay && fileSizeDisplay) {
+            // Hide upload area, show preview
+            uploadArea.classList.add('hidden');
+            filePreview.classList.remove('hidden');
             
-            if (files.length > 0) {
-                fileInput.files = files;
-                const fileName = files[0].name;
-                const fileSize = (files[0].size / 1024 / 1024).toFixed(2);
-                
-                fileNameDisplay.textContent = `${fileName} (${fileSize} MB)`;
-                dropzone.classList.add('border-green-500', 'bg-green-50');
-                dropzone.classList.remove('border-gray-300');
-            }
-        }, false);
-        
-        function resetDropzone() {
-            fileNameDisplay.textContent = '';
-            dropzone.classList.remove('border-green-500', 'bg-green-50');
-            dropzone.classList.add('border-gray-300');
+            // Update file info
+            fileNameDisplay.textContent = file.name;
+            fileSizeDisplay.textContent = formatFileSize(file.size);
+            
+            // Update dropzone styling
+            dropzone.classList.remove('border-dashed', 'hover:bg-gray-50');
+            dropzone.classList.add('border-solid', 'border-green-300');
         }
     }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function resetFileInput() {
+        selectedFile = null;
+        if (fileInput) fileInput.value = '';
+        
+        if (uploadArea && filePreview) {
+            // Show upload area, hide preview
+            uploadArea.classList.remove('hidden');
+            filePreview.classList.add('hidden');
+        }
+        
+        if (dropzone) {
+            // Reset dropzone styling
+            dropzone.classList.add('border-dashed', 'hover:bg-gray-50');
+            dropzone.classList.remove('border-solid', 'border-green-300');
+        }
+        
+        disableSubmitButton();
+    }
+
+    function enableSubmitButton() {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+            submitBtn.classList.add('bg-green-600', 'hover:bg-green-700', 'focus:ring-2', 'focus:ring-green-500', 'focus:ring-opacity-50');
+        }
+    }
+
+    function disableSubmitButton() {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+            submitBtn.classList.remove('bg-green-600', 'hover:bg-green-700', 'focus:ring-2', 'focus:ring-green-500', 'focus:ring-opacity-50');
+        }
+    }
+
+    // Make removeFile function global
+    window.removeFile = function() {
+        resetFileInput();
+    };
     
     // Close modal when clicking outside
     const modal = document.getElementById('excelUploadModal');

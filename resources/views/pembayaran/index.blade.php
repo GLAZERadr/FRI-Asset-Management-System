@@ -165,50 +165,30 @@
                             {{ $payment->getTipeLabel() }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            @php
-                                $status = $payment->status;
-                                $statusClasses = [
-                                    'belum_dibayar' => 'bg-yellow-100 text-yellow-800',
-                                    'sudah_dibayar' => 'bg-green-100 text-green-800',
-                                    'terlambat' => 'bg-red-100 text-red-800',
-                                    'dibatalkan' => 'bg-gray-100 text-gray-800',
-                                    'revisi' => 'bg-yellow-100 text-yellow-800'
-                                ];
-                                $class = $statusClasses[$status] ?? 'bg-gray-100 text-gray-800';
-                                
-                                $statusLabels = [
-                                    'belum_dibayar' => 'Belum dibayar',
-                                    'sudah_dibayar' => 'Sudah dibayar',
-                                    'terlambat' => 'Terlambat',
-                                    'dibatalkan' => 'Dibatalkan',
-                                    'revisi' => 'Revisi'
-                                ];
-                                $statusText = $statusLabels[$status] ?? $status;
-                                
-                                // Check if user can modify status
-                                $canModifyStatus = Auth::user()->hasAnyRole(['staff_keuangan', 'staff_logistik', 'staff_laboratorium']);
-                                $isDisabled = in_array($status, ['dibatalkan']);
-                            @endphp
-                            
-                            @if($isDisabled || !$canModifyStatus)
-                                <!-- Static status display for disabled statuses or users without modify permissions -->
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $class }}">
+                            <div class="mt-1">
+                                @php
+                                    $statusClasses = [
+                                        'belum_dibayar' => 'bg-yellow-100 text-yellow-800',
+                                        'sudah_dibayar' => 'bg-green-100 text-green-800',
+                                        'terlambat' => 'bg-red-100 text-red-800',
+                                        'dibatalkan' => 'bg-gray-100 text-gray-800',
+                                        'revisi' => 'bg-orange-100 text-orange-800'
+                                    ];
+
+                                    $statusLabels = [
+                                        'belum_dibayar' => 'Belum dibayar',
+                                        'sudah_dibayar' => 'Sudah dibayar',
+                                        'terlambat' => 'Terlambat',
+                                        'dibatalkan' => 'Dibatalkan',
+                                        'revisi' => 'Revisi'
+                                    ];
+                                    $statusText = $statusLabels[$payment->status] ?? $payment->status;
+                                    $class = $statusClasses[$payment->status] ?? 'bg-gray-100 text-gray-800';
+                                @endphp
+                                <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full {{ $class }}">
                                     {{ $statusText }}
                                 </span>
-                            @else
-                                <!-- Dropdown for users who can modify status -->
-                                <form action="{{ route('pembayaran.update-status', $payment) }}" method="POST" class="inline-block status-form" data-payment-id="{{ $payment->id }}">
-                                    @csrf
-                                    @method('PATCH')
-                                    <select name="status" data-current-status="{{ $status }}"
-                                            class="text-xs font-semibold rounded-full border-0 focus:ring-0 {{ $class }} appearance-none pr-6 pl-2 py-1 status-select">
-                                        <option value="belum_dibayar" {{ $status == 'belum_dibayar' ? 'selected' : '' }}>Belum dibayar</option>
-                                        <option value="sudah_dibayar" {{ $status == 'sudah_dibayar' ? 'selected' : '' }}>Sudah dibayar</option>
-                                        <option value="terlambat" {{ $status == 'terlambat' ? 'selected' : '' }}>Terlambat</option>
-                                        <option value="dibatalkan" {{ $status == 'dibatalkan' ? 'selected' : '' }}>Dibatalkan</option>
-                                    </select>
-                                </form>
-                            @endif
+                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex justify-end space-x-2">

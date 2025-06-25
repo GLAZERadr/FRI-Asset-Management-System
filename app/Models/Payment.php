@@ -56,7 +56,7 @@ class Payment extends Model
         'belum_dibayar' => 'Belum dibayar',
         'sudah_dibayar' => 'Sudah dibayar',
         'terlambat' => 'Terlambat',
-        'dibatalkan' => 'Dibatalkan',
+        'dibatalkan' => 'Dibatalkan'
     ];
 
     /**

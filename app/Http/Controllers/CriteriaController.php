@@ -16,9 +16,17 @@ class CriteriaController extends Controller
         $user = Auth::user();
         $department = AhpWeight::getUserDepartment($user);
         
-        $criteria = Criteria::all();
+        // CHANGE: Get only criteria for current department
+        $criteria = Criteria::forDepartment($department)->get();
         $calculationHistory = AhpWeight::getCalculationHistory($department);
         $activeWeights = AhpWeight::getActiveWeights($department);
+        
+        Log::info('Criteria index accessed', [
+            'user' => $user->name,
+            'role' => $user->roles->first()->name,
+            'department' => $department,
+            'criteria_count' => $criteria->count()
+        ]);
         
         return view('kriteria.index', compact('criteria', 'calculationHistory', 'activeWeights', 'department'));
     }
@@ -28,12 +36,19 @@ class CriteriaController extends Controller
         $user = Auth::user();
         $department = AhpWeight::getUserDepartment($user);
         
-        $criteria = Criteria::all();
+        // CHANGE: Get only criteria for current department
+        $criteria = Criteria::forDepartment($department)->get();
         $activeWeights = AhpWeight::getActiveWeights($department);
         $isConsistent = AhpWeight::areCurrentWeightsConsistent($department);
         
         // Get active configuration for form population
         $activeConfiguration = AhpWeight::getActiveConfiguration($department);
+        
+        Log::info('Criteria create page accessed', [
+            'user' => $user->name,
+            'department' => $department,
+            'existing_criteria_count' => $criteria->count()
+        ]);
         
         return view('kriteria.create', compact('criteria', 'activeWeights', 'isConsistent', 'department', 'activeConfiguration'));
     }
@@ -45,27 +60,42 @@ class CriteriaController extends Controller
             'tipe_kriteria' => 'required|in:benefit,cost'
         ]);
 
-        // Generate unique kriteria_id by finding the next available number
-        $kriteriaId = $this->generateUniqueKriteriaId();
+        $user = Auth::user();
+        $department = AhpWeight::getUserDepartment($user);
 
-        Criteria::create([
+        // CHANGE: Generate unique kriteria_id for this department only
+        $kriteriaId = $this->generateUniqueKriteriaId($department);
+
+        // CHANGE: Create criteria with department and created_by
+        $criteria = Criteria::create([
             'kriteria_id' => $kriteriaId,
             'nama_kriteria' => $request->nama_kriteria,
-            'tipe_kriteria' => $request->tipe_kriteria
+            'tipe_kriteria' => $request->tipe_kriteria,
+            'department' => $department,
+            'created_by' => $user->id
+        ]);
+
+        Log::info('Criteria created', [
+            'user' => $user->name,
+            'department' => $department,
+            'criteria_id' => $kriteriaId,
+            'criteria_name' => $request->nama_kriteria
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Kriteria berhasil ditambahkan'
+            'message' => "Kriteria berhasil ditambahkan untuk departemen {$department}",
+            'criteria' => $criteria
         ]);
     }
 
     /**
-     * Generate unique kriteria_id by finding next available number
+     * Generate unique kriteria_id by finding next available number FOR SPECIFIC DEPARTMENT
      */
-    private function generateUniqueKriteriaId()
+    private function generateUniqueKriteriaId($department)
     {
-        $existingIds = Criteria::pluck('kriteria_id')->toArray();
+        // CHANGE: Only check existing IDs within the same department
+        $existingIds = Criteria::where('department', $department)->pluck('kriteria_id')->toArray();
         
         // Extract numbers from existing IDs
         $existingNumbers = array_map(function($id) {
@@ -84,30 +114,46 @@ class CriteriaController extends Controller
     public function calculate(Request $request)
     {
         try {
-            Log::info('AHP Calculate request received', ['request' => $request->all()]);
+            $user = Auth::user();
+            $department = AhpWeight::getUserDepartment($user);
             
-            $criteria = Criteria::all();
+            Log::info('AHP Calculate request received', [
+                'user' => $user->name,
+                'department' => $department,
+                'request' => $request->all()
+            ]);
+            
+            // CHANGE: Get only criteria for current department
+            $criteria = Criteria::forDepartment($department)->get();
             
             if ($criteria->count() < 2) {
                 return response()->json([
-                    'error' => 'Minimal 2 kriteria diperlukan untuk perhitungan'
+                    'error' => "Minimal 2 kriteria diperlukan untuk perhitungan di departemen {$department}"
                 ]);
             }
 
-            // Save pairwise comparisons
+            // Save pairwise comparisons (department-specific)
             if ($request->has('comparisons')) {
-                Log::info('Saving comparisons', ['comparisons' => $request->comparisons]);
-                $this->saveComparisons($request->comparisons);
+                Log::info('Saving comparisons for department', [
+                    'department' => $department,
+                    'comparisons' => $request->comparisons
+                ]);
+                $this->saveComparisons($request->comparisons, $department);
             }
 
             // Calculate AHP
-            $result = $this->calculateAHP($criteria);
+            $result = $this->calculateAHP($criteria, $department);
             
-            Log::info('AHP calculation successful', ['result' => $result]);
+            Log::info('AHP calculation successful', [
+                'department' => $department,
+                'result' => $result
+            ]);
             return response()->json($result);
             
         } catch (\Exception $e) {
             Log::error('AHP calculation error', [
+                'department' => $department ?? 'unknown',
+                'user' => $user->name ?? 'unknown',
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -118,19 +164,21 @@ class CriteriaController extends Controller
         }
     }
 
-    private function saveComparisons($comparisons)
+    // CHANGE: Add department parameter to saveComparisons
+    private function saveComparisons($comparisons, $department)
     {
         try {
-            // Clear existing comparisons
-            CriteriaComparison::truncate();
+            // Clear existing comparisons for this department
+            CriteriaComparison::where('department', $department)->delete();
             
             foreach ($comparisons as $comparison) {
-                Log::info('Saving comparison', $comparison);
+                Log::info('Saving comparison for department', array_merge($comparison, ['department' => $department]));
                 
                 CriteriaComparison::create([
                     'criteria_1' => $comparison['criteria_1'],
                     'criteria_2' => $comparison['criteria_2'],
-                    'comparison_value' => $comparison['value']
+                    'comparison_value' => $comparison['value'],
+                    'department' => $department // Add department to comparisons
                 ]);
                 
                 // Save inverse comparison only if it's not a self-comparison
@@ -138,46 +186,58 @@ class CriteriaController extends Controller
                     CriteriaComparison::create([
                         'criteria_1' => $comparison['criteria_2'],
                         'criteria_2' => $comparison['criteria_1'],
-                        'comparison_value' => 1 / $comparison['value']
+                        'comparison_value' => 1 / $comparison['value'],
+                        'department' => $department // Add department to comparisons
                     ]);
                 }
             }
             
-            Log::info('All comparisons saved successfully');
+            Log::info('All comparisons saved successfully for department', ['department' => $department]);
         } catch (\Exception $e) {
-            Log::error('Error saving comparisons', ['error' => $e->getMessage()]);
+            Log::error('Error saving comparisons', [
+                'department' => $department,
+                'error' => $e->getMessage()
+            ]);
             throw $e;
         }
     }
 
-    private function calculateAHP($criteria)
+    // CHANGE: Add department parameter to calculateAHP
+    private function calculateAHP($criteria, $department)
     {
         try {
             $n = $criteria->count();
             $criteriaIds = $criteria->pluck('kriteria_id')->toArray();
             
             Log::info('Starting AHP calculation', [
+                'department' => $department,
                 'criteria_count' => $n,
                 'criteria_ids' => $criteriaIds
             ]);
             
-            // Build comparison matrix
+            // Build comparison matrix using department-specific comparisons
             $matrix = [];
             foreach ($criteriaIds as $i => $criteria1) {
                 foreach ($criteriaIds as $j => $criteria2) {
                     if ($i === $j) {
                         $matrix[$i][$j] = 1;
                     } else {
+                        // CHANGE: Filter comparisons by department
                         $comparison = CriteriaComparison::where('criteria_1', $criteria1)
                             ->where('criteria_2', $criteria2)
+                            ->where('department', $department)
                             ->first();
                         $matrix[$i][$j] = $comparison ? $comparison->comparison_value : 1;
                     }
                 }
             }
             
-            Log::info('Comparison matrix built', ['matrix' => $matrix]);
+            Log::info('Comparison matrix built for department', [
+                'department' => $department,
+                'matrix' => $matrix
+            ]);
             
+            // Rest of your existing AHP calculation logic remains the same...
             // Calculate column sums
             $columnSums = [];
             for ($j = 0; $j < $n; $j++) {
@@ -198,7 +258,7 @@ class CriteriaController extends Controller
                 }
             }
             
-            Log::info('Normalized matrix calculated');
+            Log::info('Normalized matrix calculated for department', ['department' => $department]);
             
             // Calculate priority weights (row averages)
             $weights = [];
@@ -210,11 +270,17 @@ class CriteriaController extends Controller
                 $weights[$i] = $sum / $n;
             }
             
-            Log::info('Weights calculated', ['weights' => $weights]);
+            Log::info('Weights calculated for department', [
+                'department' => $department,
+                'weights' => $weights
+            ]);
             
             // Calculate consistency
             $consistency = $this->calculateConsistency($matrix, $weights, $n);
-            Log::info('Consistency calculated', ['consistency' => $consistency]);
+            Log::info('Consistency calculated for department', [
+                'department' => $department,
+                'consistency' => $consistency
+            ]);
             
             return [
                 'matrix' => $matrix,
@@ -225,6 +291,7 @@ class CriteriaController extends Controller
                 'consistency_ratio' => $consistency['cr'],
                 'lambda_max' => $consistency['lambda_max'],
                 'is_consistent' => $consistency['cr'] <= 0.1,
+                'department' => $department, // Add department to result
                 'criteria' => $criteria->map(function($item, $index) use ($weights) {
                     return [
                         'kriteria_id' => $item->kriteria_id,
@@ -236,11 +303,15 @@ class CriteriaController extends Controller
             ];
             
         } catch (\Exception $e) {
-            Log::error('Error in calculateAHP', ['error' => $e->getMessage()]);
+            Log::error('Error in calculateAHP for department', [
+                'department' => $department,
+                'error' => $e->getMessage()
+            ]);
             throw $e;
         }
     }
 
+    // Your existing calculateConsistency method remains the same
     private function calculateConsistency($matrix, $weights, $n)
     {
         try {
@@ -293,6 +364,7 @@ class CriteriaController extends Controller
         }
     }
 
+    // Your existing storeWeights method with department logging
     public function storeWeights(Request $request)
     {
         try {
@@ -308,10 +380,45 @@ class CriteriaController extends Controller
                 'random_index' => 'numeric',
                 'matrix' => 'array',
                 'normalized_matrix' => 'array',
-                'pairwise_comparisons' => 'array' // Add pairwise comparisons validation
+                'pairwise_comparisons' => 'array'
             ]);
             
             DB::beginTransaction();
+            
+            // CHANGE: Get current criteria information from department-specific query
+            $criteriaIds = array_column($validated['criteria'], 'kriteria_id');
+            $currentCriteria = Criteria::whereIn('kriteria_id', $criteriaIds)
+                                      ->where('department', $department)
+                                      ->get()
+                                      ->keyBy('kriteria_id');
+            
+            // Prepare criteria data with complete information (including names and types)
+            $enrichedCriteria = [];
+            foreach ($validated['criteria'] as $index => $criterion) {
+                $criteriaId = $criterion['kriteria_id'];
+                $dbCriterion = $currentCriteria->get($criteriaId);
+                
+                if ($dbCriterion) {
+                    $enrichedCriteria[] = [
+                        'kriteria_id' => $criteriaId,
+                        'nama_kriteria' => $dbCriterion->nama_kriteria,
+                        'tipe_kriteria' => $dbCriterion->tipe_kriteria,
+                        'weight' => $validated['weights'][$index] ?? 0
+                    ];
+                } else {
+                    Log::warning('Criteria not found in department', [
+                        'criteria_id' => $criteriaId,
+                        'department' => $department
+                    ]);
+                    // Fallback to data from request if somehow not found in database
+                    $enrichedCriteria[] = [
+                        'kriteria_id' => $criteriaId,
+                        'nama_kriteria' => $criterion['nama_kriteria'] ?? 'Unknown Criteria',
+                        'tipe_kriteria' => $criterion['tipe_kriteria'] ?? 'benefit',
+                        'weight' => $validated['weights'][$index] ?? 0
+                    ];
+                }
+            }
             
             // Prepare consistency data
             $consistencyData = [
@@ -330,15 +437,15 @@ class CriteriaController extends Controller
             // Get pairwise comparisons from request
             $pairwiseComparisons = $validated['pairwise_comparisons'] ?? [];
             
-            // Store in database with department and pairwise comparisons
+            // Store in database with enriched criteria data
             $calculationId = AhpWeight::storeCalculation(
-                $validated['criteria'],
+                $enrichedCriteria,
                 $validated['weights'],
                 $consistencyData,
                 $user->username ?? 'System',
-                $department, // Add department parameter
+                $department,
                 $matrixData,
-                $pairwiseComparisons // Add pairwise comparisons parameter
+                $pairwiseComparisons
             );
             
             DB::commit();
@@ -346,8 +453,10 @@ class CriteriaController extends Controller
             Log::info('AHP weights stored successfully', [
                 'calculation_id' => $calculationId,
                 'department' => $department,
-                'criteria_count' => count($validated['criteria']),
+                'user' => $user->name,
+                'criteria_count' => count($enrichedCriteria),
                 'consistency_ratio' => $validated['consistency_ratio'],
+                'criteria_details' => $enrichedCriteria,
                 'pairwise_comparisons_count' => count($pairwiseComparisons)
             ]);
             
@@ -357,7 +466,8 @@ class CriteriaController extends Controller
                 'calculation_id' => $calculationId,
                 'department' => $department,
                 'debug_info' => [
-                    'criteria_count' => count($validated['criteria']),
+                    'criteria_count' => count($enrichedCriteria),
+                    'criteria_stored' => $enrichedCriteria,
                     'consistency_ratio' => $validated['consistency_ratio'],
                     'pairwise_comparisons_saved' => count($pairwiseComparisons)
                 ]
@@ -373,6 +483,8 @@ class CriteriaController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error storing AHP weights: ' . $e->getMessage(), [
+                'department' => $department ?? 'unknown',
+                'user' => $user->name ?? 'unknown',
                 'request_data' => $request->all(),
                 'stack_trace' => $e->getTraceAsString()
             ]);
@@ -384,9 +496,7 @@ class CriteriaController extends Controller
         }
     }
 
-    /**
-     * Get active weights for TOPSIS calculation (department-specific)
-     */
+    // Rest of your existing methods with department awareness...
     public function getActiveWeights()
     {
         try {
@@ -422,9 +532,6 @@ class CriteriaController extends Controller
         }
     }
 
-    /**
-     * Set specific calculation as active for department
-     */
     public function setActiveWeights(Request $request, $calculationId)
     {
         try {
@@ -467,27 +574,46 @@ class CriteriaController extends Controller
 
     public function destroy($id)
     {
-        $criteria = Criteria::where('kriteria_id', $id)->firstOrFail();
+        $user = Auth::user();
+        $department = AhpWeight::getUserDepartment($user);
         
-        // Delete related comparisons
-        CriteriaComparison::where('criteria_1', $id)
-            ->orWhere('criteria_2', $id)
+        // CHANGE: Only allow deletion of criteria from user's department
+        $criteria = Criteria::where('kriteria_id', $id)
+                           ->where('department', $department)
+                           ->firstOrFail();
+        
+        // Check if user can manage this criteria
+        if (!$criteria->canManage($user)) {
+            abort(403, 'You can only delete criteria from your own department.');
+        }
+        
+        // Delete related comparisons for this department
+        CriteriaComparison::where('department', $department)
+            ->where(function($query) use ($id) {
+                $query->where('criteria_1', $id)
+                      ->orWhere('criteria_2', $id);
+            })
             ->delete();
             
-        // Delete related AHP weights
-        AhpWeight::where('criteria_id', $id)->delete();
+        // Delete related AHP weights for this department
+        AhpWeight::where('criteria_id', $id)
+                 ->where('department', $department)
+                 ->delete();
             
         $criteria->delete();
         
+        Log::info('Criteria deleted', [
+            'user' => $user->name,
+            'department' => $department,
+            'criteria_id' => $id
+        ]);
+        
         return response()->json([
             'success' => true,
-            'message' => 'Kriteria berhasil dihapus'
+            'message' => "Kriteria berhasil dihapus dari departemen {$department}"
         ]);
     }
 
-    /**
-     * Get specific calculation configuration by calculation ID
-     */
     public function getCalculationConfiguration($calculationId)
     {
         try {

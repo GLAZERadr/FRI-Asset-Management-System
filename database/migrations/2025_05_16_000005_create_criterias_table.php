@@ -14,6 +14,8 @@ return new class extends Migration
             $table->string('kriteria_id')->unique();
             $table->string('nama_kriteria');
             $table->enum('tipe_kriteria', ['benefit', 'cost']);
+            $table->string('department')->default('laboratorium');
+            $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
         });
     }

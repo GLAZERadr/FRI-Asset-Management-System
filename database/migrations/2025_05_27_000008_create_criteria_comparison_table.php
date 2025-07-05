@@ -14,6 +14,7 @@ return new class extends Migration
             $table->string('criteria_1');
             $table->string('criteria_2');
             $table->decimal('comparison_value', 8, 3);
+            $table->string('department')->default('laboratorium');
             $table->timestamps();
             
             $table->foreign('criteria_1')->references('kriteria_id')->on('criteria')->onDelete('cascade');

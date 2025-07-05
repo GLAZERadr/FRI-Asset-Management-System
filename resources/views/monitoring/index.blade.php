@@ -8,56 +8,78 @@
 @endsection
 
 @section('content')
-<div class="container mx-auto px-4 sm:px-6 lg:px-8">
-    <!-- Action Buttons -->
-    <div class="mb-6 flex flex-col sm:flex-row justify-end items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
-        @if(!auth()->user()->hasRole('wakil_dekan_2'))
-            <div class="w-full sm:w-auto">
-                <select id="location_filter" onchange="filterByLocation(this.value)" class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                    <option value="">Pilih Lokasi Aset</option>
-                    @foreach($locations as $location)
-                        <option value="{{ $location }}" {{ request('lokasi') == $location ? 'selected' : '' }}>{{ $location }}</option>
-                    @endforeach
-                </select>
-            </div>
-        @else
-            <div class="w-full sm:w-auto">
-                <select id="year_filter" onchange="filterByYear(this.value)" class="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                    <option value="">Pilih Tahun Laporan</option>
-                    @foreach($availableYears ?? [] as $year)
-                        <option value="{{ $year }}" {{ request('year') == $year ? 'selected' : '' }}>{{ $year }}</option>
-                    @endforeach
-                </select>
-            </div>
-        @endif
-        @if(!auth()->user()->hasRole(['wakil_dekan_2', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
-            <a href="{{ route('pemantauan.monitoring.printLaporan') }}" target="_blank" class="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white rounded-md shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+<div class="container mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 max-w-full">
+    <!-- Filters and Action Buttons -->
+    <div class="mb-4 lg:mb-6 flex flex-col space-y-3 lg:space-y-0 lg:flex-row lg:justify-between lg:items-center">
+        <!-- Filter Controls -->
+        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 flex-1">
+            @if(!auth()->user()->hasRole('wakil_dekan_2'))
+                <!-- Location Filter -->
+                <div class="w-full sm:w-auto min-w-0 sm:min-w-[200px]">
+                    <select id="location_filter" onchange="filterByLocation(this.value)" 
+                            class="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                        <option value="">Pilih Lokasi Aset</option>
+                        @foreach($locations as $location)
+                            <option value="{{ $location }}" {{ request('lokasi') == $location ? 'selected' : '' }}>{{ $location }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @else
+                <!-- Year Filter for Wakil Dekan 2 -->
+                <div class="w-full sm:w-auto min-w-0 sm:min-w-[200px]">
+                    <select id="year_filter" onchange="filterByYear(this.value)" 
+                            class="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                        <option value="">Pilih Tahun Laporan</option>
+                        @foreach($availableYears ?? [] as $year)
+                            <option value="{{ $year }}" {{ request('year') == $year ? 'selected' : '' }}>{{ $year }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            <!-- Validation Status Filter -->
+            @if(auth()->user()->hasRole(['wakil_dekan_2', 'kaur_laboratorium', 'kaur_keuangan_logistik_sdm']))
+                <div class="w-full sm:w-auto min-w-0 sm:min-w-[200px]">
+                    <select id="validation_filter" onchange="filterByValidation(this.value)" 
+                            class="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                        <option value="">Semua Status Validasi</option>
+                        <option value="valid" {{ request('validation_status') == 'valid' ? 'selected' : '' }}>Tervalidasi</option>
+                        <option value="not_validated" {{ request('validation_status') == 'not_validated' ? 'selected' : '' }}>Pending</option>
+                    </select>
+                </div>
+            @endif
+
+            <button onclick="resetAllFilters()" class="w-full sm:w-auto px-3 sm:px-4 py-2 text-sm bg-gray-500 text-white rounded-md shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center justify-center transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Reset
+            </button>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 lg:ml-4">
+            <a href="{{ route('pemantauan.monitoring.printLaporan') }}" target="_blank" 
+               class="w-full sm:w-auto px-3 sm:px-4 py-2 text-sm bg-gray-600 text-white rounded-md shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center justify-center transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 sm:h-5 w-4 sm:w-5 mr-1 sm:mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
-                cetak
+                Cetak
             </a>
-        @else
-            <a href="{{ route('pemantauan.monitoring.printLaporan') }}" target="_blank" class="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white rounded-md shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                </svg>
-                cetak
-            </a>
-        @endif
+        </div>
     </div>
     
     <!-- Tab Navigation - Only for Wakil Dekan 2 -->
     @if(auth()->user()->hasRole('wakil_dekan_2'))
-        <div class="mb-4">
+        <div class="mb-3 sm:mb-4">
             <div class="border-b border-gray-200">
                 <nav class="-mb-px flex overflow-x-auto" id="main-tabs">
                     <a href="#" onclick="showTabContent('logistik')" id="logistik-tab" 
-                       class="border-b-2 border-green-500 py-2 px-4 text-sm font-medium text-green-600 whitespace-nowrap">
+                       class="border-b-2 border-green-500 py-2 px-3 sm:px-4 text-sm font-medium text-green-600 whitespace-nowrap">
                         Laporan Monitoring Logistik
                     </a>
                     <a href="#" onclick="showTabContent('laboratorium')" id="laboratorium-tab" 
-                       class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-2 px-4 text-sm font-medium whitespace-nowrap">
+                       class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-2 px-3 sm:px-4 text-sm font-medium whitespace-nowrap">
                         Laporan Monitoring Lab
                     </a>
                 </nav>
@@ -65,10 +87,10 @@
         </div>
     @else
         <!-- Single Tab for Other Roles -->
-        <div class="mb-4">
+        <div class="mb-3 sm:mb-4">
             <div class="border-b border-gray-200">
                 <nav class="-mb-px flex">
-                    <a href="#" class="border-b-2 border-green-500 py-2 px-4 text-sm font-medium text-green-600">
+                    <a href="#" class="border-b-2 border-green-500 py-2 px-3 sm:px-4 text-sm font-medium text-green-600">
                         Laporan Pemantauan
                     </a>
                 </nav>
@@ -110,24 +132,107 @@
             ])
         </div>
     @else
-        <!-- Mobile-Responsive Table for Other Roles -->
+        <!-- Responsive Table for Other Roles -->
         <div class="bg-white rounded-lg shadow overflow-hidden">
             <!-- Desktop Table View -->
-            <div class="hidden lg:block overflow-x-auto">
+            <div class="hidden xl:block">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Laporan</th>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Aset</th>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lokasi</th>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pelapor</th>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokumentasi</th>
+                                <th scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @php $rowNumber = 1; @endphp
+                            @forelse ($monitoringReports as $report)
+                                @if($report->monitoring_data)
+                                    @foreach($report->monitoring_data as $assetData)
+                                        @php
+                                            $asset = $assets->firstWhere('asset_id', $assetData['asset_id']);
+                                        @endphp
+                                        @if($asset)
+                                        <tr class="hover:bg-gray-50 transition-colors">
+                                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{{ $rowNumber++ }}</td>
+                                            <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $report->id_laporan }}</td>
+                                            <td class="px-3 py-4 text-sm text-gray-500 max-w-xs">
+                                                <div class="truncate" title="{{ $asset->nama_asset }}">{{ $asset->nama_asset }}</div>
+                                            </td>
+                                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{{ $asset->kategori ?? '-' }}</td>
+                                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{{ $asset->lokasi ?? $report->kode_ruangan }}</td>
+                                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{{ $report->tanggal_laporan->format('d-m-Y') }}</td>
+                                            <td class="px-3 py-4 text-sm text-gray-500 max-w-xs">
+                                                <div class="truncate" title="{{ $report->nama_pelapor }}">{{ $report->nama_pelapor }}</div>
+                                            </td>
+                                            <td class="px-3 py-4 whitespace-nowrap text-sm">
+                                                @if(isset($assetData['status']) && $assetData['status'] === 'baik')
+                                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Baik</span>
+                                                @else
+                                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Butuh Perawatan</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-3 py-4 whitespace-nowrap text-sm">
+                                                @if(isset($assetData['foto_path']) && $assetData['foto_path'])
+                                                    <img src="{{ Storage::url($assetData['foto_path']) }}" alt="Monitoring Photo" class="h-8 w-8 rounded object-cover cursor-pointer" onclick="showImageModal('{{ Storage::url($assetData['foto_path']) }}')">
+                                                @else
+                                                    <div class="h-8 w-8 bg-gray-200 rounded flex items-center justify-center">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </div>
+                                                @endif
+                                            </td>
+                                            <td class="px-3 py-4 whitespace-nowrap text-center">
+                                                <button onclick="showReportModal('{{ $report->id_laporan }}', '{{ $asset->asset_id }}')" 
+                                                        class="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors" title="Lihat Detail">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        @endif
+                                    @endforeach
+                                @endif
+                            @empty
+                            <tr>
+                                <td colspan="10" class="px-6 py-10 text-center">
+                                    <div class="flex flex-col items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                        </svg>
+                                        <h3 class="text-lg font-medium text-gray-900">Tidak Ada Data Monitoring</h3>
+                                        <p class="text-gray-500">Belum ada laporan monitoring yang tersedia.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Compact Table View (Large screens) -->
+            <div class="hidden lg:block xl:hidden overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Laporan</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Aset</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lokasi Aset</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Pengecekan</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pelapor</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Aset</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokumentasi</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                            <th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">No</th>
+                            <th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID Laporan</th>
+                            <th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aset & Lokasi</th>
+                            <th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                            <th scope="col" class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -139,57 +244,25 @@
                                         $asset = $assets->firstWhere('asset_id', $assetData['asset_id']);
                                     @endphp
                                     @if($asset)
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $rowNumber++ }}
+                                    <tr class="hover:bg-gray-50 transition-colors">
+                                        <td class="px-2 py-3 text-sm text-gray-900">{{ $rowNumber++ }}</td>
+                                        <td class="px-2 py-3 text-sm font-medium text-gray-900">{{ $report->id_laporan }}</td>
+                                        <td class="px-2 py-3 text-sm text-gray-500">
+                                            <div class="font-medium truncate" title="{{ $asset->nama_asset }}">{{ $asset->nama_asset }}</div>
+                                            <div class="text-xs text-gray-400">{{ $asset->lokasi ?? $report->kode_ruangan }}</div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {{ $report->id_laporan }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {{ $asset->nama_asset }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {{ $asset->kategori ?? '-' }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {{ $asset->lokasi ?? $report->kode_ruangan }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {{ $report->tanggal_laporan->format('d-m-Y') }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {{ $report->nama_pelapor }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <td class="px-2 py-3 text-sm">
                                             @if(isset($assetData['status']) && $assetData['status'] === 'baik')
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                    Baik
-                                                </span>
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Baik</span>
                                             @else
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                    Butuh Perawatan
-                                                </span>
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Butuh Perawatan</span>
                                             @endif
                                         </td>
-                                        <td class="px-6 py-4 text-sm text-gray-500">
-                                            {{ $assetData['deskripsi'] ?? '-' }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            @if(isset($assetData['foto_path']) && $assetData['foto_path'])
-                                                <img src="{{ Storage::url($assetData['foto_path']) }}" alt="Monitoring Photo" class="h-10 w-10 rounded object-cover cursor-pointer" onclick="showImageModal('{{ Storage::url($assetData['foto_path']) }}')">
-                                            @else
-                                                <div class="h-10 w-10 bg-gray-200 rounded flex items-center justify-center">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                    </svg>
-                                                </div>
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <td class="px-2 py-3 text-sm text-gray-500">{{ $report->tanggal_laporan->format('d-m-Y') }}</td>
+                                        <td class="px-2 py-3 text-center">
                                             <button onclick="showReportModal('{{ $report->id_laporan }}', '{{ $asset->asset_id }}')" 
-                                                    class="text-gray-600 hover:text-gray-900" title="Lihat Detail">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    class="text-gray-600 hover:text-gray-900 p-1 rounded" title="Detail">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                 </svg>
@@ -201,7 +274,7 @@
                             @endif
                         @empty
                         <tr>
-                            <td colspan="11" class="px-6 py-10 text-center">
+                            <td colspan="6" class="px-6 py-10 text-center">
                                 <div class="flex flex-col items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -217,7 +290,7 @@
             </div>
 
             <!-- Mobile Card View -->
-            <div class="lg:hidden">
+            <div class="lg:hidden space-y-3 p-3">
                 @php $rowNumber = 1; @endphp
                 @forelse ($monitoringReports as $report)
                     @if($report->monitoring_data)
@@ -226,7 +299,7 @@
                                 $asset = $assets->firstWhere('asset_id', $assetData['asset_id']);
                             @endphp
                             @if($asset)
-                            <div class="border-b border-gray-200 p-4">
+                            <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
                                 <div class="flex items-center justify-between mb-3">
                                     <div class="flex items-center">
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">
@@ -236,13 +309,9 @@
                                     </div>
                                     <div class="flex items-center space-x-2">
                                         @if(isset($assetData['status']) && $assetData['status'] === 'baik')
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                Baik
-                                            </span>
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Baik</span>
                                         @else
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                Butuh Perawatan
-                                            </span>
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Butuh Perawatan</span>
                                         @endif
                                         <button onclick="showReportModal('{{ $report->id_laporan }}', '{{ $asset->asset_id }}')" 
                                                 class="text-blue-600 hover:text-blue-900 p-1" title="Lihat Detail">
@@ -254,13 +323,13 @@
                                     </div>
                                 </div>
 
-                                <div class="grid grid-cols-1 gap-3">
+                                <div class="grid grid-cols-1 gap-2">
                                     <div>
                                         <dt class="text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Aset</dt>
-                                        <dd class="mt-1 text-sm text-gray-900 font-medium">{{ $asset->nama_asset }}</dd>
+                                        <dd class="mt-1 text-sm text-gray-900 font-medium line-clamp-2">{{ $asset->nama_asset }}</dd>
                                     </div>
 
-                                    <div class="grid grid-cols-2 gap-3">
+                                    <div class="grid grid-cols-2 gap-2">
                                         <div>
                                             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</dt>
                                             <dd class="mt-1 text-sm text-gray-900">{{ $asset->kategori ?? '-' }}</dd>
@@ -271,7 +340,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="grid grid-cols-2 gap-3">
+                                    <div class="grid grid-cols-2 gap-2">
                                         <div>
                                             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</dt>
                                             <dd class="mt-1 text-sm text-gray-900">{{ $report->tanggal_laporan->format('d-m-Y') }}</dd>
@@ -293,7 +362,7 @@
                                     <div>
                                         <dt class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Dokumentasi</dt>
                                         <dd class="mt-1">
-                                            <img src="{{ Storage::url($assetData['foto_path']) }}" alt="Monitoring Photo" class="h-20 w-20 rounded-lg object-cover cursor-pointer border border-gray-200" onclick="showImageModal('{{ Storage::url($assetData['foto_path']) }}')">
+                                            <img src="{{ Storage::url($assetData['foto_path']) }}" alt="Monitoring Photo" class="h-16 w-16 rounded-lg object-cover cursor-pointer border border-gray-200" onclick="showImageModal('{{ Storage::url($assetData['foto_path']) }}')">
                                         </dd>
                                     </div>
                                     @endif
@@ -317,8 +386,19 @@
 
             <!-- Pagination -->
             @if($monitoringReports->hasPages())
-            <div class="px-4 sm:px-6 py-3 border-t border-gray-200">
-                {{ $monitoringReports->appends(request()->query())->links() }}
+            <div class="px-3 sm:px-4 lg:px-6 py-3 border-t border-gray-200 bg-gray-50">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700">
+                        Menampilkan {{ $monitoringReports->firstItem() ?? 0 }} sampai {{ $monitoringReports->lastItem() ?? 0 }} 
+                        dari {{ $monitoringReports->total() }} hasil
+                    </div>
+                    <div class="hidden sm:block">
+                        {{ $monitoringReports->appends(request()->query())->links() }}
+                    </div>
+                    <div class="sm:hidden">
+                        {{ $monitoringReports->appends(request()->query())->simplePaginate() }}
+                    </div>
+                </div>
             </div>
             @endif
         </div>
@@ -363,6 +443,15 @@
     </div>
 </div>
 
+<style>
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+</style>
+
 <script>
 @if(auth()->user()->hasRole('wakil_dekan_2'))
 // Tab switching functionality for Wakil Dekan 2
@@ -379,12 +468,12 @@ function showTabContent(tabName) {
     const mainTabsNav = document.getElementById('main-tabs');
     if (mainTabsNav) {
         mainTabsNav.querySelectorAll('a').forEach(tab => {
-            tab.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-2 px-4 text-sm font-medium whitespace-nowrap';
+            tab.className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-2 px-3 sm:px-4 text-sm font-medium whitespace-nowrap';
         });
     }
     
     // Set active tab
-    document.getElementById(tabName + '-tab').className = 'border-b-2 border-green-500 py-2 px-4 text-sm font-medium text-green-600 whitespace-nowrap';
+    document.getElementById(tabName + '-tab').className = 'border-b-2 border-green-500 py-2 px-3 sm:px-4 text-sm font-medium text-green-600 whitespace-nowrap';
 }
 
 function filterByYear(year) {
@@ -414,17 +503,26 @@ function filterByLocation(location) {
 }
 @endif
 
+// Validation Status Filter function
+function filterByValidation(status) {
+    const url = new URL(window.location);
+    if (status) {
+        url.searchParams.set('validation_status', status);
+    } else {
+        url.searchParams.delete('validation_status');
+    }
+    window.location = url;
+}
+
 // Image Modal functions
 function showImageModal(imageSrc) {
     document.getElementById('modalImage').src = imageSrc;
     document.getElementById('imageModal').classList.remove('hidden');
-    // Prevent body scroll when modal is open
     document.body.style.overflow = 'hidden';
 }
 
 function closeImageModal() {
     document.getElementById('imageModal').classList.add('hidden');
-    // Restore body scroll
     document.body.style.overflow = 'auto';
 }
 
@@ -432,8 +530,6 @@ function closeImageModal() {
 function showReportModal(reportId, assetId) {
     document.getElementById('reportModal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
-    
-    // Load report details
     loadReportDetails(reportId, assetId);
 }
 
@@ -455,10 +551,8 @@ function loadReportDetails(reportId, assetId) {
     
     // Find the specific report
     if (Array.isArray(reports.data)) {
-        // If paginated
         reportData = reports.data.find(report => report.id_laporan === reportId);
     } else if (Array.isArray(reports)) {
-        // If not paginated
         reportData = reports.find(report => report.id_laporan === reportId);
     }
     
@@ -644,6 +738,23 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
+// Reset all filters function
+function resetAllFilters() {
+    // Reset all select elements
+    const locationFilter = document.getElementById('location_filter');
+    const yearFilter = document.getElementById('year_filter');
+    const validationFilter = document.getElementById('validation_filter');
+    
+    if (locationFilter) locationFilter.value = '';
+    if (yearFilter) yearFilter.value = '';
+    if (validationFilter) validationFilter.value = '';
+    
+    // Clear all URL parameters and reload
+    const url = new URL(window.location);
+    url.search = '';
+    window.location = url;
+}
 </script>
 
 @endsection

@@ -21,12 +21,12 @@ class MonitoringController extends Controller
         // Role-based filtering
         if ($user->hasRole(['kaur_laboratorium'])) {
             // Show only lab assets
-            $query->where('id_laporan', 'LIKE', '%-LAB-%')
-                ->Where('validated', 'valid');
+            $query->where('id_laporan', 'LIKE', '%-LAB-%');
+            // Don't automatically filter by validation status for lab managers - let them see all
         } elseif ($user->hasRole(['kaur_keuangan_logistik_sdm'])) {
             // Show only logistic assets
-            $query->where('id_laporan', 'LIKE', '%-LOG-%')
-                ->Where('validated', 'valid');
+            $query->where('id_laporan', 'LIKE', '%-LOG-%');
+            // Don't automatically filter by validation status for logistic managers - let them see all
         } elseif ($user->hasRole(['staff_laboratorium'])) {
             // Staff lab can only see their own lab reports
             $query->where('id_laporan', 'LIKE', '%-LAB-%')
@@ -34,6 +34,11 @@ class MonitoringController extends Controller
         } elseif ($user->hasRole(['wakil_dekan_2'])) {
             // Wakil Dekan 2 sees all reports - no additional filtering needed
             // The view will handle the tabbed display
+        }
+        
+        // Apply validation status filter
+        if ($request->has('validation_status') && $request->validation_status !== '') {
+            $query->where('validated', $request->validation_status);
         }
         
         // Apply existing filters
@@ -96,7 +101,12 @@ class MonitoringController extends Controller
                       ->where('user_id', $user->id);
             }
             
-            // Re-apply filters
+            // Re-apply validation status filter
+            if ($request->has('validation_status') && $request->validation_status !== '') {
+                $query->where('validated', $request->validation_status);
+            }
+            
+            // Re-apply other filters
             if ($request->has('kode_ruangan') && $request->kode_ruangan) {
                 $query->where('kode_ruangan', 'like', '%' . $request->kode_ruangan . '%');
             }

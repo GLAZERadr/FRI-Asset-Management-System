@@ -16,8 +16,28 @@ class CriteriaComparison extends Model
     protected $fillable = [
         'criteria_1',
         'criteria_2', 
-        'comparison_value'
+        'comparison_value',
+        'department'
     ];
+
+    /**
+     * Scope comparisons by department
+     */
+    public function scopeForDepartment($query, $department)
+    {
+        return $query->where('department', $department);
+    }
+
+    /**
+     * Scope comparisons by current user's department
+     */
+    public function scopeForCurrentUser($query)
+    {
+        $user = Auth::user();
+        $department = AhpWeight::getUserDepartment($user);
+        
+        return $query->where('department', $department);
+    }
 
     public function firstCriteria()
     {

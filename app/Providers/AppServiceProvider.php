@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Routing\UrlGenerator;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Config;
 
@@ -23,5 +24,9 @@ class AppServiceProvider extends ServiceProvider
         //
         Config::set('fortify.home', '/dashboard');
         Config::set('auth.paths.home', '/dashboard');
+
+        if (env('APP_ENV') == 'production') {
+            $url->forceScheme('https');
+        }
     }
 }

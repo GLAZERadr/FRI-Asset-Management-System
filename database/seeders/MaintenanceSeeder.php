@@ -168,8 +168,8 @@ class MaintenanceSeeder extends Seeder
         $roleCode = match($primaryRole) {
             'staff_laboratorium' => 'LAB',
             'staff_logistik' => 'LOG',
-            'kaur_laboratorium' => 'KLAB',
-            'kaur_keuangan_logistik_sdm' => 'KKEU',
+            'kaur_laboratorium' => 'LAB',
+            'kaur_keuangan_logistik_sdm' => 'LOG',
             default => 'GEN'
         };
         

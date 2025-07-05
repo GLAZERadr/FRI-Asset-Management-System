@@ -41,7 +41,8 @@
         "post-install-cmd": [
             "php artisan clear-compiled",
             "@compile-imagick",
-            "php artisan migrate:fresh --seed"
+            "php artisan migrate --force",
+            "php artisan db:seed --class=ProductionSafeSeeder --force"
         ],
         "compile-imagick": [
             "echo 'Attempting to compile imagick extension...'",

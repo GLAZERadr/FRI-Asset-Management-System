@@ -9,11 +9,6 @@ use PDF;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Carbon\Carbon;
 
-use BaconQrCode\Renderer\ImageRenderer;
-use BaconQrCode\Renderer\Image\Png;
-use BaconQrCode\Renderer\RendererStyle\RendererStyle;
-use BaconQrCode\Writer;
-
 class AssetController extends Controller
 {
     public function index(Request $request)
@@ -94,15 +89,13 @@ class AssetController extends Controller
             }
     
             \Log::info('Asset found: ' . $asset->nama_asset . ' (Room: ' . $asset->kode_ruangan . ')');
-            \Log::info('Starting QR code generation with BaconQrCode 2.0.8...');
+            \Log::info('Starting QR code generation with SimpleSoftwareIO...');
     
-            // Use BaconQrCode 2.0.8 with correct constructor (2 arguments)
-            $renderer = new ImageRenderer(
-                new RendererStyle(300, 10),
-                new Png()
-            );
-            $writer = new Writer($renderer);
-            $qrCode = $writer->writeString($asset_id);
+            // Generate QR code with asset_id using SimpleSoftwareIO (should use imagick now)
+            $qrCode = QrCode::format('png')
+                           ->size(300)
+                           ->margin(10)
+                           ->generate($asset_id);
     
             \Log::info('QR code generated successfully, size: ' . strlen($qrCode) . ' bytes');
             \Log::info('Creating image canvas...');

@@ -70,7 +70,6 @@ class AssetController extends Controller
         \Log::info('Asset ID requested: ' . $asset_id);
         \Log::info('PHP GD loaded: ' . (extension_loaded('gd') ? 'YES' : 'NO'));
         \Log::info('PHP Imagick loaded: ' . (extension_loaded('imagick') ? 'YES' : 'NO'));
-        \Log::info('QRCODE_DEFAULT config: ' . config('qr-code.default', 'NOT SET'));
     
         // Validate that asset_id is not empty
         if (empty($asset_id)) {
@@ -90,15 +89,17 @@ class AssetController extends Controller
             }
     
             \Log::info('Asset found: ' . $asset->nama_asset . ' (Room: ' . $asset->kode_ruangan . ')');
-            \Log::info('Starting QR code generation...');
+            \Log::info('Starting QR code generation with FORCED GD backend...');
     
-            // Generate QR code with asset_id
-            $qrCode = QrCode::format('png')
-                           ->size(300)
-                           ->margin(10)
-                           ->generate($asset_id);
+            // Force GD backend by using BaconQrCode directly
+            $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+                new \BaconQrCode\Renderer\RendererStyle\RendererStyle(300, 10),
+                new \BaconQrCode\Renderer\Image\GdImageBackEnd()
+            );
+            $writer = new \BaconQrCode\Writer($renderer);
+            $qrCode = $writer->writeString($asset_id);
     
-            \Log::info('QR code generated successfully, size: ' . strlen($qrCode) . ' bytes');
+            \Log::info('QR code generated successfully with GD backend, size: ' . strlen($qrCode) . ' bytes');
             \Log::info('Creating image canvas...');
     
             // Create image canvas with text

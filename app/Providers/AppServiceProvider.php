@@ -19,14 +19,10 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Bootstrap any application services.
      */
-    public function boot(UrlGenerator $url): void
+    public function boot(): void
     {
         //
         Config::set('fortify.home', '/dashboard');
         Config::set('auth.paths.home', '/dashboard');
-
-        if (env('APP_ENV') == 'production') {
-            $url->forceScheme('https');
-        }
     }
 }

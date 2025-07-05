@@ -40,7 +40,9 @@
     "scripts": {
         "post-install-cmd": [
             "php artisan clear-compiled",
-            "@compile-imagick"
+            "@compile-imagick",
+            "php artisan cache:clear",
+            "php artisan permission:cache-reset"
         ],
         "compile-imagick": [
             "echo 'Attempting to compile imagick extension...'",

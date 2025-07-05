@@ -72,41 +72,21 @@ class AssetController extends Controller
         }
     
         try {
-            \Log::info('Starting QR generation for asset: ' . $asset_id);
-            
             // Get the asset by asset_id
             $asset = Asset::where('asset_id', $asset_id)->first();
             
             if (!$asset) {
-                \Log::error('Asset not found: ' . $asset_id);
                 abort(404, 'Asset tidak ditemukan');
             }
     
-            \Log::info('Asset found, generating QR code...');
-            
-            // Force QrCode to use GD driver explicitly
+            // Generate QR code with asset_id
             $qrCode = QrCode::format('png')
                            ->size(300)
                            ->margin(10)
                            ->generate($asset_id);
     
-            \Log::info('QR code generated, size: ' . strlen($qrCode) . ' bytes');
-    
-            // Verify GD extension is loaded
-            if (!extension_loaded('gd')) {
-                \Log::error('GD extension not loaded');
-                throw new \Exception('GD extension is not loaded');
-            }
-    
-            \Log::info('GD extension confirmed, creating canvas...');
-    
             // Create image canvas with text
             $canvas = imagecreatetruecolor(400, 450);
-            if (!$canvas) {
-                \Log::error('Failed to create image canvas');
-                throw new \Exception('Failed to create image canvas');
-            }
-            
             $white = imagecolorallocate($canvas, 255, 255, 255);
             $black = imagecolorallocate($canvas, 0, 0, 0);
             $blue = imagecolorallocate($canvas, 0, 102, 204);
@@ -114,16 +94,8 @@ class AssetController extends Controller
             // Fill background with white
             imagefill($canvas, 0, 0, $white);
             
-            \Log::info('Canvas created, loading QR image...');
-            
             // Load QR code image from string
             $qrImage = imagecreatefromstring($qrCode);
-            if (!$qrImage) {
-                \Log::error('Failed to create QR image from string');
-                throw new \Exception('Failed to create QR image from string');
-            }
-            
-            \Log::info('QR image loaded, compositing...');
             
             // Center the QR code (400px wide canvas, 300px QR = 50px margin each side)
             imagecopy($canvas, $qrImage, 50, 20, 0, 0, 300, 300);
@@ -150,23 +122,14 @@ class AssetController extends Controller
             $textX = (400 - $textWidth) / 2;
             imagestring($canvas, $font, $textX, $textY + 40, $roomCodeText, $black);
             
-            \Log::info('Text added, generating final image...');
-            
             // Generate filename
             $filename = "qr-" . $asset->asset_id . "-" . $asset->kode_ruangan . ".png";
             
             // Output image
             ob_start();
-            $result = imagepng($canvas);
-            if (!$result) {
-                ob_end_clean();
-                \Log::error('Failed to generate PNG image');
-                throw new \Exception('Failed to generate PNG image');
-            }
+            imagepng($canvas);
             $imageData = ob_get_contents();
             ob_end_clean();
-            
-            \Log::info('Image generated successfully, size: ' . strlen($imageData) . ' bytes');
             
             // Clean up memory
             imagedestroy($canvas);
@@ -177,14 +140,6 @@ class AssetController extends Controller
                    ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
                    
         } catch (\Exception $e) {
-            // Log the error for debugging
-            \Log::error('QR Code generation failed: ' . $e->getMessage(), [
-                'asset_id' => $asset_id,
-                'line' => $e->getLine(),
-                'file' => $e->getFile(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
             abort(500, 'Gagal membuat QR Code: ' . $e->getMessage());
         }
     }

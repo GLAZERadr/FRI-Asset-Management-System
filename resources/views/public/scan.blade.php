@@ -307,8 +307,10 @@
 
         async function initScanner() {
             try {
-                // Check camera permission
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                // Check camera permission - specifically request back camera
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } // Request back camera initially
+                });
                 stream.getTracks().forEach(track => track.stop());
                 
                 // Show modal
@@ -352,14 +354,31 @@
                     switchCameraBtn.style.display = 'block';
                 }
                 
-                // Use back camera if available
-                const backCamera = cameras.find(camera => 
-                    camera.label.toLowerCase().includes('back') || 
-                    camera.label.toLowerCase().includes('rear')
-                );
-                currentCameraId = backCamera ? backCamera.deviceId : cameras[0]?.deviceId;
+                // Find back camera more comprehensively
+                const backCamera = cameras.find(camera => {
+                    const label = camera.label.toLowerCase();
+                    return label.includes('back') || 
+                           label.includes('rear') || 
+                           label.includes('environment') ||
+                           label.includes('facing back') ||
+                           label.includes('camera 0') || // Often the main camera on mobile
+                           (label.includes('camera') && !label.includes('front') && !label.includes('user'));
+                });
                 
-                // Initialize QR Scanner
+                // Set camera preference
+                let cameraPreference = 'environment'; // Default to back camera
+                if (backCamera) {
+                    currentCameraId = backCamera.deviceId;
+                } else if (cameras.length > 0) {
+                    // If no back camera found, use the first available camera
+                    currentCameraId = cameras[0].deviceId;
+                    cameraPreference = 'user';
+                }
+                
+                console.log('Available cameras:', cameras.map(c => c.label));
+                console.log('Selected camera:', backCamera?.label || 'Default environment camera');
+                
+                // Initialize QR Scanner with proper camera settings
                 scanner = new QrScanner(
                     video,
                     function(result) {
@@ -371,16 +390,59 @@
                         },
                         highlightScanRegion: false,
                         highlightCodeOutline: false,
-                        preferredCamera: currentCameraId ? 'user' : 'environment'
+                        preferredCamera: cameraPreference, // 'environment' for back, 'user' for front
+                        maxScansPerSecond: 5, // Optimize performance
+                        calculateScanRegion: function(video) {
+                            // Define scan region (center square)
+                            const smallestDimension = Math.min(video.videoWidth, video.videoHeight);
+                            const scanRegionSize = Math.round(0.7 * smallestDimension);
+                            
+                            return {
+                                x: Math.round((video.videoWidth - scanRegionSize) / 2),
+                                y: Math.round((video.videoHeight - scanRegionSize) / 2),
+                                width: scanRegionSize,
+                                height: scanRegionSize,
+                            };
+                        }
                     }
                 );
+                
+                // If we have a specific camera ID, try to set it after initialization
+                if (currentCameraId && backCamera) {
+                    try {
+                        await scanner.setCamera(currentCameraId);
+                    } catch (error) {
+                        console.warn('Failed to set specific camera, using default:', error);
+                    }
+                }
                 
                 // Start scanning
                 await scanner.start();
                 
+                console.log('QR Scanner initialized with back camera preference');
+                
             } catch (error) {
                 console.error('Failed to initialize scanner:', error);
-                alert('Gagal menginisialisasi scanner. Pastikan browser mendukung kamera.');
+                
+                // Fallback: try with basic settings
+                try {
+                    const video = document.getElementById('qr-video');
+                    scanner = new QrScanner(
+                        video,
+                        function(result) {
+                            onScanSuccess(result);
+                        },
+                        {
+                            preferredCamera: 'environment', // Still try back camera
+                            onDecodeError: function() {} // Silent
+                        }
+                    );
+                    await scanner.start();
+                    console.log('QR Scanner initialized with fallback settings');
+                } catch (fallbackError) {
+                    console.error('Fallback scanner initialization failed:', fallbackError);
+                    alert('Gagal menginisialisasi scanner. Pastikan browser mendukung kamera.');
+                }
             }
         }
 
@@ -557,11 +619,14 @@
                         return cam.deviceId === currentCameraId;
                     });
                     const nextIndex = (currentIndex + 1) % cameras.length;
-                    currentCameraId = cameras[nextIndex].deviceId;
+                    const nextCamera = cameras[nextIndex];
+                    currentCameraId = nextCamera.deviceId;
                     
+                    console.log('Switching to camera:', nextCamera.label);
                     scanner.setCamera(currentCameraId);
                 } catch (error) {
                     console.error('Failed to switch camera:', error);
+                    alert('Gagal mengganti kamera. Silakan coba lagi.');
                 }
             }
         }

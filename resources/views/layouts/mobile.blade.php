@@ -476,7 +476,8 @@
         }
 
         // QR Scanner Component
-        function qrScanner() {
+// QR Scanner Component with Back Camera Default
+function qrScanner() {
             return {
                 scanner: null,
                 result: '',
@@ -487,8 +488,10 @@
                 
                 async openScanner() {
                     try {
-                        // Check camera permission
-                        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        // Check camera permission - specifically request back camera
+                        const stream = await navigator.mediaDevices.getUserMedia({ 
+                            video: { facingMode: 'environment' } // Request back camera initially
+                        });
                         stream.getTracks().forEach(track => track.stop());
                         
                         // Show modal
@@ -511,14 +514,31 @@
                         this.cameras = devices.filter(device => device.kind === 'videoinput');
                         this.hasMultipleCameras = this.cameras.length > 1;
                         
-                        // Use back camera if available
-                        const backCamera = this.cameras.find(camera => 
-                            camera.label.toLowerCase().includes('back') || 
-                            camera.label.toLowerCase().includes('rear')
-                        );
-                        this.currentCameraId = backCamera ? backCamera.deviceId : this.cameras[0]?.deviceId;
+                        // Find back camera more comprehensively
+                        const backCamera = this.cameras.find(camera => {
+                            const label = camera.label.toLowerCase();
+                            return label.includes('back') || 
+                                   label.includes('rear') || 
+                                   label.includes('environment') ||
+                                   label.includes('facing back') ||
+                                   label.includes('camera 0') || // Often the main camera on mobile
+                                   (label.includes('camera') && !label.includes('front') && !label.includes('user'));
+                        });
                         
-                        // Initialize QR Scanner
+                        // Set camera preference
+                        let cameraPreference = 'environment'; // Default to back camera
+                        if (backCamera) {
+                            this.currentCameraId = backCamera.deviceId;
+                        } else if (this.cameras.length > 0) {
+                            // If no back camera found, use the first available camera
+                            this.currentCameraId = this.cameras[0].deviceId;
+                            cameraPreference = 'user';
+                        }
+                        
+                        console.log('Available cameras:', this.cameras.map(c => c.label));
+                        console.log('Selected camera:', backCamera?.label || 'Default environment camera');
+                        
+                        // Initialize QR Scanner with proper camera settings
                         this.scanner = new QrScanner(
                             video,
                             result => this.onScanSuccess(result),
@@ -528,16 +548,57 @@
                                 },
                                 highlightScanRegion: false,
                                 highlightCodeOutline: false,
-                                preferredCamera: this.currentCameraId ? 'user' : 'environment'
+                                preferredCamera: cameraPreference, // 'environment' for back, 'user' for front
+                                maxScansPerSecond: 5, // Optimize performance
+                                calculateScanRegion: (video) => {
+                                    // Define scan region (center square)
+                                    const smallestDimension = Math.min(video.videoWidth, video.videoHeight);
+                                    const scanRegionSize = Math.round(0.7 * smallestDimension);
+                                    
+                                    return {
+                                        x: Math.round((video.videoWidth - scanRegionSize) / 2),
+                                        y: Math.round((video.videoHeight - scanRegionSize) / 2),
+                                        width: scanRegionSize,
+                                        height: scanRegionSize,
+                                    };
+                                }
                             }
                         );
+                        
+                        // If we have a specific camera ID, try to set it after initialization
+                        if (this.currentCameraId && backCamera) {
+                            try {
+                                await this.scanner.setCamera(this.currentCameraId);
+                            } catch (error) {
+                                console.warn('Failed to set specific camera, using default:', error);
+                            }
+                        }
                         
                         // Start scanning
                         await this.scanner.start();
                         
+                        console.log('QR Scanner initialized with back camera preference');
+                        
                     } catch (error) {
                         console.error('Failed to initialize scanner:', error);
-                        alert('Gagal menginisialisasi scanner. Pastikan browser mendukung kamera.');
+                        
+                        // Fallback: try with basic settings
+                        try {
+                            const video = document.getElementById('qr-video');
+                            this.scanner = new QrScanner(
+                                video,
+                                result => this.onScanSuccess(result),
+                                {
+                                    preferredCamera: 'environment', // Still try back camera
+                                    onDecodeError: () => {} // Silent
+                                }
+                            );
+                            await this.scanner.start();
+                            console.log('QR Scanner initialized with fallback settings');
+                        } catch (fallbackError) {
+                            console.error('Fallback scanner initialization failed:', fallbackError);
+                            alert('Gagal menginisialisasi scanner. Pastikan browser mendukung kamera.');
+                        }
                     }
                 },
                 
@@ -636,11 +697,14 @@
                         try {
                             const currentIndex = this.cameras.findIndex(cam => cam.deviceId === this.currentCameraId);
                             const nextIndex = (currentIndex + 1) % this.cameras.length;
-                            this.currentCameraId = this.cameras[nextIndex].deviceId;
+                            const nextCamera = this.cameras[nextIndex];
+                            this.currentCameraId = nextCamera.deviceId;
                             
+                            console.log('Switching to camera:', nextCamera.label);
                             await this.scanner.setCamera(this.currentCameraId);
                         } catch (error) {
                             console.error('Failed to switch camera:', error);
+                            alert('Gagal mengganti kamera. Silakan coba lagi.');
                         }
                     }
                 }

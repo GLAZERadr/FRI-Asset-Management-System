@@ -272,7 +272,7 @@
             }
         }
 
-        // QR Scanner Component - Copied from working dashboard
+        // QR Scanner Component with Back Camera Default
         function qrScanner() {
             return {
                 scanner: null,
@@ -285,7 +285,9 @@
                 async openScanner() {
                     try {
                         // Check camera permission
-                        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        const stream = await navigator.mediaDevices.getUserMedia({ 
+                            video: { facingMode: 'environment' } // Request back camera initially
+                        });
                         stream.getTracks().forEach(track => track.stop());
                         
                         // Show modal
@@ -308,14 +310,31 @@
                         this.cameras = devices.filter(device => device.kind === 'videoinput');
                         this.hasMultipleCameras = this.cameras.length > 1;
                         
-                        // Use back camera if available
-                        const backCamera = this.cameras.find(camera => 
-                            camera.label.toLowerCase().includes('back') || 
-                            camera.label.toLowerCase().includes('rear')
-                        );
-                        this.currentCameraId = backCamera ? backCamera.deviceId : this.cameras[0]?.deviceId;
+                        // Find back camera more comprehensively
+                        const backCamera = this.cameras.find(camera => {
+                            const label = camera.label.toLowerCase();
+                            return label.includes('back') || 
+                                label.includes('rear') || 
+                                label.includes('environment') ||
+                                label.includes('facing back') ||
+                                label.includes('camera 0') || // Often the main camera on mobile
+                                (label.includes('camera') && !label.includes('front') && !label.includes('user'));
+                        });
                         
-                        // Initialize QR Scanner
+                        // Set camera preference
+                        let cameraPreference = 'environment'; // Default to back camera
+                        if (backCamera) {
+                            this.currentCameraId = backCamera.deviceId;
+                        } else if (this.cameras.length > 0) {
+                            // If no back camera found, use the first available camera
+                            this.currentCameraId = this.cameras[0].deviceId;
+                            cameraPreference = 'user';
+                        }
+                        
+                        console.log('Available cameras:', this.cameras.map(c => c.label));
+                        console.log('Selected camera:', backCamera?.label || 'Default');
+                        
+                        // Initialize QR Scanner with proper camera settings
                         this.scanner = new QrScanner(
                             video,
                             result => this.onScanSuccess(result),
@@ -325,16 +344,57 @@
                                 },
                                 highlightScanRegion: false,
                                 highlightCodeOutline: false,
-                                preferredCamera: this.currentCameraId ? 'user' : 'environment'
+                                preferredCamera: cameraPreference, // 'environment' for back, 'user' for front
+                                maxScansPerSecond: 5, // Optimize performance
+                                calculateScanRegion: (video) => {
+                                    // Define scan region (center square)
+                                    const smallestDimension = Math.min(video.videoWidth, video.videoHeight);
+                                    const scanRegionSize = Math.round(0.7 * smallestDimension);
+                                    
+                                    return {
+                                        x: Math.round((video.videoWidth - scanRegionSize) / 2),
+                                        y: Math.round((video.videoHeight - scanRegionSize) / 2),
+                                        width: scanRegionSize,
+                                        height: scanRegionSize,
+                                    };
+                                }
                             }
                         );
+                        
+                        // If we have a specific camera ID, try to set it
+                        if (this.currentCameraId && backCamera) {
+                            try {
+                                await this.scanner.setCamera(this.currentCameraId);
+                            } catch (error) {
+                                console.warn('Failed to set specific camera, using default:', error);
+                            }
+                        }
                         
                         // Start scanning
                         await this.scanner.start();
                         
+                        console.log('QR Scanner initialized with back camera');
+                        
                     } catch (error) {
                         console.error('Failed to initialize scanner:', error);
-                        alert('Gagal menginisialisasi scanner. Pastikan browser mendukung kamera.');
+                        
+                        // Fallback: try with basic settings
+                        try {
+                            const video = document.getElementById('qr-video');
+                            this.scanner = new QrScanner(
+                                video,
+                                result => this.onScanSuccess(result),
+                                {
+                                    preferredCamera: 'environment', // Still try back camera
+                                    onDecodeError: () => {} // Silent
+                                }
+                            );
+                            await this.scanner.start();
+                            console.log('QR Scanner initialized with fallback settings');
+                        } catch (fallbackError) {
+                            console.error('Fallback scanner initialization failed:', fallbackError);
+                            alert('Gagal menginisialisasi scanner. Pastikan browser mendukung kamera.');
+                        }
                     }
                 },
                 
@@ -348,7 +408,7 @@
                     }
                     
                     try {
-                        // Process the QR code result for damage reporting
+                        // Process the QR code result
                         await this.processQRResult(result.data);
                     } catch (error) {
                         console.error('Failed to process QR result:', error);
@@ -360,8 +420,8 @@
                 
                 async processQRResult(qrData) {
                     try {
-                        // Send QR data to damage report endpoint
-                        const response = await fetch('/damage-report/qr-process', {
+                        // Send QR data to backend for processing
+                        const response = await fetch('/qr/process', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -373,27 +433,35 @@
                         const data = await response.json();
                         
                         if (response.ok && data.success) {
-                            // Success - redirect to damage report form
-                            this.closeScanner();
-                            window.location.href = `/damage-report/create?asset_id=${data.asset_id}`;
-                            return;
+                            // Success - redirect to monitoring page
+                            if (data.redirect_url) {
+                                this.closeScanner();
+                                window.location.href = data.redirect_url;
+                                return;
+                            }
                         } else {
                             throw new Error(data.message || 'Failed to process QR code');
                         }
                     } catch (error) {
                         console.error('QR processing error:', error);
                         
-                        // Fallback: try pattern matching for asset IDs
+                        // Fallback: try to determine if it's a room code or asset ID
+                        // Room codes typically follow XXXX-XXXX pattern (e.g., TULT-0901)
+                        const roomCodePattern = /^[A-Z]{3,}-\d{3,}$/i;
+                        // Asset IDs typically follow XXXX-XXX-XXX pattern (e.g., T0901-MEJ-001)
                         const assetIdPattern = /^[A-Z]\d+-[A-Z]{3}-\d{3}$/i;
                         
-                        if (assetIdPattern.test(qrData)) {
-                            // Looks like an asset ID - redirect to create form with asset_id
+                        if (roomCodePattern.test(qrData)) {
+                            // Looks like a room code
                             this.closeScanner();
-                            window.location.href = `/damage-report/create?asset_id=${qrData}`;
+                            window.location.href = `/pemantauan/monitoring/${qrData}`;
                             return;
+                        } else if (assetIdPattern.test(qrData)) {
+                            // Looks like an asset ID - extract room code
+                            alert(`Asset ID detected: ${qrData}. Please scan the room QR code for monitoring.`);
                         } else {
                             // Unknown format
-                            alert('QR code tidak dikenali. Pastikan QR code valid untuk asset.');
+                            alert('QR code tidak dikenali. Pastikan QR code valid untuk ruangan atau aset.');
                         }
                         
                         // Restart scanner after a delay
@@ -423,11 +491,14 @@
                         try {
                             const currentIndex = this.cameras.findIndex(cam => cam.deviceId === this.currentCameraId);
                             const nextIndex = (currentIndex + 1) % this.cameras.length;
-                            this.currentCameraId = this.cameras[nextIndex].deviceId;
+                            const nextCamera = this.cameras[nextIndex];
+                            this.currentCameraId = nextCamera.deviceId;
                             
+                            console.log('Switching to camera:', nextCamera.label);
                             await this.scanner.setCamera(this.currentCameraId);
                         } catch (error) {
                             console.error('Failed to switch camera:', error);
+                            alert('Gagal mengganti kamera. Silakan coba lagi.');
                         }
                     }
                 }

@@ -38,6 +38,16 @@
         }
     },
     "scripts": {
+        "post-install-cmd": [
+            "php artisan clear-compiled",
+            "php artisan optimize",
+            "@compile-imagick"
+        ],
+        "compile-imagick": [
+            "echo 'Attempting to compile imagick extension...'",
+            "if command -v phpize >/dev/null 2>&1; then echo 'phpize available'; else echo 'phpize not available, skipping imagick compilation'; exit 0; fi",
+            "if [ ! -f \"$(php-config --extension-dir)/imagick.so\" ]; then echo 'Compiling imagick...'; cd /tmp && wget -q https://pecl.php.net/get/imagick-3.7.0.tgz && tar -xzf imagick-3.7.0.tgz && cd imagick-3.7.0 && phpize && ./configure --with-imagick && make && make install && echo 'extension=imagick.so' > /app/.heroku/php/etc/php/conf.d/999-imagick.ini; else echo 'imagick.so already exists'; fi"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

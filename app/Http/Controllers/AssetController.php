@@ -9,6 +9,11 @@ use PDF;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Carbon\Carbon;
 
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\Image\GdImageBackEnd;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
+
 class AssetController extends Controller
 {
     public function index(Request $request)
@@ -92,11 +97,11 @@ class AssetController extends Controller
             \Log::info('Starting QR code generation with FORCED GD backend...');
     
             // Force GD backend by using BaconQrCode directly
-            $renderer = new \BaconQrCode\Renderer\ImageRenderer(
-                new \BaconQrCode\Renderer\RendererStyle\RendererStyle(300, 10),
-                new \BaconQrCode\Renderer\Image\GdImageBackEnd()
+            $renderer = new ImageRenderer(
+                new RendererStyle(300, 10),
+                new GdImageBackEnd()
             );
-            $writer = new \BaconQrCode\Writer($renderer);
+            $writer = new Writer($renderer);
             $qrCode = $writer->writeString($asset_id);
     
             \Log::info('QR code generated successfully with GD backend, size: ' . strlen($qrCode) . ' bytes');

@@ -66,18 +66,31 @@ class AssetController extends Controller
     
     public function downloadQrCode($asset_id)
     {
+        \Log::info('=== QR CODE GENERATION START ===');
+        \Log::info('Asset ID requested: ' . $asset_id);
+        \Log::info('PHP GD loaded: ' . (extension_loaded('gd') ? 'YES' : 'NO'));
+        \Log::info('PHP Imagick loaded: ' . (extension_loaded('imagick') ? 'YES' : 'NO'));
+        \Log::info('QRCODE_DEFAULT config: ' . config('qr-code.default', 'NOT SET'));
+    
         // Validate that asset_id is not empty
         if (empty($asset_id)) {
+            \Log::error('Asset ID is empty, aborting with 404');
             abort(404, 'Asset ID tidak ditemukan');
         }
     
         try {
+            \Log::info('Searching for asset in database...');
+            
             // Get the asset by asset_id
             $asset = Asset::where('asset_id', $asset_id)->first();
             
             if (!$asset) {
+                \Log::error('Asset not found in database: ' . $asset_id);
                 abort(404, 'Asset tidak ditemukan');
             }
+    
+            \Log::info('Asset found: ' . $asset->nama_asset . ' (Room: ' . $asset->kode_ruangan . ')');
+            \Log::info('Starting QR code generation...');
     
             // Generate QR code with asset_id
             $qrCode = QrCode::format('png')
@@ -85,8 +98,18 @@ class AssetController extends Controller
                            ->margin(10)
                            ->generate($asset_id);
     
+            \Log::info('QR code generated successfully, size: ' . strlen($qrCode) . ' bytes');
+            \Log::info('Creating image canvas...');
+    
             // Create image canvas with text
             $canvas = imagecreatetruecolor(400, 450);
+            if (!$canvas) {
+                \Log::error('Failed to create image canvas');
+                throw new \Exception('Failed to create image canvas');
+            }
+    
+            \Log::info('Canvas created successfully');
+    
             $white = imagecolorallocate($canvas, 255, 255, 255);
             $black = imagecolorallocate($canvas, 0, 0, 0);
             $blue = imagecolorallocate($canvas, 0, 102, 204);
@@ -94,11 +117,28 @@ class AssetController extends Controller
             // Fill background with white
             imagefill($canvas, 0, 0, $white);
             
+            \Log::info('Canvas colors allocated and background filled');
+            \Log::info('Loading QR code image from string...');
+            
             // Load QR code image from string
             $qrImage = imagecreatefromstring($qrCode);
+            if (!$qrImage) {
+                \Log::error('Failed to create QR image from string');
+                throw new \Exception('Failed to create QR image from string');
+            }
+    
+            \Log::info('QR image loaded successfully');
+            \Log::info('Compositing QR image onto canvas...');
             
             // Center the QR code (400px wide canvas, 300px QR = 50px margin each side)
-            imagecopy($canvas, $qrImage, 50, 20, 0, 0, 300, 300);
+            $copyResult = imagecopy($canvas, $qrImage, 50, 20, 0, 0, 300, 300);
+            if (!$copyResult) {
+                \Log::error('Failed to copy QR image to canvas');
+                throw new \Exception('Failed to copy QR image to canvas');
+            }
+    
+            \Log::info('QR image composited successfully');
+            \Log::info('Adding text labels...');
             
             // Add text below QR code
             $font = 4; // Built-in font size
@@ -122,24 +162,49 @@ class AssetController extends Controller
             $textX = (400 - $textWidth) / 2;
             imagestring($canvas, $font, $textX, $textY + 40, $roomCodeText, $black);
             
+            \Log::info('Text labels added successfully');
+            
             // Generate filename
             $filename = "qr-" . $asset->asset_id . "-" . $asset->kode_ruangan . ".png";
             
+            \Log::info('Generating final PNG image...');
+            
             // Output image
             ob_start();
-            imagepng($canvas);
+            $pngResult = imagepng($canvas);
+            if (!$pngResult) {
+                ob_end_clean();
+                \Log::error('Failed to generate PNG image');
+                throw new \Exception('Failed to generate PNG image');
+            }
+            
             $imageData = ob_get_contents();
             ob_end_clean();
+            
+            \Log::info('PNG image generated successfully, final size: ' . strlen($imageData) . ' bytes');
+            \Log::info('Cleaning up memory...');
             
             // Clean up memory
             imagedestroy($canvas);
             imagedestroy($qrImage);
+            
+            \Log::info('Memory cleaned up');
+            \Log::info('Returning response with filename: ' . $filename);
+            \Log::info('=== QR CODE GENERATION SUCCESS ===');
             
             return response($imageData)
                    ->header('Content-Type', 'image/png')
                    ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
                    
         } catch (\Exception $e) {
+            \Log::error('=== QR CODE GENERATION FAILED ===');
+            \Log::error('Error message: ' . $e->getMessage());
+            \Log::error('Error file: ' . $e->getFile());
+            \Log::error('Error line: ' . $e->getLine());
+            \Log::error('Asset ID: ' . $asset_id);
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            \Log::error('=== END ERROR DETAILS ===');
+            
             abort(500, 'Gagal membuat QR Code: ' . $e->getMessage());
         }
     }

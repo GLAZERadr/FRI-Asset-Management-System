@@ -10,7 +10,7 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Carbon\Carbon;
 
 use BaconQrCode\Renderer\ImageRenderer;
-use BaconQrCode\Renderer\Image\GdImageBackEnd;
+use BaconQrCode\Renderer\Image\Png;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 
@@ -94,17 +94,17 @@ class AssetController extends Controller
             }
     
             \Log::info('Asset found: ' . $asset->nama_asset . ' (Room: ' . $asset->kode_ruangan . ')');
-            \Log::info('Starting QR code generation with FORCED GD backend...');
+            \Log::info('Starting QR code generation with BaconQrCode 2.0.8...');
     
-            // Force GD backend by using BaconQrCode directly
+            // Use BaconQrCode 2.0.8 compatible approach
             $renderer = new ImageRenderer(
                 new RendererStyle(300, 10),
-                new GdImageBackEnd()
+                new Png()
             );
             $writer = new Writer($renderer);
             $qrCode = $writer->writeString($asset_id);
     
-            \Log::info('QR code generated successfully with GD backend, size: ' . strlen($qrCode) . ' bytes');
+            \Log::info('QR code generated successfully, size: ' . strlen($qrCode) . ' bytes');
             \Log::info('Creating image canvas...');
     
             // Create image canvas with text

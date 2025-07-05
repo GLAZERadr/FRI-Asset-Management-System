@@ -11,42 +11,42 @@ class RoleSeeder extends Seeder
     public function run(): void
     {
         // Create roles
-        $staffLogistik = Role::create(['name' => 'staff_logistik']);
-        $staffLab = Role::create(['name' => 'staff_laboratorium']);
-        $kaurLab = Role::create(['name' => 'kaur_laboratorium']);
-        $kaurKeuangan = Role::create(['name' => 'kaur_keuangan_logistik_sdm']);
-        $wakilDekan = Role::create(['name' => 'wakil_dekan_2']);
-        $stafKeuangan = Role::create(['name' => 'staff_keuangan']);
+        $staffLogistik = Role::firstOrCreate(['name' => 'staff_logistik']);
+        $staffLab = Role::firstOrCreate(['name' => 'staff_laboratorium']);
+        $kaurLab = Role::firstOrCreate(['name' => 'kaur_laboratorium']);
+        $kaurKeuangan = Role::firstOrCreate(['name' => 'kaur_keuangan_logistik_sdm']);
+        $wakilDekan = Role::firstOrCreate(['name' => 'wakil_dekan_2']);
+        $stafKeuangan = Role::firstOrCreate(['name' => 'staff_keuangan']);
         
         // Create permissions
-        Permission::create(['name' => 'show_asset']);
-        Permission::create(['name' => 'show_monitoring_verification_report']);
-        Permission::create(['name' => 'scan_monitoring_qr_code']);
-        Permission::create(['name' => 'show_monitoring_report']);
-        Permission::create(['name' => 'show_monitoring_report_validation']);
-        Permission::create(['name' => 'verify_monitoring_report']);
+        Permission::firstOrCreate(['name' => 'show_asset']);
+        Permission::firstOrCreate(['name' => 'show_monitoring_verification_report']);
+        Permission::firstOrCreate(['name' => 'scan_monitoring_qr_code']);
+        Permission::firstOrCreate(['name' => 'show_monitoring_report']);
+        Permission::firstOrCreate(['name' => 'show_monitoring_report_validation']);
+        Permission::firstOrCreate(['name' => 'verify_monitoring_report']);
 
-        Permission::create(['name' => 'show_fix_verification_report']);
-        Permission::create(['name' => 'show_fix_verification_history']);
-        Permission::create(['name' => 'show_fix_periodic_maintenance']);
-        Permission::create(['name' => 'show_fix_status']);
-        Permission::create(['name' => 'show_fix_damaged_report_validation']);
-        Permission::create(['name' => 'show_fix_damaged_report_validation_history']);
-        Permission::create(['name' => 'show_fix_periodic_maintenance_report']);
-        Permission::create(['name' => 'show_fix_final_report']);
-        Permission::create(['name' => 'show_fix_report']);
+        Permission::firstOrCreate(['name' => 'show_fix_verification_report']);
+        Permission::firstOrCreate(['name' => 'show_fix_verification_history']);
+        Permission::firstOrCreate(['name' => 'show_fix_periodic_maintenance']);
+        Permission::firstOrCreate(['name' => 'show_fix_status']);
+        Permission::firstOrCreate(['name' => 'show_fix_damaged_report_validation']);
+        Permission::firstOrCreate(['name' => 'show_fix_damaged_report_validation_history']);
+        Permission::firstOrCreate(['name' => 'show_fix_periodic_maintenance_report']);
+        Permission::firstOrCreate(['name' => 'show_fix_final_report']);
+        Permission::firstOrCreate(['name' => 'show_fix_report']);
 
-        Permission::create(['name' => 'show_maintenance_request']);
-        Permission::create(['name' => 'create_maintenance_request']);
-        Permission::create(['name' => 'create_criteria']);
-        Permission::create(['name' => 'create_excel']);
-        Permission::create(['name' => 'create_payment']);
-        Permission::create(['name' => 'mark_payment_as_paid']);
-        Permission::create(['name' => 'pay_invoice']);
-        Permission::create(['name' => 'show_payment']);
-        Permission::create(['name' => 'edit_payment']);
-        Permission::create(['name' => 'delete_payment']);
-        Permission::create(['name' => 'view_reports']);
+        Permission::firstOrCreate(['name' => 'show_maintenance_request']);
+        Permission::firstOrCreate(['name' => 'create_maintenance_request']);
+        Permission::firstOrCreate(['name' => 'create_criteria']);
+        Permission::firstOrCreate(['name' => 'create_excel']);
+        Permission::firstOrCreate(['name' => 'create_payment']);
+        Permission::firstOrCreate(['name' => 'mark_payment_as_paid']);
+        Permission::firstOrCreate(['name' => 'pay_invoice']);
+        Permission::firstOrCreate(['name' => 'show_payment']);
+        Permission::firstOrCreate(['name' => 'edit_payment']);
+        Permission::firstOrCreate(['name' => 'delete_payment']);
+        Permission::firstOrCreate(['name' => 'view_reports']);
         
         // Assign permissions to roles
         $staffLogistik->givePermissionTo([

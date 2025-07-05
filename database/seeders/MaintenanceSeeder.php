@@ -134,7 +134,7 @@ class MaintenanceSeeder extends Seeder
                 
                 $this->command->info("📝 Creating monitoring report: {$idLaporan}");
                 
-                $monitoring = AssetMonitoring::create([
+                $monitoring = AssetMonitoring::firstOrCreate([
                     'id_laporan' => $idLaporan,
                     'kode_ruangan' => $kodeRuangan,
                     'nama_pelapor' => $user->name ?? 'System User',
@@ -420,7 +420,7 @@ class MaintenanceSeeder extends Seeder
                     'validation_id' => $validationId
                 ]));
                 
-                $damagedAsset = DamagedAsset::create($createData);
+                $damagedAsset = DamagedAsset::firstOrCreate($createData);
                 $damagedAssets[] = $damagedAsset;
                 $this->command->info("✅ Successfully created unvalidated damage: {$damageId}");
             } catch (\Exception $e) {
@@ -525,7 +525,7 @@ class MaintenanceSeeder extends Seeder
             }
 
             // Create the standalone damaged asset
-            DamagedAsset::create([
+            DamagedAsset::firstOrCreate([
                 'damage_id' => $damageId,
                 'asset_id' => $asset->asset_id,
                 'tingkat_kerusakan' => $damageLevel,
@@ -800,7 +800,7 @@ class MaintenanceSeeder extends Seeder
             // Check if asset already exists
             $existingAsset = Asset::where('asset_id', $data['asset_id'])->first();
             if (!$existingAsset) {
-                $assets[] = Asset::create($data);
+                $assets[] = Asset::firstOrCreate($data);
             } else {
                 $assets[] = $existingAsset;
             }
@@ -888,7 +888,7 @@ class MaintenanceSeeder extends Seeder
             // Calculate estimated completion time
             $estimatedCompletionTime = $this->calculateEstimatedCompletionTime($reportingDate, $damageLevel);
 
-            $damagedAsset = DamagedAsset::create([
+            $damagedAsset = DamagedAsset::firstOrCreate([
                 'damage_id' => $damageId,
                 'asset_id' => $asset->asset_id,
                 'tingkat_kerusakan' => $damageLevel,
@@ -1022,11 +1022,11 @@ class MaintenanceSeeder extends Seeder
             }
             
             // Create the maintenance asset
-            $maintenanceAsset = MaintenanceAsset::create($maintenanceData);
+            $maintenanceAsset = MaintenanceAsset::firstOrCreate($maintenanceData);
             
             // Create approval logs
             if ($requester) {
-                ApprovalLog::create([
+                ApprovalLog::firstOrCreate([
                     'maintenance_asset_id' => $maintenanceAsset->id,
                     'action' => 'submitted',
                     'performed_by' => $requester->username,
@@ -1038,7 +1038,7 @@ class MaintenanceSeeder extends Seeder
             
             // Add approval logs based on scenario
             if ($maintenanceData['kaur_lab_approved_at'] ?? false) {
-                ApprovalLog::create([
+                ApprovalLog::firstOrCreate([
                     'maintenance_asset_id' => $maintenanceAsset->id,
                     'action' => 'approved',
                     'performed_by' => $kaurLab->username,
@@ -1049,7 +1049,7 @@ class MaintenanceSeeder extends Seeder
             }
             
             if ($maintenanceData['kaur_keuangan_approved_at'] ?? false) {
-                ApprovalLog::create([
+                ApprovalLog::firstOrCreate([
                     'maintenance_asset_id' => $maintenanceAsset->id,
                     'action' => 'approved',
                     'performed_by' => $kaurKeuangan->username,

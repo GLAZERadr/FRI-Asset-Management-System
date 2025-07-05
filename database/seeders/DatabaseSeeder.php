@@ -17,8 +17,8 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
         ]);
         
-        // Create a demo admin user
-        $user1 = User::create([
+        // firstOrCreate a demo admin user
+        $user1 = User::firstOrCreate([
             'name' => 'Staff Logistik',
             'username' => 'stafflogistik',
             'email' => 'stafflogistik@example.com',
@@ -28,7 +28,7 @@ class DatabaseSeeder extends Seeder
         
         $user1->assignRole('staff_logistik');
 
-        $user2 = User::create([
+        $user2 = User::firstOrCreate([
             'name' => 'Kaur Laboratorium',
             'username' => 'kaurlab',
             'email' => 'kaurlab@example.com',
@@ -38,7 +38,7 @@ class DatabaseSeeder extends Seeder
         
         $user2->assignRole('kaur_laboratorium');
 
-        $user3 = User::create([
+        $user3 = User::firstOrCreate([
             'name' => 'Kaur Keuangan Logistik SDM',
             'username' => 'kaurkeulogsdm',
             'email' => 'kaurkeulogsdm@example.com',
@@ -48,7 +48,7 @@ class DatabaseSeeder extends Seeder
         
         $user3->assignRole('kaur_keuangan_logistik_sdm');
 
-        $user4 = User::create([
+        $user4 = User::firstOrCreate([
             'name' => 'Wakil Dekan 2',
             'username' => 'wadek2',
             'email' => 'wadek2@example.com',
@@ -58,7 +58,7 @@ class DatabaseSeeder extends Seeder
         
         $user4->assignRole('wakil_dekan_2');
 
-        $user5 = User::create([
+        $user5 = User::firstOrCreate([
             'name' => 'Staff Keuangan',
             'username' => 'staffkeu',
             'email' => 'staffkeu@example.com',
@@ -68,7 +68,7 @@ class DatabaseSeeder extends Seeder
         
         $user5->assignRole('staff_keuangan');
 
-        $user6 = User::create([
+        $user6 = User::firstOrCreate([
             'name' => 'Staff Laboratorium',
             'username' => 'stafflab',
             'email' => 'stafflab@example.com',

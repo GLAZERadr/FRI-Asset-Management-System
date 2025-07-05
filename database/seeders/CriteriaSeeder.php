@@ -28,7 +28,7 @@ class CriteriaSeeder extends Seeder
         ];
 
         foreach ($criteria as $criterion) {
-            Criteria::create($criterion);
+            Criteria::firstOrCreate($criterion);
         }
     }
 }

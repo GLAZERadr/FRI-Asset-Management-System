@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use PDF;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Carbon\Carbon;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class AssetController extends Controller
 {
@@ -278,7 +279,28 @@ class AssetController extends Controller
         // Handle file upload
         $fotoPath = null;
         if ($request->hasFile('foto_asset')) {
-            $fotoPath = $request->file('foto_asset')->store('assets', 'public');
+            try {
+                // Upload to Cloudinary
+                $uploadResult = Cloudinary::upload($request->file('foto_asset')->getRealPath(), [
+                    'folder' => 'assets', // Organizes images in 'assets' folder in Cloudinary
+                    'public_id' => 'asset_' . time() . '_' . uniqid(), // Unique filename
+                    'quality' => 'auto', // Automatic quality optimization
+                    'fetch_format' => 'auto', // Automatic format optimization (WebP when supported)
+                    'transformation' => [
+                        'width' => 1200,
+                        'height' => 1200,
+                        'crop' => 'limit', // Don't upscale, only downscale if needed
+                        'quality' => 'auto'
+                    ]
+                ]);
+                
+                // Get the secure URL
+                $fotoPath = $uploadResult->getSecurePath();
+                
+            } catch (\Exception $e) {
+                \Log::error('Cloudinary upload failed: ' . $e->getMessage());
+                return back()->with('error', 'Failed to upload image: ' . $e->getMessage());
+            }
         }
         
         Asset::create([
@@ -339,13 +361,14 @@ class AssetController extends Controller
         $masaPakaiMaksimum = $this->calculateMaxUsageDate($tglPerolehan, $validated['masa_pakai_maksimum'], $validated['masa_pakai_unit']);
         
         // Handle file upload
-        $fotoPath = $asset->foto_asset;
+        $fotoPath = $asset->foto_asset; // Keep existing URL
         if ($request->hasFile('foto_asset')) {
-            // Delete old file if exists
-            if ($fotoPath) {
-                Storage::disk('public')->delete($fotoPath);
-            }
-            $fotoPath = $request->file('foto_asset')->store('assets', 'public');
+            // Just upload new image (old one stays in Cloudinary)
+            $fotoPath = Cloudinary::upload($request->file('foto_asset')->getRealPath(), [
+                'folder' => 'assets',
+                'quality' => 'auto',
+                'fetch_format' => 'auto'
+            ])->getSecurePath();
         }
         
         $asset->update([

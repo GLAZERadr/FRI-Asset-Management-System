@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('department')->default('laboratorium');
             $table->timestamps();
             
-            $table->foreign('criteria_1')->references('kriteria_id')->on('criteria')->onDelete('cascade');
-            $table->foreign('criteria_2')->references('kriteria_id')->on('criteria')->onDelete('cascade');
+            $table->foreign('criteria_1')->references('kriteria_id')->on('criterias')->onDelete('cascade');
+            $table->foreign('criteria_2')->references('kriteria_id')->on('criterias')->onDelete('cascade');
         });
     }
 

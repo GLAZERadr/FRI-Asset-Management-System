@@ -32,7 +32,7 @@ return new class extends Migration
             $table->timestamps();
             
             // Foreign key constraint
-            $table->foreign('criteria_id')->references('kriteria_id')->on('criteria')->onDelete('cascade');
+            $table->foreign('criteria_id')->references('kriteria_id')->on('criterias')->onDelete('cascade');
             
             // Composite unique constraint - each calculation can have each criteria only once
             $table->unique(['calculation_id', 'criteria_id'], 'ahp_weights_calc_criteria_unique');

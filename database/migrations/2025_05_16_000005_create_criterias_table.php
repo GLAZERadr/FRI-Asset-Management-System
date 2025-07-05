@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('criteria', function (Blueprint $table) {
+        Schema::create('criterias', function (Blueprint $table) {
             $table->id();
             $table->string('kriteria_id')->unique();
             $table->string('nama_kriteria');
@@ -22,6 +22,6 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('criteria');
+        Schema::dropIfExists('criterias');
     }
 };

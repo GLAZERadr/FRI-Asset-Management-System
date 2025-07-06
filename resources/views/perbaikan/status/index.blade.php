@@ -153,11 +153,44 @@
                     {{ $request->tanggal_selesai ? date('d/m/Y', strtotime($request->tanggal_selesai)) : '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href="{{ route('perbaikan.status.show', $request->maintenance_id) }}" class="text-gray-600 hover:text-gray-900" title="Proses Laporan">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                        </svg>
-                    </a>
+                    @php
+                        // Check individual fields
+                        $deskripsiKerusakan = $request->damagedAsset->deskripsi_kerusakan ?? '';
+                        $penyebabKerusakan = $request->penyebab_kerusakan ?? '';
+                        $deskripsiPerbaikan = $request->deskripsi_perbaikan ?? '';
+                        $hasilPerbaikan = $request->hasil_perbaikan ?? '';
+                        
+                        $allFieldsFilled = !empty($deskripsiKerusakan) && 
+                                        !empty($penyebabKerusakan) && 
+                                        !empty($deskripsiPerbaikan) && 
+                                        !empty($hasilPerbaikan);
+                        
+                        // Count missing fields for tooltip
+                        $missingFields = [];
+                        if (empty($deskripsiKerusakan)) $missingFields[] = 'Deskripsi Kerusakan';
+                        if (empty($penyebabKerusakan)) $missingFields[] = 'Penyebab Kerusakan';
+                        if (empty($deskripsiPerbaikan)) $missingFields[] = 'Deskripsi Perbaikan';
+                        if (empty($hasilPerbaikan)) $missingFields[] = 'Hasil Perbaikan';
+                        
+                        $tooltipText = $allFieldsFilled ? 'Semua detail telah lengkap' : 'Perlu melengkapi: ' . implode(', ', $missingFields);
+                    @endphp
+                    
+                    @if($allFieldsFilled)
+                        <!-- Show eye icon if all fields are filled -->
+                        <a href="{{ route('perbaikan.status.show-done', $request->maintenance_id) }}" class="text-gray-600 hover:text-gray-900" title="{{ $tooltipText }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </a>
+                    @else
+                        <!-- Show edit icon if fields are not complete -->
+                        <a href="{{ route('perbaikan.status.show', $request->maintenance_id) }}" class="text-orange-600 hover:text-orange-900" title="{{ $tooltipText }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </a>
+                    @endif
                 </td>
             </tr>
             @empty

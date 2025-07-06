@@ -291,7 +291,7 @@
                     🏠 Kembali ke Beranda
                 </a>
                 
-                <a href="/public" class="btn btn-secondary">
+                <a href="/" class="btn btn-secondary">
                     📱 Scan QR Code Lain
                 </a>
             </div>

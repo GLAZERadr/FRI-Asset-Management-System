@@ -9,6 +9,7 @@ use App\Models\DamagedAsset;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf as PDF; 
 use Carbon\Carbon;
+use App\Services\NotificationService;
 
 class FixStatusController extends Controller
 {
@@ -62,6 +63,26 @@ class FixStatusController extends Controller
                                 ->sum('estimasi_biaya');
         
         return view('perbaikan.status.show', compact('maintenanceAsset', 'maintenanceCount', 'totalCost'));
+    }
+
+    public function showDone($maintenance_id)
+    {
+        // Find maintenance asset by maintenance_id
+        $maintenanceAsset = MaintenanceAsset::with(['asset', 'damagedAsset'])
+                                          ->where('maintenance_id', $maintenance_id)
+                                          ->firstOrFail();
+        
+        // Calculate maintenance count for the same asset
+        $maintenanceCount = MaintenanceAsset::whereHas('damagedAsset', function($query) use ($maintenanceAsset) {
+            $query->where('asset_id', $maintenanceAsset->damagedAsset->asset_id);
+        })->count();
+        
+        // Calculate total cost for the same asset
+        $totalCost = DamagedAsset::whereHas('maintenanceAsset')
+                                ->where('asset_id', $maintenanceAsset->damagedAsset->asset_id)
+                                ->sum('estimasi_biaya');
+        
+        return view('perbaikan.status.show-done', compact('maintenanceAsset', 'maintenanceCount', 'totalCost'));
     }
 
     public function update(Request $request, $maintenance_id)
@@ -304,20 +325,31 @@ class FixStatusController extends Controller
         $request->validate([
             'catatan' => 'nullable|string',
         ]);
-
-        $maintenanceAsset = MaintenanceAsset::where('maintenance_id', $maintenance_id)
+    
+        $maintenanceAsset = MaintenanceAsset::with(['asset', 'damagedAsset'])
+                                          ->where('maintenance_id', $maintenance_id)
                                           ->firstOrFail();
-
+    
+        // Check if catatan is actually being updated (not empty)
+        $originalCatatan = $maintenanceAsset->catatan;
+        $newCatatan = $request->catatan;
+        
         // Prepare update data
         $updateData = [
-            'catatan' => $request->catatan,
+            'catatan' => $newCatatan,
         ];
-
+    
         // Update the maintenance asset
         $maintenanceAsset->update($updateData);
-
+    
+        // Send notification to kaur if catatan was added or modified
+        if (!empty($newCatatan) && $newCatatan !== $originalCatatan) {
+            $notificationService = app(NotificationService::class);
+            $notificationService->sendMaintenanceUpdate($maintenanceAsset, 'catatan');
+        }
+    
         return redirect()->route('perbaikan.status.report')
-                        ->with('success', 'Laporan akhir perbaikan berhasil disimpan.');
+                        ->with('success', 'Laporan akhir perbaikan berhasil disimpan dan notifikasi telah dikirim.');
     }
 
     public function downloadReportPdf($maintenance_id)

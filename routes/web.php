@@ -188,14 +188,29 @@ Route::middleware('auth')->group(function () {
         Route::get('/validation/history', [FixValidationController::class, 'history'])->name('validation.history');
         Route::get('/validation/download-pdf/{validation_id}', [FixValidationController::class, 'downloadPdf'])->name('validation.download-pdf');
     
-        // Maintenance schedule routes
-        Route::get('/pemeliharaan-berkala', [MaintenanceScheduleController::class, 'index'])->name('pemeliharaan-berkala.index');
-        Route::post('/pemeliharaan-berkala/store-basic', [MaintenanceScheduleController::class, 'storeBasic'])->name('pemeliharaan-berkala.store-basic');
-        Route::put('/pemeliharaan-berkala/{id}/details', [MaintenanceScheduleController::class, 'updateDetails'])->name('pemeliharaan-berkala.update-details');
-        Route::get('/pemeliharaan-berkala/report', [MaintenanceScheduleController::class, 'report'])->name('pemeliharaan-berkala.report');
-        Route::get('/pemeliharaan-berkala/report/{id}', [MaintenanceScheduleController::class, 'showReport'])->name('pemeliharaan-berkala.show-report');
-        Route::get('/pemeliharaan-berkala/report/{id}/download-pdf', [MaintenanceScheduleController::class, 'downloadReportPdf'])->name('pemeliharaan-berkala.download-report-pdf');
-        Route::delete('/pemeliharaan-berkala/{id}', [MaintenanceScheduleController::class, 'destroy'])->name('pemeliharaan-berkala.destroy');
+        // Updated Maintenance Schedule routes
+        Route::prefix('pemeliharaan-berkala')->name('pemeliharaan-berkala.')->group(function () {
+            // Main CRUD routes
+            Route::get('/', [MaintenanceScheduleController::class, 'index'])->name('index');
+            Route::post('/', [MaintenanceScheduleController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [MaintenanceScheduleController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [MaintenanceScheduleController::class, 'update'])->name('update');
+            Route::delete('/{id}', [MaintenanceScheduleController::class, 'destroy'])->name('destroy');
+            
+            // Additional functionality routes
+            Route::get('/{id}/details', [MaintenanceScheduleController::class, 'getDetails'])->name('details');
+            Route::post('/auto-generate', [MaintenanceScheduleController::class, 'autoGenerate'])->name('auto-generate');
+            
+            // Report routes
+            Route::get('/report', [MaintenanceScheduleController::class, 'report'])->name('report');
+            Route::get('/{id}/show-report', [MaintenanceScheduleController::class, 'showReport'])->name('show-report');
+            Route::get('/{id}/download-pdf', [MaintenanceScheduleController::class, 'downloadReportPdf'])->name('download-pdf');
+            
+            // API routes for statistics and data
+            Route::get('/api/stats', [MaintenanceScheduleController::class, 'getMaintenanceStats'])->name('api.stats');
+            Route::get('/api/asset/{assetId}/history', [MaintenanceScheduleController::class, 'getAssetHistory'])->name('api.asset-history');
+            Route::get('/api/assets-needing-maintenance', [MaintenanceScheduleController::class, 'getAssetsNeedingMaintenance'])->name('api.assets-needing-maintenance');
+        });
     
         // Status routes - FIXED CONFLICTS
         Route::get('/status', [FixStatusController::class, 'index'])->name('status.index');
@@ -204,6 +219,7 @@ Route::middleware('auth')->group(function () {
         
         // Individual maintenance routes
         Route::get('/status/show/{maintenance_id}', [FixStatusController::class, 'show'])->name('status.show');
+        Route::get('/status/show-done/{maintenance_id}', [FixStatusController::class, 'showDone'])->name('status.show-done');
         Route::put('/status/update/{maintenance_id}', [FixStatusController::class, 'update'])->name('status.update');
         
         // Recommendation routes - FIXED CONFLICTS

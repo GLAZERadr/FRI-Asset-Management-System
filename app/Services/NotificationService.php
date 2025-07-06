@@ -108,4 +108,78 @@ class NotificationService
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
     }
+
+    public function sendMaintenanceUpdate(MaintenanceAsset $maintenanceAsset, string $updateType = 'catatan')
+    {
+        // Get kaur users who should be notified
+        $kaurLab = User::role('kaur_laboratorium')->first();
+        $kaurKeuangan = User::role('kaur_keuangan_logistik_sdm')->first();
+        
+        $title = 'Laporan Perbaikan Diperbarui';
+        $message = "Laporan perbaikan untuk aset {$maintenanceAsset->asset->nama_asset} telah diperbarui dengan catatan baru";
+        
+        $notifications = [];
+        
+        // Send to kaur laboratorium
+        if ($kaurLab) {
+            $notifications[] = Notification::create([
+                'type' => 'maintenance_update',
+                'title' => $title,
+                'message' => $message,
+                'notifiable_type' => User::class,
+                'notifiable_id' => $kaurLab->id,
+                'related_model' => MaintenanceAsset::class,
+                'related_id' => $maintenanceAsset->id,
+                'action_url' => route('perbaikan.status.done', $maintenanceAsset->maintenance_id)
+            ]);
+        }
+        
+        // Send to kaur keuangan
+        if ($kaurKeuangan) {
+            $notifications[] = Notification::create([
+                'type' => 'maintenance_update',
+                'title' => $title,
+                'message' => $message,
+                'notifiable_type' => User::class,
+                'notifiable_id' => $kaurKeuangan->id,
+                'related_model' => MaintenanceAsset::class,
+                'related_id' => $maintenanceAsset->id,
+                'action_url' => route('perbaikan.status.done', $maintenanceAsset->maintenance_id)
+            ]);
+        }
+        
+        return $notifications;
+    }
+
+    /**
+     * Send maintenance completion notification
+     */
+    public function sendMaintenanceCompletion(MaintenanceAsset $maintenanceAsset)
+    {
+        // Get all kaur users and the original requester
+        $kaurLab = User::role('kaur_laboratorium')->first();
+        $kaurKeuangan = User::role('kaur_keuangan_logistik_sdm')->first();
+        $requester = User::find($maintenanceAsset->requested_by);
+        
+        $title = 'Perbaikan Aset Selesai';
+        $message = "Perbaikan aset {$maintenanceAsset->asset->nama_asset} telah selesai dilaksanakan";
+        
+        $notifications = [];
+        $recipients = collect([$kaurLab, $kaurKeuangan, $requester])->filter();
+        
+        foreach ($recipients as $user) {
+            $notifications[] = Notification::create([
+                'type' => 'maintenance_completed',
+                'title' => $title,
+                'message' => $message,
+                'notifiable_type' => User::class,
+                'notifiable_id' => $user->id,
+                'related_model' => MaintenanceAsset::class,
+                'related_id' => $maintenanceAsset->id,
+                'action_url' => route('perbaikan.status.view', $maintenanceAsset->maintenance_id)
+            ]);
+        }
+        
+        return $notifications;
+    }
 }

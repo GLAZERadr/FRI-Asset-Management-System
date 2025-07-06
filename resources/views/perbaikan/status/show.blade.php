@@ -159,11 +159,7 @@
                 </div>
                 
                 <!-- Action Buttons -->
-                <div class="mt-6 lg:mt-8 flex flex-col sm:flex-row sm:justify-between gap-3 sm:gap-2">
-                    <a href="{{ route('perbaikan.status.index') }}" 
-                       class="w-full sm:w-auto px-6 py-3 lg:py-2 bg-gray-600 text-white rounded-md shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-center font-medium">
-                        Kembali
-                    </a>
+                <div class="mt-6 lg:mt-8 flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-2">
                     <button type="submit" 
                             class="w-full sm:w-auto px-6 py-3 lg:py-2 bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 font-medium">
                         Simpan Laporan

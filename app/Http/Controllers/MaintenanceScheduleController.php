@@ -3,163 +3,84 @@
 namespace App\Http\Controllers;
 
 use App\Models\MaintenanceSchedule;
+use App\Models\Asset;
+use App\Models\DamagedAsset;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
-use Barryvdh\DomPDF\Facade\Pdf as PDF;
-use Cloudinary\Configuration\Configuration;
-use Cloudinary\Api\Upload\UploadApi;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 
 class MaintenanceScheduleController extends Controller
 {
     public function index(Request $request)
     {
-        $query = MaintenanceSchedule::query();
+        $query = MaintenanceSchedule::with('asset');
         
-        if ($request->has('lokasi') && $request->lokasi) {
-            $query->where('lokasi', 'like', '%' . $request->lokasi . '%');
+        // Search by asset ID or name
+        if ($request->has('asset_search') && $request->asset_search) {
+            $search = $request->asset_search;
+            $query->where(function($q) use ($search) {
+                $q->where('asset_id', 'like', '%' . $search . '%')
+                  ->orWhereHas('asset', function($assetQuery) use ($search) {
+                      $assetQuery->where('nama_asset', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+        
+        // Filter by status
+        if ($request->has('status') && $request->status) {
+            $query->where('status', $request->status);
         }
         
         $schedules = $query->orderBy('tanggal_pemeliharaan', 'desc')->paginate(10);
-        $locations = MaintenanceSchedule::distinct()->pluck('lokasi');
         
-        return view('perbaikan.pemeliharaan-berkala.index', compact('schedules', 'locations'));
+        return view('perbaikan.pemeliharaan-berkala.index', compact('schedules'));
     }
 
-    // Add this method for basic schedule creation
-    public function storeBasic(Request $request)
+    public function store(Request $request)
     {
         $request->validate([
-            'lokasi' => 'required|string|max:255',
-            'tanggal_pemeliharaan' => 'required|date'
+            'asset_id' => 'required|string|exists:assets,asset_id',
+            'tanggal_pemeliharaan' => 'required|date|after_or_equal:today',
+            'jenis_pemeliharaan' => 'required|in:Rutin,Tambahan,Khusus',
+            'alasan_penjadwalan' => 'nullable|string|max:1000',
+            'penanggung_jawab' => 'nullable|string|max:255',
+            'status' => 'nullable|in:Dijadwalkan,Selesai,Dibatalkan',
+            'catatan_tambahan' => 'nullable|string|max:1000'
         ]);
 
-        $reportId = MaintenanceSchedule::generateId();
+        $scheduleId = MaintenanceSchedule::generateId();
 
         MaintenanceSchedule::create([
-            'schedule_id' => $reportId,
-            'lokasi' => $request->lokasi,
+            'schedule_id' => $scheduleId,
+            'asset_id' => $request->asset_id,
             'tanggal_pemeliharaan' => $request->tanggal_pemeliharaan,
-            'status' => 'scheduled',
+            'jenis_pemeliharaan' => $request->jenis_pemeliharaan,
+            'alasan_penjadwalan' => $request->alasan_penjadwalan,
+            'status' => $request->status ?? 'Dijadwalkan',
+            'penanggung_jawab' => $request->penanggung_jawab,
+            'catatan_tambahan' => $request->catatan_tambahan,
+            'auto_generated' => false,
             'created_by' => Auth::user()->name ?? 'System'
         ]);
 
-        return redirect()->route('perbaikan.pemeliharaan-berkala.index')->with('success', 'Jadwal pemeliharaan berhasil ditambahkan');
+        return redirect()->route('perbaikan.pemeliharaan-berkala.index')
+                        ->with('success', 'Jadwal pemeliharaan berhasil ditambahkan');
     }
 
-    // Keep the existing update method for detailed updates
-    public function updateDetails(Request $request, $id)
+    public function edit($id)
     {
         $schedule = MaintenanceSchedule::findOrFail($id);
         
-        $request->validate([
-            'deskripsi_pemeliharaan' => 'nullable|string',
-            'catatan_tindak_lanjut' => 'nullable|string',
-            'photos.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+        return response()->json([
+            'asset_id' => $schedule->asset_id,
+            'tanggal_pemeliharaan' => $schedule->tanggal_pemeliharaan->format('Y-m-d'),
+            'jenis_pemeliharaan' => $schedule->jenis_pemeliharaan,
+            'alasan_penjadwalan' => $schedule->alasan_penjadwalan,
+            'status' => $schedule->status,
+            'penanggung_jawab' => $schedule->penanggung_jawab,
+            'catatan_tambahan' => $schedule->catatan_tambahan
         ]);
-
-        $photoPaths = $schedule->photos ?? [];
-
-        if ($request->hasFile('photos')) {
-            try {
-                // Configure Cloudinary once before the loop (proven to work)
-                Configuration::instance([
-                    'cloud' => [
-                        'cloud_name' => config('cloudinary.cloud_name'),
-                        'api_key' => config('cloudinary.api_key'),
-                        'api_secret' => config('cloudinary.api_secret'),
-                    ],
-                    'url' => [
-                        'secure' => true
-                    ]
-                ]);
-
-                $upload = new UploadApi();
-                $uploadedCount = 0;
-                $failedCount = 0;
-
-                foreach ($request->file('photos') as $index => $photo) {
-                    try {
-                        // Generate unique filename for each photo
-                        $fileName = 'maintenance_' . time() . '_' . ($index + 1) . '_' . uniqid();
-                        
-                        Log::info('Processing maintenance photo upload', [
-                            'index' => $index + 1,
-                            'original_name' => $photo->getClientOriginalName(),
-                            'generated_name' => $fileName,
-                            'file_size' => $photo->getSize()
-                        ]);
-
-                        // Upload to Cloudinary
-                        $result = $upload->upload($photo->getRealPath(), [
-                            'folder' => 'maintenance-photos', // Organize in maintenance-photos folder
-                            'public_id' => $fileName,
-                            'quality' => 'auto', // Automatic quality optimization
-                            'fetch_format' => 'auto', // Automatic format optimization
-                            'transformation' => [
-                                'width' => 1200,
-                                'height' => 1200,
-                                'crop' => 'limit', // Don't upscale, only downscale if needed
-                                'quality' => 'auto'
-                            ]
-                        ]);
-
-                        $photoPaths[] = $result['secure_url'];
-                        $uploadedCount++;
-                        
-                        Log::info('Maintenance photo uploaded successfully', [
-                            'index' => $index + 1,
-                            'photo_url' => $result['secure_url'],
-                            'cloudinary_public_id' => $result['public_id'] ?? null
-                        ]);
-
-                    } catch (\Exception $e) {
-                        $failedCount++;
-                        Log::error('Failed to upload maintenance photo', [
-                            'index' => $index + 1,
-                            'error' => $e->getMessage(),
-                            'file_name' => $photo->getClientOriginalName()
-                        ]);
-                        
-                        // Continue with other photos even if one fails
-                        continue;
-                    }
-                }
-
-                // Log summary
-                Log::info('Maintenance photos upload completed', [
-                    'total_photos' => count($request->file('photos')),
-                    'uploaded_successfully' => $uploadedCount,
-                    'failed_uploads' => $failedCount,
-                    'uploaded_urls' => $photoPaths
-                ]);
-
-                // Show user feedback
-                if ($uploadedCount > 0 && $failedCount > 0) {
-                    session()->flash('warning', "{$uploadedCount} foto berhasil diupload, {$failedCount} foto gagal diupload.");
-                } elseif ($failedCount > 0) {
-                    session()->flash('error', "Gagal mengupload {$failedCount} foto maintenance.");
-                } elseif ($uploadedCount > 0) {
-                    session()->flash('success', "{$uploadedCount} foto maintenance berhasil diupload.");
-                }
-
-            } catch (\Exception $e) {
-                Log::error('Cloudinary configuration failed for maintenance photos', [
-                    'error' => $e->getMessage()
-                ]);
-                return back()->withInput()->with('error', 'Failed to configure photo upload: ' . $e->getMessage());
-            }
-        }
-
-        $schedule->update([
-            'deskripsi_pemeliharaan' => $request->deskripsi_pemeliharaan,
-            'catatan_tindak_lanjut' => $request->catatan_tindak_lanjut,
-            'photos' => $photoPaths,
-            'status' => 'completed'
-        ]);
-
-        return redirect()->route('perbaikan.pemeliharaan-berkala.index')->with('success', 'Detail pemeliharaan berhasil diperbarui');
     }
 
     public function update(Request $request, $id)
@@ -167,68 +88,100 @@ class MaintenanceScheduleController extends Controller
         $schedule = MaintenanceSchedule::findOrFail($id);
         
         $request->validate([
-            'lokasi' => 'required|string|max:255',
+            'asset_id' => 'required|string|exists:assets,asset_id',
             'tanggal_pemeliharaan' => 'required|date',
-            'deskripsi_pemeliharaan' => 'nullable|string',
-            'catatan_tindak_lanjut' => 'nullable|string',
-            'photos.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            'jenis_pemeliharaan' => 'required|in:Rutin,Tambahan,Khusus',
+            'alasan_penjadwalan' => 'nullable|string|max:1000',
+            'penanggung_jawab' => 'nullable|string|max:255',
+            'status' => 'nullable|in:Dijadwalkan,Selesai,Dibatalkan',
+            'catatan_tambahan' => 'nullable|string|max:1000'
         ]);
-
-        $photoPaths = $schedule->photos ?? [];
-        
-        if ($request->hasFile('photos')) {
-            try {
-                Configuration::instance([
-                    'cloud' => [
-                        'cloud_name' => config('cloudinary.cloud_name'),
-                        'api_key' => config('cloudinary.api_key'),
-                        'api_secret' => config('cloudinary.api_secret'),
-                    ],
-                    'url' => ['secure' => true]
-                ]);
-        
-                $upload = new UploadApi();
-                foreach ($request->file('photos') as $index => $photo) {
-                    try {
-                        $result = $upload->upload($photo->getRealPath(), [
-                            'folder' => 'maintenance-photos',
-                            'public_id' => 'maintenance_' . time() . '_' . ($index + 1) . '_' . uniqid(),
-                            'quality' => 'auto',
-                            'fetch_format' => 'auto'
-                        ]);
-                        $photoPaths[] = $result['secure_url']; // Add to existing array
-                    } catch (\Exception $e) {
-                        Log::error('Photo upload failed: ' . $e->getMessage());
-                        continue;
-                    }
-                }
-            } catch (\Exception $e) {
-                Log::error('Cloudinary config failed: ' . $e->getMessage());
-            }
-        }
 
         $schedule->update([
-            'lokasi' => $request->lokasi,
+            'asset_id' => $request->asset_id,
             'tanggal_pemeliharaan' => $request->tanggal_pemeliharaan,
-            'deskripsi_pemeliharaan' => $request->deskripsi_pemeliharaan,
-            'catatan_tindak_lanjut' => $request->catatan_tindak_lanjut,
-            'photos' => $photoPaths
+            'jenis_pemeliharaan' => $request->jenis_pemeliharaan,
+            'alasan_penjadwalan' => $request->alasan_penjadwalan,
+            'status' => $request->status,
+            'penanggung_jawab' => $request->penanggung_jawab,
+            'catatan_tambahan' => $request->catatan_tambahan
         ]);
 
-        return redirect()->route('perbaikan.pemeliharaan-berkala.index')->with('success', 'Jadwal pemeliharaan berhasil diperbarui');
+        return redirect()->route('perbaikan.pemeliharaan-berkala.index')
+                        ->with('success', 'Jadwal pemeliharaan berhasil diperbarui');
+    }
+
+    public function getDetails($id)
+    {
+        $schedule = MaintenanceSchedule::with('asset')->findOrFail($id);
+        $previousNotes = $schedule->getPreviousMaintenanceNotes();
+        
+        return response()->json([
+            'asset_id' => $schedule->asset_id,
+            'asset' => $schedule->asset,
+            'tanggal_pemeliharaan_formatted' => $schedule->tanggal_pemeliharaan->format('d-m-Y'),
+            'jenis_pemeliharaan' => $schedule->jenis_pemeliharaan,
+            'alasan_penjadwalan' => $schedule->alasan_penjadwalan,
+            'status' => $schedule->status,
+            'penanggung_jawab' => $schedule->penanggung_jawab,
+            'catatan_tambahan' => $schedule->catatan_tambahan,
+            'auto_generated' => $schedule->auto_generated,
+            'previous_notes' => $previousNotes
+        ]);
+    }
+
+    /**
+     * Auto-generate maintenance schedules based on damage frequency
+     */
+    public function autoGenerate()
+    {
+        try {
+            $generatedCount = MaintenanceSchedule::autoGenerateFromDamageReports();
+            
+            if ($generatedCount > 0) {
+                return redirect()->route('perbaikan.pemeliharaan-berkala.index')
+                                ->with('auto_generated_count', $generatedCount)
+                                ->with('success', "{$generatedCount} jadwal pemeliharaan otomatis berhasil dibuat");
+            } else {
+                return redirect()->route('perbaikan.pemeliharaan-berkala.index')
+                                ->with('info', 'Tidak ada aset yang memerlukan jadwal pemeliharaan otomatis saat ini');
+            }
+        } catch (\Exception $e) {
+            Log::error('Auto-generate maintenance schedules failed: ' . $e->getMessage());
+            return redirect()->route('perbaikan.pemeliharaan-berkala.index')
+                            ->with('error', 'Gagal membuat jadwal otomatis: ' . $e->getMessage());
+        }
+    }
+
+    public function destroy($id)
+    {
+        $schedule = MaintenanceSchedule::findOrFail($id);
+        $schedule->delete();
+        
+        return redirect()->route('perbaikan.pemeliharaan-berkala.index')
+                        ->with('success', 'Jadwal pemeliharaan berhasil dihapus');
     }
 
     public function report(Request $request)
     {
-        $user = Auth::user(); // Add this
+        $user = Auth::user();
         
-        $query = MaintenanceSchedule::query();
+        $query = MaintenanceSchedule::with('asset');
+        
+        // Only show completed schedules for certain roles
         if ($user->hasRole(['wakil_dekan_2'])) {
-            $query->where('status', 'completed');
+            $query->where('status', 'Selesai');
         } 
         
-        if ($request->has('lokasi') && $request->lokasi) {
-            $query->where('lokasi', 'like', '%' . $request->lokasi . '%');
+        // Search filters
+        if ($request->has('asset_search') && $request->asset_search) {
+            $search = $request->asset_search;
+            $query->where(function($q) use ($search) {
+                $q->where('asset_id', 'like', '%' . $search . '%')
+                  ->orWhereHas('asset', function($assetQuery) use ($search) {
+                      $assetQuery->where('nama_asset', 'like', '%' . $search . '%');
+                  });
+            });
         }
         
         // Apply month filter
@@ -242,9 +195,8 @@ class MaintenanceScheduleController extends Controller
         }
         
         $schedules = $query->orderBy('tanggal_pemeliharaan', 'desc')->paginate(10);
-        $locations = MaintenanceSchedule::distinct()->pluck('lokasi');
         
-        // Get distinct months and years
+        // Get distinct months and years for filters
         $months = MaintenanceSchedule::selectRaw('MONTH(tanggal_pemeliharaan) as month')
             ->whereNotNull('tanggal_pemeliharaan')
             ->distinct()
@@ -265,65 +217,91 @@ class MaintenanceScheduleController extends Controller
             ->orderBy('year', 'desc')
             ->pluck('year');        
         
-        return view('perbaikan.pemeliharaan-berkala.report', compact('schedules', 'locations', 'months', 'years'));
+        return view('perbaikan.pemeliharaan-berkala.report', compact('schedules', 'months', 'years'));
     }
 
     public function showReport($id)
     {
-        $schedule = MaintenanceSchedule::findOrFail($id);
-        return view('perbaikan.pemeliharaan-berkala.show-report', compact('schedule'));
-    }
-
-    public function destroy($id)
-    {
-        $schedule = MaintenanceSchedule::findOrFail($id);
+        $schedule = MaintenanceSchedule::with('asset')->findOrFail($id);
+        $previousNotes = $schedule->getPreviousMaintenanceNotes();
         
-        // Delete photos from storage
-        if ($schedule->photos) {
-            foreach ($schedule->photos as $photo) {
-                Storage::disk('public')->delete($photo);
-            }
-        }
-        
-        $schedule->delete();
-        
-        return redirect()->route('perbaikan.pemeliharaan-berkala.index')->with('success', 'Jadwal pemeliharaan berhasil dihapus');
+        return view('perbaikan.pemeliharaan-berkala.show-report', compact('schedule', 'previousNotes'));
     }
 
     public function downloadReportPdf($id)
     {
-        $schedule = MaintenanceSchedule::findOrFail($id);
+        $schedule = MaintenanceSchedule::with('asset')->findOrFail($id);
+        $previousNotes = $schedule->getPreviousMaintenanceNotes();
         
-        // Convert Cloudinary photos to base64 for PDF
-        $photosBase64 = [];
-        if ($schedule->photos) {
-            foreach ($schedule->photos as $index => $photoUrl) {
-                try {
-                    // Download image from Cloudinary URL
-                    $imageData = file_get_contents($photoUrl);
-                    if ($imageData !== false) {
-                        // Get image info from URL
-                        $pathInfo = pathinfo(parse_url($photoUrl, PHP_URL_PATH));
-                        $extension = strtolower($pathInfo['extension'] ?? 'jpg');
-                        $mimeType = $extension === 'png' ? 'image/png' : 'image/jpeg';
-                        
-                        $photosBase64[] = [
-                            'index' => $index + 1,
-                            'base64' => 'data:' . $mimeType . ';base64,' . base64_encode($imageData),
-                            'filename' => $pathInfo['filename'] ?? 'photo_' . ($index + 1)
-                        ];
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Failed to download photo for PDF: ' . $e->getMessage());
-                    continue;
-                }
-            }
-        }
-        
-        $pdf = PDF::loadView('perbaikan.pemeliharaan-berkala.pdf-report', compact('schedule', 'photosBase64'));
+        $pdf = PDF::loadView('perbaikan.pemeliharaan-berkala.pdf-report', compact('schedule', 'previousNotes'));
         
         $reportId = 'LP-' . date('Ymd', strtotime($schedule->tanggal_pemeliharaan)) . '-' . str_pad($schedule->id, 3, '0', STR_PAD_LEFT);
         
         return $pdf->download('laporan-pemeliharaan-' . $reportId . '.pdf');
+    }
+
+    /**
+     * Get maintenance statistics for dashboard
+     */
+    public function getMaintenanceStats()
+    {
+        $stats = [
+            'total_scheduled' => MaintenanceSchedule::scheduled()->count(),
+            'completed_this_month' => MaintenanceSchedule::completed()
+                ->whereMonth('tanggal_pemeliharaan', now()->month)
+                ->whereYear('tanggal_pemeliharaan', now()->year)
+                ->count(),
+            'auto_generated' => MaintenanceSchedule::autoGenerated()->count(),
+            'overdue' => MaintenanceSchedule::scheduled()
+                ->where('tanggal_pemeliharaan', '<', now())
+                ->count()
+        ];
+        
+        return response()->json($stats);
+    }
+
+    /**
+     * Check asset maintenance history
+     */
+    public function getAssetHistory($assetId)
+    {
+        $history = MaintenanceSchedule::getAssetMaintenanceHistory($assetId);
+        $needsMaintenance = MaintenanceSchedule::checkAssetNeedsMaintenance($assetId);
+        
+        return response()->json([
+            'history' => $history,
+            'needs_maintenance' => $needsMaintenance,
+            'damage_count_last_2_months' => DamagedAsset::where('asset_id', $assetId)
+                ->where('tanggal_pelaporan', '>=', now()->subMonths(2))
+                ->count()
+        ]);
+    }
+
+    /**
+     * Get assets that need maintenance attention
+     */
+    public function getAssetsNeedingMaintenance()
+    {
+        $twoMonthsAgo = now()->subMonths(2);
+        
+        $assets = DamagedAsset::where('tanggal_pelaporan', '>=', $twoMonthsAgo)
+            ->groupBy('asset_id')
+            ->havingRaw('COUNT(*) > 3')
+            ->with('asset')
+            ->select('asset_id', \DB::raw('COUNT(*) as damage_count'))
+            ->get()
+            ->map(function($damage) {
+                return [
+                    'asset_id' => $damage->asset_id,
+                    'asset_name' => $damage->asset->nama_asset ?? 'Unknown',
+                    'damage_count' => $damage->damage_count,
+                    'has_scheduled_maintenance' => MaintenanceSchedule::where('asset_id', $damage->asset_id)
+                        ->scheduled()
+                        ->where('tanggal_pemeliharaan', '>=', now())
+                        ->exists()
+                ];
+            });
+        
+        return response()->json($assets);
     }
 }

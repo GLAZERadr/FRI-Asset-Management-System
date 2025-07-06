@@ -179,7 +179,7 @@
                                 {{ $asset->asset_id }}
                             </span>
                             @if($asset->foto_asset)
-                                <img src="{{ asset('storage/' . $asset->foto_asset) }}" alt="Asset Image" class="h-8 w-8 rounded object-cover">
+                                <img src="{{ $asset->foto_asset }}" alt="Asset Image" class="h-8 w-8 rounded object-cover">
                             @endif
                         </div>
                         

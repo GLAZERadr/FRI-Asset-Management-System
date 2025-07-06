@@ -406,7 +406,7 @@
                             </div>
                             <div style="text-align: center;">
                                 @if($asset->foto_asset)
-                                    <img src="{{ Storage::url($asset->foto_asset) }}" class="monitoring-asset-photo">
+                                    <img src="{{ $asset->foto_asset }}" class="monitoring-asset-photo">
                                 @else
                                     <div class="monitoring-asset-photo-placeholder">📷</div>
                                 @endif

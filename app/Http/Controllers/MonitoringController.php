@@ -8,6 +8,9 @@ use App\Models\AssetMonitoring;
 use App\Models\DamagedAsset;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Cloudinary\Configuration\Configuration;
+use Cloudinary\Api\Upload\UploadApi;
+use Illuminate\Support\Facades\Log;
 
 class MonitoringController extends Controller
 {
@@ -205,7 +208,54 @@ class MonitoringController extends Controller
         foreach ($request->asset_data as $key => $assetData) {
             $photoPath = null;
             if (isset($assetData['foto']) && $assetData['foto']) {
-                $photoPath = $assetData['foto']->store('monitoring-photos', 'public');
+                try {
+                    Log::info('Processing monitoring photo upload', [
+                        'file_name' => $assetData['foto']->getClientOriginalName(),
+                        'file_size' => $assetData['foto']->getSize(),
+                        'file_mime' => $assetData['foto']->getMimeType()
+                    ]);
+                    
+                    // Configure Cloudinary directly (proven to work)
+                    Configuration::instance([
+                        'cloud' => [
+                            'cloud_name' => config('cloudinary.cloud_name'),
+                            'api_key' => config('cloudinary.api_key'),
+                            'api_secret' => config('cloudinary.api_secret'),
+                        ],
+                        'url' => [
+                            'secure' => true
+                        ]
+                    ]);
+            
+                    // Upload to Cloudinary
+                    $upload = new UploadApi();
+                    $result = $upload->upload($assetData['foto']->getRealPath(), [
+                        'folder' => 'monitoring-photos', // Organize in monitoring-photos folder
+                        'public_id' => 'monitoring_' . time() . '_' . uniqid(),
+                        'quality' => 'auto',
+                        'fetch_format' => 'auto',
+                        'transformation' => [
+                            'width' => 1200,
+                            'height' => 1200,
+                            'crop' => 'limit',
+                            'quality' => 'auto'
+                        ]
+                    ]);
+            
+                    $photoPath = $result['secure_url'];
+                    
+                    Log::info('Monitoring photo uploaded successfully to Cloudinary', [
+                        'photo_path' => $photoPath,
+                        'cloudinary_public_id' => $result['public_id'] ?? null
+                    ]);
+            
+                } catch (\Exception $e) {
+                    Log::error('Cloudinary upload failed for monitoring photo', [
+                        'error' => $e->getMessage(),
+                        'file_name' => $assetData['foto']->getClientOriginalName()
+                    ]);
+                    throw new \Exception('Failed to upload monitoring photo: ' . $e->getMessage());
+                }
             }
             
             $monitoringData[] = [
@@ -230,21 +280,6 @@ class MonitoringController extends Controller
             'validated_at' => null,
             'user_id' => auth()->id()
         ]);
-    
-        // // Create DamagedAsset records for assets that need maintenance
-        // foreach ($damagedAssets as $damagedData) {
-        //     DamagedAsset::create([
-        //         'damage_id' => 'DMG-' . date('Ymd') . '-' . Str::random(6),
-        //         'asset_id' => $damagedData['asset_id'],
-        //         'tingkat_kerusakan' => 'Sedang', // Default level
-        //         'estimasi_biaya' => 0, // To be filled later
-        //         'deskripsi_kerusakan' => $damagedData['deskripsi_kerusakan'],
-        //         'tanggal_pelaporan' => $request->tanggal_laporan,
-        //         'pelapor' => $request->nama_pelapor,
-        //         'vendor' => null, // To be assigned later
-        //         'id_laporan' => $idLaporan // Link to monitoring report
-        //     ]);
-        // }
     
         return redirect()->route('dashboard')->with('success', 
             "Monitoring report submitted successfully! Report ID: {$idLaporan}" . 

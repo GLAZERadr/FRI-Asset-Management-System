@@ -330,7 +330,7 @@
                     
                     <div class="photo-cell">
                         @php
-                            $imagePath = storage_path('app/public/' . $photo);
+                            $imagePath = storage_path($photo);
                             $imageExists = file_exists($imagePath);
                             $base64Image = null;
                             

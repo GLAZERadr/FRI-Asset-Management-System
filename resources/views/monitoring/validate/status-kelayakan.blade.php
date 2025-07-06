@@ -110,7 +110,7 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         @if($asset->foto_asset)
-                                            <button type="button" onclick="openImageModal('{{ asset('storage/' . $asset->foto_asset) }}')" 
+                                            <button type="button" onclick="openImageModal('{{ $asset->foto_asset }}')" 
                                                     class="text-blue-600 hover:text-blue-900">
                                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z"></path>

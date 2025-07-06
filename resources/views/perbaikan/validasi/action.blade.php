@@ -20,7 +20,7 @@
                 <div class="lg:col-span-1">
                     <div class="bg-gray-100 rounded-lg p-4 text-center">
                         @if($report->damaged_image)
-                            <img src="{{ Storage::url($report->damaged_image) }}" 
+                            <img src="{{ $report->damaged_image }}" 
                                  alt="{{ $report->asset->nama_asset }}" 
                                  class="w-full h-64 object-cover rounded-lg mx-auto">
                         @else

@@ -230,10 +230,10 @@
                                         @if(isset($monitoringItem['foto_path']) && $monitoringItem['foto_path'])
                                         <div>
                                             <span class="text-sm text-gray-600 block mb-2">Dokumentasi:</span>
-                                            <img src="{{ Storage::url($monitoringItem['foto_path']) }}" 
+                                            <img src="{{ $monitoringItem['foto_path'] }}" 
                                                  alt="Dokumentasi {{ $asset->nama_asset }}" 
                                                  class="w-full h-full object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                                                 onclick="showImageModal('{{ Storage::url($monitoringItem['foto_path']) }}', '{{ $asset->nama_asset }}')">
+                                                 onclick="showImageModal('{{ $monitoringItem['foto_path'] }}', '{{ $asset->nama_asset }}')">
                                         </div>
                                         @else
                                         <div>

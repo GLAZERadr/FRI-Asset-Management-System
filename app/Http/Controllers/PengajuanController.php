@@ -18,6 +18,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use App\Modules\Imports\AssetDamageImport;
 use App\Modules\Exports\AssetTemplateExport;
+use Cloudinary\Configuration\Configuration;
+use Cloudinary\Api\Upload\UploadApi;
 
 class PengajuanController extends Controller
 {
@@ -1688,7 +1690,7 @@ class PengajuanController extends Controller
             'photos.*' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max per image
             'status' => 'required|in:Selesai'
         ]);
-
+    
         DB::beginTransaction();
         
         try {
@@ -1701,38 +1703,57 @@ class PengajuanController extends Controller
                     'message' => 'Photos can only be uploaded when status is changed to Selesai.'
                 ], 400);
             }
-
+    
             $uploadedPhotos = [];
             
-            // Handle multiple photo uploads
+            // Handle multiple photo uploads to Cloudinary
             if ($request->hasFile('photos')) {
-                foreach ($request->file('photos') as $photo) {
-                    // Generate unique filename
-                    $filename = time() . '_' . uniqid() . '.' . $photo->getClientOriginalExtension();
-                    
-                    // Store in storage/app/public/maintenance_photos
-                    $path = $photo->storeAs('maintenance_photos', $filename, 'public');
-                    
-                    $uploadedPhotos[] = [
-                        'filename' => $filename,
-                        'path' => $path,
-                        'original_name' => $photo->getClientOriginalName(),
-                        'uploaded_at' => now()->toDateTimeString()
-                    ];
+                Configuration::instance([
+                    'cloud' => [
+                        'cloud_name' => config('cloudinary.cloud_name'),
+                        'api_key' => config('cloudinary.api_key'),
+                        'api_secret' => config('cloudinary.api_secret'),
+                    ],
+                    'url' => ['secure' => true]
+                ]);
+    
+                $upload = new UploadApi();
+                
+                foreach ($request->file('photos') as $index => $photo) {
+                    try {
+                        $filename = time() . '_' . uniqid();
+                        
+                        $result = $upload->upload($photo->getRealPath(), [
+                            'folder' => 'maintenance-photos',
+                            'public_id' => $filename,
+                            'quality' => 'auto',
+                            'fetch_format' => 'auto'
+                        ]);
+                        
+                        $uploadedPhotos[] = [
+                            'filename' => $filename,
+                            'path' => $result['secure_url'],
+                            'original_name' => $photo->getClientOriginalName(),
+                            'uploaded_at' => now()->toDateTimeString()
+                        ];
+                    } catch (\Exception $e) {
+                        Log::error('Photo upload failed: ' . $e->getMessage());
+                        continue;
+                    }
                 }
             }
-
+    
             // Merge with existing photos if any
             $existingPhotos = $maintenanceAsset->photos ?? [];
             $allPhotos = array_merge($existingPhotos, $uploadedPhotos);
-
+    
             // Update maintenance asset with photos and status
             $maintenanceAsset->update([
                 'photos' => $allPhotos,
                 'status' => 'Selesai',
                 'tanggal_selesai' => now()
             ]);
-
+    
             // Log the status change
             ApprovalLog::create([
                 'maintenance_asset_id' => $maintenanceAsset->id,
@@ -1741,16 +1762,16 @@ class PengajuanController extends Controller
                 'role' => Auth::user()->roles->first()->name,
                 'notes' => 'Status changed to Selesai with ' . count($uploadedPhotos) . ' photos uploaded'
             ]);
-
+    
             DB::commit();
-
+    
             return response()->json([
                 'success' => true,
                 'message' => 'Status updated to Selesai and photos uploaded successfully.',
                 'photos_count' => count($uploadedPhotos),
                 'total_photos' => count($allPhotos)
             ]);
-
+    
         } catch (\Exception $e) {
             DB::rollBack();
             
@@ -2147,24 +2168,21 @@ class PengajuanController extends Controller
             }
             
             $photo = $maintenanceAsset->photos[$photoIndex];
-            $filePath = storage_path('app/public/' . $photo['path']);
+            $photoUrl = $photo['path']; // Cloudinary URL
             
-            // Check if file exists
-            if (!file_exists($filePath)) {
-                abort(404, 'Photo file not found.');
+            // Check if it's a valid Cloudinary URL
+            if (!str_contains($photoUrl, 'cloudinary.com')) {
+                abort(404, 'Invalid photo URL.');
             }
             
-            // Get original filename or create a default one
-            $filename = $photo['original_name'] ?? 'foto-perbaikan-' . ($photoIndex + 1) . '.jpg';
-            
-            // Return file download response
-            return response()->download($filePath, $filename);
+            // Redirect to Cloudinary URL for download
+            return redirect($photoUrl);
             
         } catch (\Exception $e) {
             abort(404, 'Photo not found.');
         }
     }
-
+    
     public function downloadAllPhotos($id)
     {
         try {
@@ -2195,13 +2213,21 @@ class PengajuanController extends Controller
                 abort(500, 'Could not create ZIP file.');
             }
             
-            // Add each photo to the ZIP
+            // Download each photo from Cloudinary and add to ZIP
             foreach ($maintenanceAsset->photos as $index => $photo) {
-                $filePath = storage_path('app/public/' . $photo['path']);
+                $photoUrl = $photo['path']; // Cloudinary URL
                 
-                if (file_exists($filePath)) {
-                    $filename = $photo['original_name'] ?? 'foto-perbaikan-' . ($index + 1) . '.jpg';
-                    $zip->addFile($filePath, $filename);
+                if (str_contains($photoUrl, 'cloudinary.com')) {
+                    try {
+                        $imageData = file_get_contents($photoUrl);
+                        if ($imageData !== false) {
+                            $filename = $photo['original_name'] ?? 'foto-perbaikan-' . ($index + 1) . '.jpg';
+                            $zip->addFromString($filename, $imageData);
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Failed to download photo for ZIP: ' . $e->getMessage());
+                        continue;
+                    }
                 }
             }
             

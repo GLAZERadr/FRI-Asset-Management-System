@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
+use Cloudinary\Configuration\Configuration;
+use Cloudinary\Api\Upload\UploadApi;
 
 class DamagedAssetController extends Controller
 {
@@ -276,16 +278,56 @@ class DamagedAssetController extends Controller
             // Handle photo upload
             $photoPath = null;
             if ($request->hasFile('foto_kerusakan')) {
-                Log::info('Processing file upload', [
-                    'file_name' => $request->file('foto_kerusakan')->getClientOriginalName(),
-                    'file_size' => $request->file('foto_kerusakan')->getSize(),
-                    'file_mime' => $request->file('foto_kerusakan')->getMimeType()
-                ]);
-                
-                $photoPath = $request->file('foto_kerusakan')->store('damage-reports', 'public');
-                Log::info('File uploaded successfully', ['photo_path' => $photoPath]);
+                try {
+                    Log::info('Processing damage report file upload', [
+                        'file_name' => $request->file('foto_kerusakan')->getClientOriginalName(),
+                        'file_size' => $request->file('foto_kerusakan')->getSize(),
+                        'file_mime' => $request->file('foto_kerusakan')->getMimeType()
+                    ]);
+                    
+                    // Configure Cloudinary directly (proven to work)
+                    Configuration::instance([
+                        'cloud' => [
+                            'cloud_name' => config('cloudinary.cloud_name'),
+                            'api_key' => config('cloudinary.api_key'),
+                            'api_secret' => config('cloudinary.api_secret'),
+                        ],
+                        'url' => [
+                            'secure' => true
+                        ]
+                    ]);
+            
+                    // Upload to Cloudinary
+                    $upload = new UploadApi();
+                    $result = $upload->upload($request->file('foto_kerusakan')->getRealPath(), [
+                        'folder' => 'damage-reports', // Organize in damage-reports folder
+                        'public_id' => 'damage_' . time() . '_' . uniqid(),
+                        'quality' => 'auto',
+                        'fetch_format' => 'auto',
+                        'transformation' => [
+                            'width' => 1200,
+                            'height' => 1200,
+                            'crop' => 'limit',
+                            'quality' => 'auto'
+                        ]
+                    ]);
+            
+                    $photoPath = $result['secure_url'];
+                    
+                    Log::info('Damage report file uploaded successfully to Cloudinary', [
+                        'photo_path' => $photoPath,
+                        'cloudinary_public_id' => $result['public_id'] ?? null
+                    ]);
+            
+                } catch (\Exception $e) {
+                    Log::error('Cloudinary upload failed for damage report', [
+                        'error' => $e->getMessage(),
+                        'file_name' => $request->file('foto_kerusakan')->getClientOriginalName()
+                    ]);
+                    return back()->withInput()->with('error', 'Failed to upload damage report image: ' . $e->getMessage());
+                }
             } else {
-                Log::warning('No file uploaded despite validation');
+                Log::warning('No damage report file uploaded despite validation');
             }
     
             // Get current user info or use guest info

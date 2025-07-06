@@ -8,7 +8,9 @@ use Illuminate\Support\Facades\Storage;
 use PDF;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Carbon\Carbon;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Cloudinary\Configuration\Configuration;
+use Cloudinary\Api\Upload\UploadApi;
+use Illuminate\Support\Facades\Log;
 
 class AssetController extends Controller
 {
@@ -280,26 +282,39 @@ class AssetController extends Controller
         $fotoPath = null;
         if ($request->hasFile('foto_asset')) {
             try {
-                // Upload to Cloudinary
-                $uploadResult = Cloudinary::upload($request->file('foto_asset')->getRealPath(), [
-                    'folder' => 'assets', // Organizes images in 'assets' folder in Cloudinary
-                    'public_id' => 'asset_' . time() . '_' . uniqid(), // Unique filename
-                    'quality' => 'auto', // Automatic quality optimization
-                    'fetch_format' => 'auto', // Automatic format optimization (WebP when supported)
+                // Configure Cloudinary directly (this works as proven in tinker)
+                Configuration::instance([
+                    'cloud' => [
+                        'cloud_name' => config('cloudinary.cloud_name'),
+                        'api_key' => config('cloudinary.api_key'),
+                        'api_secret' => config('cloudinary.api_secret'),
+                    ],
+                    'url' => [
+                        'secure' => true
+                    ]
+                ]);
+        
+                // Upload using direct API
+                $upload = new UploadApi();
+                $result = $upload->upload($request->file('foto_asset')->getRealPath(), [
+                    'folder' => 'assets',
+                    'public_id' => 'asset_' . time() . '_' . uniqid(),
+                    'quality' => 'auto',
+                    'fetch_format' => 'auto',
                     'transformation' => [
                         'width' => 1200,
                         'height' => 1200,
-                        'crop' => 'limit', // Don't upscale, only downscale if needed
+                        'crop' => 'limit',
                         'quality' => 'auto'
                     ]
                 ]);
-                
-                // Get the secure URL
-                $fotoPath = $uploadResult->getSecurePath();
-                
+        
+                $fotoPath = $result['secure_url'];
+                \Log::info('Image uploaded successfully to Cloudinary: ' . $fotoPath);
+        
             } catch (\Exception $e) {
                 \Log::error('Cloudinary upload failed: ' . $e->getMessage());
-                return back()->with('error', 'Failed to upload image: ' . $e->getMessage());
+                return back()->withInput()->with('error', 'Failed to upload image: ' . $e->getMessage());
             }
         }
         
@@ -361,14 +376,43 @@ class AssetController extends Controller
         $masaPakaiMaksimum = $this->calculateMaxUsageDate($tglPerolehan, $validated['masa_pakai_maksimum'], $validated['masa_pakai_unit']);
         
         // Handle file upload
-        $fotoPath = $asset->foto_asset; // Keep existing URL
+        $fotoPath = $asset->foto_asset; // Keep existing Cloudinary URL
         if ($request->hasFile('foto_asset')) {
-            // Just upload new image (old one stays in Cloudinary)
-            $fotoPath = Cloudinary::upload($request->file('foto_asset')->getRealPath(), [
-                'folder' => 'assets',
-                'quality' => 'auto',
-                'fetch_format' => 'auto'
-            ])->getSecurePath();
+            try {
+                // Configure Cloudinary directly (proven to work)
+                Configuration::instance([
+                    'cloud' => [
+                        'cloud_name' => config('cloudinary.cloud_name'),
+                        'api_key' => config('cloudinary.api_key'),
+                        'api_secret' => config('cloudinary.api_secret'),
+                    ],
+                    'url' => [
+                        'secure' => true
+                    ]
+                ]);
+        
+                // Upload new image
+                $upload = new UploadApi();
+                $result = $upload->upload($request->file('foto_asset')->getRealPath(), [
+                    'folder' => 'assets',
+                    'public_id' => 'asset_' . $asset->asset_id . '_' . time(),
+                    'quality' => 'auto',
+                    'fetch_format' => 'auto',
+                    'transformation' => [
+                        'width' => 1200,
+                        'height' => 1200,
+                        'crop' => 'limit',
+                        'quality' => 'auto'
+                    ]
+                ]);
+        
+                $fotoPath = $result['secure_url'];
+                \Log::info('Image updated successfully: ' . $fotoPath);
+        
+            } catch (\Exception $e) {
+                \Log::error('Failed to update image: ' . $e->getMessage());
+                return back()->withInput()->with('error', 'Failed to upload image: ' . $e->getMessage());
+            }
         }
         
         $asset->update([

@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Barryvdh\DomPDF\Facade\Pdf as PDF;
+use Cloudinary\Configuration\Configuration;
+use Cloudinary\Api\Upload\UploadApi;
+use Illuminate\Support\Facades\Log;
 
 class MaintenanceScheduleController extends Controller
 {
@@ -57,11 +60,95 @@ class MaintenanceScheduleController extends Controller
         ]);
 
         $photoPaths = $schedule->photos ?? [];
-        
+
         if ($request->hasFile('photos')) {
-            foreach ($request->file('photos') as $photo) {
-                $path = $photo->store('maintenance-photos', 'public');
-                $photoPaths[] = $path;
+            try {
+                // Configure Cloudinary once before the loop (proven to work)
+                Configuration::instance([
+                    'cloud' => [
+                        'cloud_name' => config('cloudinary.cloud_name'),
+                        'api_key' => config('cloudinary.api_key'),
+                        'api_secret' => config('cloudinary.api_secret'),
+                    ],
+                    'url' => [
+                        'secure' => true
+                    ]
+                ]);
+
+                $upload = new UploadApi();
+                $uploadedCount = 0;
+                $failedCount = 0;
+
+                foreach ($request->file('photos') as $index => $photo) {
+                    try {
+                        // Generate unique filename for each photo
+                        $fileName = 'maintenance_' . time() . '_' . ($index + 1) . '_' . uniqid();
+                        
+                        Log::info('Processing maintenance photo upload', [
+                            'index' => $index + 1,
+                            'original_name' => $photo->getClientOriginalName(),
+                            'generated_name' => $fileName,
+                            'file_size' => $photo->getSize()
+                        ]);
+
+                        // Upload to Cloudinary
+                        $result = $upload->upload($photo->getRealPath(), [
+                            'folder' => 'maintenance-photos', // Organize in maintenance-photos folder
+                            'public_id' => $fileName,
+                            'quality' => 'auto', // Automatic quality optimization
+                            'fetch_format' => 'auto', // Automatic format optimization
+                            'transformation' => [
+                                'width' => 1200,
+                                'height' => 1200,
+                                'crop' => 'limit', // Don't upscale, only downscale if needed
+                                'quality' => 'auto'
+                            ]
+                        ]);
+
+                        $photoPaths[] = $result['secure_url'];
+                        $uploadedCount++;
+                        
+                        Log::info('Maintenance photo uploaded successfully', [
+                            'index' => $index + 1,
+                            'photo_url' => $result['secure_url'],
+                            'cloudinary_public_id' => $result['public_id'] ?? null
+                        ]);
+
+                    } catch (\Exception $e) {
+                        $failedCount++;
+                        Log::error('Failed to upload maintenance photo', [
+                            'index' => $index + 1,
+                            'error' => $e->getMessage(),
+                            'file_name' => $photo->getClientOriginalName()
+                        ]);
+                        
+                        // Continue with other photos even if one fails
+                        continue;
+                    }
+                }
+
+                // Log summary
+                Log::info('Maintenance photos upload completed', [
+                    'total_photos' => count($request->file('photos')),
+                    'uploaded_successfully' => $uploadedCount,
+                    'failed_uploads' => $failedCount,
+                    'uploaded_urls' => $photoPaths
+                ]);
+
+                // Show user feedback
+                if ($uploadedCount > 0 && $failedCount > 0) {
+                    session()->flash('warning', "{$uploadedCount} foto berhasil diupload, {$failedCount} foto gagal diupload.");
+                } elseif ($failedCount > 0) {
+                    session()->flash('error', "Gagal mengupload {$failedCount} foto maintenance.");
+                } elseif ($uploadedCount > 0) {
+                    session()->flash('success', "{$uploadedCount} foto maintenance berhasil diupload.");
+                }
+
+            } catch (\Exception $e) {
+                Log::error('Cloudinary configuration failed for maintenance photos', [
+                    'error' => $e->getMessage()
+                ]);
+                return back()->withInput()->with('error', 'Failed to configure photo upload: ' . $e->getMessage());
             }
         }
 
@@ -90,9 +177,33 @@ class MaintenanceScheduleController extends Controller
         $photoPaths = $schedule->photos ?? [];
         
         if ($request->hasFile('photos')) {
-            foreach ($request->file('photos') as $photo) {
-                $path = $photo->store('maintenance-photos', 'public');
-                $photoPaths[] = $path;
+            try {
+                Configuration::instance([
+                    'cloud' => [
+                        'cloud_name' => config('cloudinary.cloud_name'),
+                        'api_key' => config('cloudinary.api_key'),
+                        'api_secret' => config('cloudinary.api_secret'),
+                    ],
+                    'url' => ['secure' => true]
+                ]);
+        
+                $upload = new UploadApi();
+                foreach ($request->file('photos') as $index => $photo) {
+                    try {
+                        $result = $upload->upload($photo->getRealPath(), [
+                            'folder' => 'maintenance-photos',
+                            'public_id' => 'maintenance_' . time() . '_' . ($index + 1) . '_' . uniqid(),
+                            'quality' => 'auto',
+                            'fetch_format' => 'auto'
+                        ]);
+                        $photoPaths[] = $result['secure_url']; // Add to existing array
+                    } catch (\Exception $e) {
+                        Log::error('Photo upload failed: ' . $e->getMessage());
+                        continue;
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Cloudinary config failed: ' . $e->getMessage());
             }
         }
 
@@ -183,20 +294,28 @@ class MaintenanceScheduleController extends Controller
     {
         $schedule = MaintenanceSchedule::findOrFail($id);
         
-        // Convert photos to base64 for PDF
+        // Convert Cloudinary photos to base64 for PDF
         $photosBase64 = [];
         if ($schedule->photos) {
-            foreach ($schedule->photos as $index => $photo) {
-                $imagePath = storage_path('app/public/' . $photo);
-                if (file_exists($imagePath)) {
-                    $imageData = file_get_contents($imagePath);
-                    $imageInfo = getimagesize($imagePath);
-                    $mimeType = $imageInfo['mime'] ?? 'image/jpeg';
-                    $photosBase64[] = [
-                        'index' => $index + 1,
-                        'base64' => 'data:' . $mimeType . ';base64,' . base64_encode($imageData),
-                        'filename' => basename($photo)
-                    ];
+            foreach ($schedule->photos as $index => $photoUrl) {
+                try {
+                    // Download image from Cloudinary URL
+                    $imageData = file_get_contents($photoUrl);
+                    if ($imageData !== false) {
+                        // Get image info from URL
+                        $pathInfo = pathinfo(parse_url($photoUrl, PHP_URL_PATH));
+                        $extension = strtolower($pathInfo['extension'] ?? 'jpg');
+                        $mimeType = $extension === 'png' ? 'image/png' : 'image/jpeg';
+                        
+                        $photosBase64[] = [
+                            'index' => $index + 1,
+                            'base64' => 'data:' . $mimeType . ';base64,' . base64_encode($imageData),
+                            'filename' => $pathInfo['filename'] ?? 'photo_' . ($index + 1)
+                        ];
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to download photo for PDF: ' . $e->getMessage());
+                    continue;
                 }
             }
         }

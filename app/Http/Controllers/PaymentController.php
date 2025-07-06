@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Cloudinary\Configuration\Configuration;
+use Cloudinary\Api\Upload\UploadApi;
+use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
@@ -97,9 +100,54 @@ class PaymentController extends Controller
         // Handle file upload
         $filePath = null;
         if ($request->hasFile('file_invoice')) {
-            $file = $request->file('file_invoice');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $filePath = $file->storeAs('invoices', $fileName, 'public');
+            try {
+                $file = $request->file('file_invoice');
+                $fileName = time() . '_' . $file->getClientOriginalName();
+                
+                Log::info('Processing invoice file upload', [
+                    'original_file_name' => $file->getClientOriginalName(),
+                    'generated_file_name' => $fileName,
+                    'file_size' => $file->getSize(),
+                    'file_mime' => $file->getMimeType()
+                ]);
+                
+                // Configure Cloudinary directly (proven to work)
+                Configuration::instance([
+                    'cloud' => [
+                        'cloud_name' => config('cloudinary.cloud_name'),
+                        'api_key' => config('cloudinary.api_key'),
+                        'api_secret' => config('cloudinary.api_secret'),
+                    ],
+                    'url' => [
+                        'secure' => true
+                    ]
+                ]);
+        
+                // Upload to Cloudinary (handles documents, not just images)
+                $upload = new UploadApi();
+                $result = $upload->upload($file->getRealPath(), [
+                    'folder' => 'invoices', // Organize in invoices folder
+                    'public_id' => pathinfo($fileName, PATHINFO_FILENAME), // Remove extension from public_id
+                    'resource_type' => 'auto', // Automatically detect file type (image, video, raw)
+                    'use_filename' => true,
+                    'unique_filename' => true,
+                ]);
+        
+                $filePath = $result['secure_url'];
+                
+                Log::info('Invoice file uploaded successfully to Cloudinary', [
+                    'file_path' => $filePath,
+                    'cloudinary_public_id' => $result['public_id'] ?? null,
+                    'resource_type' => $result['resource_type'] ?? null
+                ]);
+        
+            } catch (\Exception $e) {
+                Log::error('Cloudinary upload failed for invoice file', [
+                    'error' => $e->getMessage(),
+                    'file_name' => $file->getClientOriginalName()
+                ]);
+                return back()->withInput()->with('error', 'Failed to upload invoice file: ' . $e->getMessage());
+            }
         }
 
         // Determine status - default to 'belum_dibayar' if not provided
@@ -186,13 +234,56 @@ class PaymentController extends Controller
         
         // Handle file upload
         if ($request->hasFile('file_invoice')) {
-            // Delete old file
-            if ($payment->file_invoice && Storage::disk('public')->exists($payment->file_invoice)) {
-                Storage::disk('public')->delete($payment->file_invoice);
+            try {
+                $file = $request->file('file_invoice');
+                $fileName = time() . '_' . $file->getClientOriginalName();
+                
+                Log::info('Processing invoice file update (keeping old file)', [
+                    'payment_id' => $payment->id,
+                    'original_file_name' => $file->getClientOriginalName(),
+                    'generated_file_name' => $fileName,
+                    'old_file' => $payment->file_invoice
+                ]);
+                
+                // Configure Cloudinary directly (proven to work)
+                Configuration::instance([
+                    'cloud' => [
+                        'cloud_name' => config('cloudinary.cloud_name'),
+                        'api_key' => config('cloudinary.api_key'),
+                        'api_secret' => config('cloudinary.api_secret'),
+                    ],
+                    'url' => [
+                        'secure' => true
+                    ]
+                ]);
+        
+                // Upload new file to Cloudinary (old file remains)
+                $upload = new UploadApi();
+                $result = $upload->upload($file->getRealPath(), [
+                    'folder' => 'invoices',
+                    'public_id' => pathinfo($fileName, PATHINFO_FILENAME), // Remove extension from public_id
+                    'resource_type' => 'auto', // Handles documents, images, videos
+                    'use_filename' => true,
+                    'unique_filename' => true,
+                ]);
+        
+                $validated['file_invoice'] = $result['secure_url'];
+                
+                Log::info('Invoice file updated successfully (old file preserved)', [
+                    'payment_id' => $payment->id,
+                    'new_file_path' => $validated['file_invoice'],
+                    'cloudinary_public_id' => $result['public_id'] ?? null,
+                    'old_file_preserved' => $payment->file_invoice
+                ]);
+        
+            } catch (\Exception $e) {
+                Log::error('Failed to update invoice file', [
+                    'payment_id' => $payment->id,
+                    'error' => $e->getMessage(),
+                    'file_name' => $file->getClientOriginalName()
+                ]);
+                return back()->withInput()->with('error', 'Failed to upload invoice file: ' . $e->getMessage());
             }
-            $file = $request->file('file_invoice');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $validated['file_invoice'] = $file->storeAs('invoices', $fileName, 'public');
         }
         
         // Handle payment date logic
@@ -262,14 +353,62 @@ class PaymentController extends Controller
             // Handle photo upload
             $photoPath = null;
             if ($request->hasFile('payment_photo')) {
-                // Delete old photo if exists
-                if ($payment->photo_pembayaran && Storage::disk('public')->exists($payment->photo_pembayaran)) {
-                    Storage::disk('public')->delete($payment->photo_pembayaran);
+                try {
+                    $file = $request->file('payment_photo');
+                    $fileName = 'payment_' . $payment->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+                    
+                    Log::info('Processing payment photo update (keeping old photo)', [
+                        'payment_id' => $payment->id,
+                        'original_file_name' => $file->getClientOriginalName(),
+                        'generated_file_name' => $fileName,
+                        'file_size' => $file->getSize(),
+                        'old_photo' => $payment->photo_pembayaran
+                    ]);
+                    
+                    // Configure Cloudinary directly (proven to work)
+                    Configuration::instance([
+                        'cloud' => [
+                            'cloud_name' => config('cloudinary.cloud_name'),
+                            'api_key' => config('cloudinary.api_key'),
+                            'api_secret' => config('cloudinary.api_secret'),
+                        ],
+                        'url' => [
+                            'secure' => true
+                        ]
+                    ]);
+            
+                    // Upload new photo to Cloudinary (old photo remains)
+                    $upload = new UploadApi();
+                    $result = $upload->upload($file->getRealPath(), [
+                        'folder' => 'payment-photos', // Organize in payment-photos folder
+                        'public_id' => pathinfo($fileName, PATHINFO_FILENAME), // Remove extension from public_id
+                        'quality' => 'auto', // Automatic quality optimization
+                        'fetch_format' => 'auto', // Automatic format optimization
+                        'transformation' => [
+                            'width' => 1200,
+                            'height' => 1200,
+                            'crop' => 'limit', // Don't upscale, only downscale if needed
+                            'quality' => 'auto'
+                        ]
+                    ]);
+            
+                    $photoPath = $result['secure_url'];
+                    
+                    Log::info('Payment photo updated successfully (old photo preserved)', [
+                        'payment_id' => $payment->id,
+                        'new_photo_path' => $photoPath,
+                        'cloudinary_public_id' => $result['public_id'] ?? null,
+                        'old_photo_preserved' => $payment->photo_pembayaran
+                    ]);
+            
+                } catch (\Exception $e) {
+                    Log::error('Failed to update payment photo', [
+                        'payment_id' => $payment->id,
+                        'error' => $e->getMessage(),
+                        'file_name' => $file->getClientOriginalName()
+                    ]);
+                    return back()->withInput()->with('error', 'Failed to upload payment photo: ' . $e->getMessage());
                 }
-
-                $file = $request->file('payment_photo');
-                $fileName = 'payment_' . $payment->id . '_' . time() . '.' . $file->getClientOriginalExtension();
-                $photoPath = $file->storeAs('payment_photos', $fileName, 'public');
             }
 
             // Update payment with photo and status
@@ -374,29 +513,160 @@ class PaymentController extends Controller
     }
 
     /**
-     * Download invoice file
+     * Download invoice file from Cloudinary
      */
     public function downloadInvoice(Payment $payment)
     {
-        if (!$payment->file_invoice || !Storage::disk('public')->exists($payment->file_invoice)) {
+        if (!$payment->file_invoice) {
             return redirect()->back()
                 ->with('error', 'File invoice tidak ditemukan.');
         }
-
-        return Storage::disk('public')->download($payment->file_invoice);
+    
+        // Check if it's a Cloudinary URL
+        if (!str_contains($payment->file_invoice, 'cloudinary.com')) {
+            return redirect()->back()
+                ->with('error', 'File invoice tidak valid.');
+        }
+    
+        try {
+            // Method 1: Direct redirect to Cloudinary URL (simplest)
+            return redirect($payment->file_invoice);
+            
+            // Method 2: Download through Laravel (uncomment if you prefer this approach)
+            // return $this->downloadFromCloudinary(
+            //     $payment->file_invoice, 
+            //     'invoice_' . $payment->id . '_' . time()
+            // );
+            
+        } catch (\Exception $e) {
+            Log::error('Invoice download failed', [
+                'payment_id' => $payment->id,
+                'file_url' => $payment->file_invoice,
+                'error' => $e->getMessage()
+            ]);
+            
+            return redirect()->back()
+                ->with('error', 'Gagal mengunduh file invoice.');
+        }
     }
-
+    
     /**
-     * Download payment photo
+     * Download payment photo from Cloudinary
      */
     public function downloadPaymentPhoto(Payment $payment)
     {
-        if (!$payment->photo_pembayaran || !Storage::disk('public')->exists($payment->photo_pembayaran)) {
+        if (!$payment->photo_pembayaran) {
             return redirect()->back()
                 ->with('error', 'Bukti pembayaran tidak ditemukan.');
         }
-
-        return Storage::disk('public')->download($payment->photo_pembayaran);
+    
+        // Check if it's a Cloudinary URL
+        if (!str_contains($payment->photo_pembayaran, 'cloudinary.com')) {
+            return redirect()->back()
+                ->with('error', 'Bukti pembayaran tidak valid.');
+        }
+    
+        try {
+            // Method 1: Direct redirect to Cloudinary URL (simplest)
+            return redirect($payment->photo_pembayaran);
+            
+            // Method 2: Download through Laravel (uncomment if you prefer this approach)
+            // return $this->downloadFromCloudinary(
+            //     $payment->photo_pembayaran, 
+            //     'payment_photo_' . $payment->id . '_' . time() . '.jpg'
+            // );
+            
+        } catch (\Exception $e) {
+            Log::error('Payment photo download failed', [
+                'payment_id' => $payment->id,
+                'photo_url' => $payment->photo_pembayaran,
+                'error' => $e->getMessage()
+            ]);
+            
+            return redirect()->back()
+                ->with('error', 'Gagal mengunduh bukti pembayaran.');
+        }
+    }
+    
+    /**
+     * Helper method to download file from Cloudinary through Laravel
+     * Use this if you want more control over the download process
+     */
+    private function downloadFromCloudinary($cloudinaryUrl, $suggestedFileName = null)
+    {
+        try {
+            // Get file info from URL
+            $pathInfo = pathinfo(parse_url($cloudinaryUrl, PHP_URL_PATH));
+            $extension = $pathInfo['extension'] ?? '';
+            $originalName = $pathInfo['filename'] ?? 'file';
+            
+            // Generate filename
+            $fileName = $suggestedFileName ?? ($originalName . '.' . $extension);
+            if (!pathinfo($fileName, PATHINFO_EXTENSION) && $extension) {
+                $fileName .= '.' . $extension;
+            }
+            
+            // Determine content type
+            $contentType = $this->getContentType($extension);
+            
+            // Create streamed response to download file from Cloudinary
+            return new StreamedResponse(function() use ($cloudinaryUrl) {
+                $context = stream_context_create([
+                    'http' => [
+                        'timeout' => 60, // 60 seconds timeout
+                        'user_agent' => 'Laravel App'
+                    ]
+                ]);
+                
+                $handle = fopen($cloudinaryUrl, 'rb', false, $context);
+                
+                if ($handle === false) {
+                    throw new \Exception('Failed to open file from Cloudinary');
+                }
+                
+                while (!feof($handle)) {
+                    echo fread($handle, 8192); // Read in 8KB chunks
+                    flush();
+                }
+                
+                fclose($handle);
+            }, 200, [
+                'Content-Type' => $contentType,
+                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Pragma' => 'no-cache',
+                'Expires' => '0'
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Cloudinary download failed', [
+                'url' => $cloudinaryUrl,
+                'suggested_filename' => $suggestedFileName,
+                'error' => $e->getMessage()
+            ]);
+            
+            throw new \Exception('Failed to download file from Cloudinary: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Get content type based on file extension
+     */
+    private function getContentType($extension)
+    {
+        $mimeTypes = [
+            'pdf' => 'application/pdf',
+            'doc' => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls' => 'application/vnd.ms-excel',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+        ];
+        
+        return $mimeTypes[strtolower($extension)] ?? 'application/octet-stream';
     }
 
     /**

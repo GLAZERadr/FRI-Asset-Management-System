@@ -13,12 +13,12 @@
                     <div class="flex justify-center">
                         <div class="bg-gray-100 rounded-lg p-4 w-full max-w-md">
                             @if(isset($assetMonitoringData['foto_path']) && $assetMonitoringData['foto_path'])
-                                <img src="{{ Storage::url($assetMonitoringData['foto_path']) }}" 
+                                <img src="{{ $assetMonitoringData['foto_path'] }}" 
                                      alt="Monitoring Photo" 
                                      class="w-full h-full object-cover rounded-lg">
                                 <p class="text-sm text-gray-500 mt-2 text-center">Foto Monitoring</p>
                             @elseif($asset && $asset->foto_asset)
-                                <img src="{{ Storage::url($asset->foto_asset) }}" 
+                                <img src="{{ $asset->foto_asset }}" 
                                      alt="{{ $asset->nama_asset }}" 
                                      class="w-full h-64 object-cover rounded-lg">
                                 <p class="text-sm text-gray-500 mt-2 text-center">Foto Aset</p>

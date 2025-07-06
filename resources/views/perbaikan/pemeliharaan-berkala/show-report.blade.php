@@ -28,7 +28,7 @@
                                     <div id="carousel-inner" class="flex transition-transform duration-300 ease-in-out">
                                         @foreach($schedule->photos as $index => $photo)
                                         <div class="w-full flex-shrink-0">
-                                            <img src="{{ Storage::url($photo) }}" 
+                                            <img src="{{ $photo }}" 
                                                  alt="Dokumentasi {{ $index + 1 }}" 
                                                  class="w-full h-full object-cover rounded-lg">
                                         </div>

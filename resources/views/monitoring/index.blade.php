@@ -182,7 +182,7 @@
                                             </td>
                                             <td class="px-3 py-4 whitespace-nowrap text-sm">
                                                 @if(isset($assetData['foto_path']) && $assetData['foto_path'])
-                                                    <img src="{{ Storage::url($assetData['foto_path']) }}" alt="Monitoring Photo" class="h-8 w-8 rounded object-cover cursor-pointer" onclick="showImageModal('{{ Storage::url($assetData['foto_path']) }}')">
+                                                    <img src="{{ $assetData['foto_path'] }}" alt="Monitoring Photo" class="h-8 w-8 rounded object-cover cursor-pointer" onclick="showImageModal('{{ $assetData['foto_path'] }}')">
                                                 @else
                                                     <div class="h-8 w-8 bg-gray-200 rounded flex items-center justify-center">
                                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -362,7 +362,7 @@
                                     <div>
                                         <dt class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Dokumentasi</dt>
                                         <dd class="mt-1">
-                                            <img src="{{ Storage::url($assetData['foto_path']) }}" alt="Monitoring Photo" class="h-16 w-16 rounded-lg object-cover cursor-pointer border border-gray-200" onclick="showImageModal('{{ Storage::url($assetData['foto_path']) }}')">
+                                            <img src="{{ $assetData['foto_path'] }}" alt="Monitoring Photo" class="h-16 w-16 rounded-lg object-cover cursor-pointer border border-gray-200" onclick="showImageModal('{{ $assetData['foto_path'] }}')">
                                         </dd>
                                     </div>
                                     @endif

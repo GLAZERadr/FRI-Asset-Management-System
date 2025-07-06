@@ -214,7 +214,7 @@
                         <!-- Main Image Display -->
                         <div id="mainImageContainer" class="relative h-96 bg-gray-900">
                             <img id="mainImage" 
-                                 src="{{ asset('storage/' . $maintenanceAsset->photos[0]['path']) }}" 
+                                 src="{{ $maintenanceAsset->photos[0]['path'] }}" 
                                  alt="Foto perbaikan {{ $maintenanceAsset->photos[0]['original_name'] ?? 'foto-1' }}"
                                  class="w-full h-full object-contain">
                             
@@ -256,7 +256,7 @@
                                     <button onclick="showPhoto({{ $index }})" 
                                             class="thumbnail-btn block w-20 h-20 rounded-lg overflow-hidden border-2 transition-all {{ $index === 0 ? 'border-blue-500' : 'border-gray-300 hover:border-gray-400' }}"
                                             data-index="{{ $index }}">
-                                        <img src="{{ asset('storage/' . $photo['path']) }}" 
+                                        <img src="{{ $photo['path'] }}" 
                                              alt="Thumbnail {{ $index + 1 }}"
                                              class="w-full h-full object-cover">
                                     </button>

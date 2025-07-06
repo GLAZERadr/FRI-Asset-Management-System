@@ -98,10 +98,10 @@
                                     @endphp
                                     
                                     @if($isInvoiceImage)
-                                        <img src="{{ Storage::url($payment->file_invoice) }}" 
+                                        <img src="{{ $payment->file_invoice }}" 
                                              alt="Invoice" 
                                              class="w-16 h-16 object-cover rounded border cursor-pointer"
-                                             onclick="openImageModal('{{ Storage::url($payment->file_invoice) }}', 'Invoice')">
+                                             onclick="openImageModal('{{ $payment->file_invoice }}', 'Invoice')">
                                     @else
                                         <svg class="w-12 h-12 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                                             <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
@@ -144,10 +144,10 @@
                                 @if($isPhotoImage)
                                     <!-- Image Preview -->
                                     <div class="space-y-3">
-                                        <img src="{{ Storage::url($payment->photo_pembayaran) }}" 
+                                        <img src="{{ $payment->photo_pembayaran }}" 
                                              alt="Bukti Pembayaran" 
                                              class="w-full h-48 object-cover rounded border cursor-pointer hover:opacity-90 transition-opacity"
-                                             onclick="openImageModal('{{ Storage::url($payment->photo_pembayaran) }}', 'Bukti Pembayaran')">
+                                             onclick="openImageModal('{{ $payment->photo_pembayaran }}', 'Bukti Pembayaran')">
                                         <div class="flex items-center justify-between">
                                             <div>
                                                 <p class="text-sm font-medium text-gray-900">{{ basename($payment->photo_pembayaran) }}</p>

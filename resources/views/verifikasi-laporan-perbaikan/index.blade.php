@@ -90,7 +90,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             @if($asset->damaged_image)
-                                <img src="{{ asset('storage/' . $asset->damaged_image) }}" alt="Asset Image" class="h-10 w-10 rounded object-cover">
+                                <img src="{{ $asset->damaged_image }}" alt="Asset Image" class="h-10 w-10 rounded object-cover">
                             @else
                                 <span class="text-gray-400">No Image</span>
                             @endif

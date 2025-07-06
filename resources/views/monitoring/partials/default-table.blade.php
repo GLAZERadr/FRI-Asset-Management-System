@@ -63,7 +63,7 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     @if(isset($assetData['foto_path']) && $assetData['foto_path'])
-                                        <img src="{{ Storage::url($assetData['foto_path']) }}" alt="Monitoring Photo" class="h-10 w-10 rounded object-cover cursor-pointer" onclick="showImageModal('{{ Storage::url($assetData['foto_path']) }}')">
+                                        <img src="{{ $assetData['foto_path'] }}" alt="Monitoring Photo" class="h-10 w-10 rounded object-cover cursor-pointer" onclick="showImageModal('{{ $assetData['foto_path'] }}')">
                                     @else
                                         <div class="h-10 w-10 bg-gray-200 rounded flex items-center justify-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

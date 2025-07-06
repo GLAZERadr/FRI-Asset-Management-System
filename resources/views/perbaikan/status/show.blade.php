@@ -26,12 +26,12 @@
                     <div class="lg:col-span-1">
                         <div class="bg-gray-100 rounded-lg p-4 text-center mb-4">
                             @if($maintenanceAsset->damagedAsset && $maintenanceAsset->damagedAsset->damaged_image)
-                                <img src="{{ Storage::url($maintenanceAsset->damagedAsset->damaged_image) }}" 
+                                <img src="{{ $maintenanceAsset->damagedAsset->damaged_image }}" 
                                      alt="Foto Kerusakan" 
                                      class="w-full h-64 object-cover rounded-lg mx-auto">
                                 <p class="text-sm text-gray-500 mt-2">Foto Kerusakan</p>
                             @elseif($maintenanceAsset->asset && $maintenanceAsset->asset->foto_asset)
-                                <img src="{{ Storage::url($maintenanceAsset->asset->foto_asset) }}" 
+                                <img src="{{ $maintenanceAsset->asset->foto_asset }}" 
                                      alt="{{ $maintenanceAsset->asset->nama_asset }}" 
                                      class="w-full h-64 object-cover rounded-lg mx-auto">
                                 <p class="text-sm text-gray-500 mt-2">Foto Aset</p>

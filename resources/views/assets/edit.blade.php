@@ -17,7 +17,7 @@
                         
                         @if($asset->foto_asset)
                             <div id="previewContent">
-                                <img id="imagePreview" class="mx-auto h-24 lg:h-32 w-24 lg:w-32 object-cover rounded-lg mb-2" src="{{ Storage::url($asset->foto_asset) }}" alt="Current Image">
+                                <img id="imagePreview" class="mx-auto h-24 lg:h-32 w-24 lg:w-32 object-cover rounded-lg mb-2" src="{{ $asset->foto_asset }}" alt="Current Image">
                                 <p id="fileName" class="text-sm text-gray-600">Current Image</p>
                                 <button type="button" id="removeImage" class="mt-2 text-red-600 hover:text-red-800 text-sm">Hapus Gambar</button>
                             </div>

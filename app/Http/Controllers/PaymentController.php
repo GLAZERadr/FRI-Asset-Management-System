@@ -9,6 +9,7 @@ use Illuminate\Validation\Rule;
 use Cloudinary\Configuration\Configuration;
 use Cloudinary\Api\Upload\UploadApi;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class PaymentController extends Controller
 {
@@ -518,41 +519,41 @@ class PaymentController extends Controller
     public function downloadInvoice(Payment $payment)
     {
         if (!$payment->file_invoice) {
-            return redirect()->back()
-                ->with('error', 'File invoice tidak ditemukan.');
+            return redirect()->back()->with('error', 'File invoice tidak ditemukan.');
         }
     
-        // Check if it's a Cloudinary URL
         if (!str_contains($payment->file_invoice, 'cloudinary.com')) {
-            return redirect()->back()
-                ->with('error', 'File invoice tidak valid.');
+            return redirect()->back()->with('error', 'File invoice tidak valid.');
         }
     
         try {
-            // Method 1: Direct redirect to Cloudinary URL (simplest)
-            return redirect($payment->file_invoice);
+            // Create signed URL for private files
+            $cloudinary = new Cloudinary([
+                'cloud' => [
+                    'cloud_name' => config('cloudinary.cloud_name'),
+                    'api_key' => config('cloudinary.api_key'),
+                    'api_secret' => config('cloudinary.api_secret'),
+                ]
+            ]);
+    
+            // Extract public_id from URL
+            $pathInfo = pathinfo(parse_url($payment->file_invoice, PHP_URL_PATH));
+            $publicId = 'invoices/' . $pathInfo['filename'];
             
-            // Method 2: Download through Laravel (uncomment if you prefer this approach)
-            // return $this->downloadFromCloudinary(
-            //     $payment->file_invoice, 
-            //     'invoice_' . $payment->id . '_' . time()
-            // );
-            
-        } catch (\Exception $e) {
-            Log::error('Invoice download failed', [
-                'payment_id' => $payment->id,
-                'file_url' => $payment->file_invoice,
-                'error' => $e->getMessage()
+            // Generate signed download URL
+            $downloadUrl = $cloudinary->downloadApi()->download($publicId, [
+                'resource_type' => 'auto',
+                'attachment' => true
             ]);
             
-            return redirect()->back()
-                ->with('error', 'Gagal mengunduh file invoice.');
+            return redirect($downloadUrl);
+            
+        } catch (\Exception $e) {
+            Log::error('Download failed: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal mengunduh file invoice.');
         }
     }
     
-    /**
-     * Download payment photo from Cloudinary
-     */
     public function downloadPaymentPhoto(Payment $payment)
     {
         if (!$payment->photo_pembayaran) {
@@ -560,113 +561,13 @@ class PaymentController extends Controller
                 ->with('error', 'Bukti pembayaran tidak ditemukan.');
         }
     
-        // Check if it's a Cloudinary URL
         if (!str_contains($payment->photo_pembayaran, 'cloudinary.com')) {
             return redirect()->back()
                 ->with('error', 'Bukti pembayaran tidak valid.');
         }
     
-        try {
-            // Method 1: Direct redirect to Cloudinary URL (simplest)
-            return redirect($payment->photo_pembayaran);
-            
-            // Method 2: Download through Laravel (uncomment if you prefer this approach)
-            // return $this->downloadFromCloudinary(
-            //     $payment->photo_pembayaran, 
-            //     'payment_photo_' . $payment->id . '_' . time() . '.jpg'
-            // );
-            
-        } catch (\Exception $e) {
-            Log::error('Payment photo download failed', [
-                'payment_id' => $payment->id,
-                'photo_url' => $payment->photo_pembayaran,
-                'error' => $e->getMessage()
-            ]);
-            
-            return redirect()->back()
-                ->with('error', 'Gagal mengunduh bukti pembayaran.');
-        }
-    }
-    
-    /**
-     * Helper method to download file from Cloudinary through Laravel
-     * Use this if you want more control over the download process
-     */
-    private function downloadFromCloudinary($cloudinaryUrl, $suggestedFileName = null)
-    {
-        try {
-            // Get file info from URL
-            $pathInfo = pathinfo(parse_url($cloudinaryUrl, PHP_URL_PATH));
-            $extension = $pathInfo['extension'] ?? '';
-            $originalName = $pathInfo['filename'] ?? 'file';
-            
-            // Generate filename
-            $fileName = $suggestedFileName ?? ($originalName . '.' . $extension);
-            if (!pathinfo($fileName, PATHINFO_EXTENSION) && $extension) {
-                $fileName .= '.' . $extension;
-            }
-            
-            // Determine content type
-            $contentType = $this->getContentType($extension);
-            
-            // Create streamed response to download file from Cloudinary
-            return new StreamedResponse(function() use ($cloudinaryUrl) {
-                $context = stream_context_create([
-                    'http' => [
-                        'timeout' => 60, // 60 seconds timeout
-                        'user_agent' => 'Laravel App'
-                    ]
-                ]);
-                
-                $handle = fopen($cloudinaryUrl, 'rb', false, $context);
-                
-                if ($handle === false) {
-                    throw new \Exception('Failed to open file from Cloudinary');
-                }
-                
-                while (!feof($handle)) {
-                    echo fread($handle, 8192); // Read in 8KB chunks
-                    flush();
-                }
-                
-                fclose($handle);
-            }, 200, [
-                'Content-Type' => $contentType,
-                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
-                'Cache-Control' => 'no-cache, no-store, must-revalidate',
-                'Pragma' => 'no-cache',
-                'Expires' => '0'
-            ]);
-            
-        } catch (\Exception $e) {
-            Log::error('Cloudinary download failed', [
-                'url' => $cloudinaryUrl,
-                'suggested_filename' => $suggestedFileName,
-                'error' => $e->getMessage()
-            ]);
-            
-            throw new \Exception('Failed to download file from Cloudinary: ' . $e->getMessage());
-        }
-    }
-    
-    /**
-     * Get content type based on file extension
-     */
-    private function getContentType($extension)
-    {
-        $mimeTypes = [
-            'pdf' => 'application/pdf',
-            'doc' => 'application/msword',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'xls' => 'application/vnd.ms-excel',
-            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-        ];
-        
-        return $mimeTypes[strtolower($extension)] ?? 'application/octet-stream';
+        // Simple redirect to Cloudinary URL
+        return redirect($payment->photo_pembayaran);
     }
 
     /**

@@ -1,3 +1,4 @@
+<!-- auth.blade.php - Merged QR Scanner -->
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -15,7 +16,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.umd.min.js"></script>
     
     <style>
-        /* QR Scanner Styles - Copied from working dashboard */
+        /* QR Scanner Styles */
         .qr-scanner-modal {
             position: fixed;
             top: 0;
@@ -144,6 +145,37 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Tab Styles */
+        .scanner-tabs {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 0;
+            display: flex;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .scanner-tab {
+            flex: 1;
+            padding: 1rem;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .scanner-tab.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom-color: #10b981;
+        }
+
+        .scanner-tab:hover:not(.active) {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
         /* Mobile QR Quick Access Button */
         .qr-quick-access {
             background: linear-gradient(135deg, #10b981, #059669);
@@ -184,6 +216,27 @@
         .mobile-qr-section.testing {
             display: block !important;
         }
+
+        /* Mode indicator colors */
+        .monitoring-mode .qr-overlay {
+            border-color: #3b82f6;
+        }
+        .monitoring-mode .qr-overlay::before,
+        .monitoring-mode .qr-overlay::after,
+        .monitoring-mode .qr-overlay-corner::before,
+        .monitoring-mode .qr-overlay-corner::after {
+            border-color: #3b82f6;
+        }
+
+        .perbaikan-mode .qr-overlay {
+            border-color: #ef4444;
+        }
+        .perbaikan-mode .qr-overlay::before,
+        .perbaikan-mode .qr-overlay::after,
+        .perbaikan-mode .qr-overlay-corner::before,
+        .perbaikan-mode .qr-overlay-corner::after {
+            border-color: #ef4444;
+        }
     </style>
 </head>
 <body class="font-sans antialiased bg-gray-100">
@@ -199,27 +252,55 @@
             <div class="mobile-qr-section mt-4 px-4" id="qr-access-section">
                 <div class="text-center">
                     <p class="text-gray-600 text-sm mb-3">
-                        Atau akses langsung untuk melaporkan kerusakan aset:
+                        Akses langsung tanpa login:
                     </p>
-                    <button onclick="openQRScanner()" class="qr-quick-access" id="qr-scanner-trigger">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                        </svg>
-                        Scan QR untuk Lapor Kerusakan
-                    </button>
+                    
+                    <!-- Quick Access Buttons -->
+                    <div class="space-y-2">
+                        <button onclick="openQRScanner('monitoring')" class="qr-quick-access bg-blue-600 hover:bg-blue-700">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                            </svg>
+                            Scan Monitoring/Perbaikan Aset
+                        </button>
+                    </div>
+                    
                     <p class="text-xs text-gray-500 mt-2">
-                        Tanpa perlu login - langsung scan QR code asset
+                        Pilih mode yang sesuai dengan kebutuhan Anda
                     </p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- QR Scanner Modal - Copied from working dashboard -->
+    <!-- QR Scanner Modal with Tabs -->
     <div id="qr-scanner-modal" class="qr-scanner-modal" style="display: none;" x-data="qrScanner()">
+        <!-- Tab Navigation -->
+        <div class="scanner-tabs">
+            <button @click="switchMode('monitoring')" 
+                    :class="{ 'active': mode === 'monitoring' }" 
+                    class="scanner-tab">
+                <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                </svg>
+                Monitoring
+            </button>
+            <button @click="switchMode('perbaikan')" 
+                    :class="{ 'active': mode === 'perbaikan' }" 
+                    class="scanner-tab">
+                <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+                Perbaikan
+            </button>
+        </div>
+
         <!-- Header -->
         <div class="qr-scanner-header">
-            <h2 class="text-lg font-semibold flex-1">Scan Asset QR Code</h2>
+            <div class="flex-1">
+                <h2 class="text-lg font-semibold" x-text="mode === 'monitoring' ? 'Scan QR - Monitoring Aset' : 'Scan QR - Lapor Kerusakan'"></h2>
+                <p class="text-sm opacity-75" x-text="mode === 'monitoring' ? 'Scan QR code ruangan atau aset' : 'Scan QR code aset yang rusak'"></p>
+            </div>
             <button @click="closeScanner()" class="text-white hover:text-gray-300 p-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -228,7 +309,7 @@
         </div>
 
         <!-- Scanner Container -->
-        <div class="qr-scanner-container">
+        <div class="qr-scanner-container" :class="mode === 'monitoring' ? 'monitoring-mode' : 'perbaikan-mode'">
             <video id="qr-video" autoplay playsinline></video>
             <div class="qr-overlay">
                 <div class="qr-overlay-corner"></div>
@@ -236,11 +317,12 @@
         </div>
 
         <!-- Result Display -->
-        <div x-show="result" class="qr-result" x-transition>
+        <div x-show="result" class="qr-result" x-transition :style="`background: ${mode === 'monitoring' ? '#3b82f6' : '#ef4444'}`">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="font-semibold">QR Code Terdeteksi!</p>
                     <p class="text-sm opacity-90" x-text="result"></p>
+                    <p class="text-xs opacity-75 mt-1" x-text="statusMessage"></p>
                 </div>
                 <div x-show="loading" class="loading-spinner"></div>
             </div>
@@ -248,7 +330,15 @@
 
         <!-- Footer -->
         <div class="qr-scanner-footer">
-            <p class="text-sm mb-2">Arahkan kamera ke QR code pada asset yang rusak</p>
+            <div x-show="mode === 'monitoring'">
+                <p class="text-sm mb-2">Mode: <strong>Monitoring Aset</strong></p>
+                <p class="text-xs opacity-75 mb-4">Arahkan kamera ke QR code ruangan atau aset untuk monitoring</p>
+            </div>
+            <div x-show="mode === 'perbaikan'">
+                <p class="text-sm mb-2">Mode: <strong>Pelaporan Kerusakan</strong></p>
+                <p class="text-xs opacity-75 mb-4">Arahkan kamera ke QR code aset yang mengalami kerusakan</p>
+            </div>
+            
             <div class="flex justify-center space-x-4">
                 <button @click="switchCamera()" x-show="hasMultipleCameras" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm">
                     Ganti Kamera
@@ -262,27 +352,31 @@
 
     <script>
         // Global QR Scanner opener function
-        function openQRScanner() {
+        function openQRScanner(mode = 'monitoring') {
             const modal = document.getElementById('qr-scanner-modal');
             if (modal && modal._x_dataStack && modal._x_dataStack[0]) {
-                modal._x_dataStack[0].openScanner();
+                modal._x_dataStack[0].openScanner(mode);
             } else {
                 // Retry after a short delay if Alpine isn't ready
-                setTimeout(openQRScanner, 100);
+                setTimeout(() => openQRScanner(mode), 100);
             }
         }
 
-        // QR Scanner Component with Back Camera Default
+        // Enhanced QR Scanner Component with Mode Switching
         function qrScanner() {
             return {
                 scanner: null,
                 result: '',
                 loading: false,
+                statusMessage: '',
                 hasMultipleCameras: false,
                 currentCameraId: null,
                 cameras: [],
+                mode: 'monitoring', // 'monitoring' or 'perbaikan'
                 
-                async openScanner() {
+                async openScanner(initialMode = 'monitoring') {
+                    this.mode = initialMode;
+                    
                     try {
                         // Check camera permission
                         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -297,7 +391,27 @@
                         await this.initializeScanner();
                     } catch (error) {
                         console.error('Camera access denied:', error);
-                        alert('Akses kamera diperlukan untuk scanning QR code. Pastikan untuk memberikan izin kamera.');
+                        if (error.name === 'NotAllowedError') {
+                            alert('Akses kamera diperlukan untuk scanning QR code. Pastikan untuk memberikan izin kamera.');
+                        } else if (error.name === 'NotSecureError') {
+                            alert('Kamera hanya bisa diakses melalui HTTPS. Silakan gunakan koneksi yang aman.');
+                        } else {
+                            alert('Gagal mengakses kamera: ' + error.message);
+                        }
+                    }
+                },
+                
+                switchMode(newMode) {
+                    if (this.mode !== newMode) {
+                        this.mode = newMode;
+                        this.result = '';
+                        this.statusMessage = '';
+                        this.loading = false;
+                        
+                        // Restart scanner if it's running
+                        if (this.scanner) {
+                            this.scanner.start();
+                        }
                     }
                 },
                 
@@ -310,23 +424,22 @@
                         this.cameras = devices.filter(device => device.kind === 'videoinput');
                         this.hasMultipleCameras = this.cameras.length > 1;
                         
-                        // Find back camera more comprehensively
+                        // Find back camera
                         const backCamera = this.cameras.find(camera => {
                             const label = camera.label.toLowerCase();
                             return label.includes('back') || 
                                 label.includes('rear') || 
                                 label.includes('environment') ||
                                 label.includes('facing back') ||
-                                label.includes('camera 0') || // Often the main camera on mobile
+                                label.includes('camera 0') ||
                                 (label.includes('camera') && !label.includes('front') && !label.includes('user'));
                         });
                         
                         // Set camera preference
-                        let cameraPreference = 'environment'; // Default to back camera
+                        let cameraPreference = 'environment';
                         if (backCamera) {
                             this.currentCameraId = backCamera.deviceId;
                         } else if (this.cameras.length > 0) {
-                            // If no back camera found, use the first available camera
                             this.currentCameraId = this.cameras[0].deviceId;
                             cameraPreference = 'user';
                         }
@@ -334,20 +447,19 @@
                         console.log('Available cameras:', this.cameras.map(c => c.label));
                         console.log('Selected camera:', backCamera?.label || 'Default');
                         
-                        // Initialize QR Scanner with proper camera settings
+                        // Initialize QR Scanner
                         this.scanner = new QrScanner(
                             video,
                             result => this.onScanSuccess(result),
                             {
                                 onDecodeError: error => {
-                                    // Silent error handling - normal when no QR code is visible
+                                    // Silent error handling
                                 },
                                 highlightScanRegion: false,
                                 highlightCodeOutline: false,
-                                preferredCamera: cameraPreference, // 'environment' for back, 'user' for front
-                                maxScansPerSecond: 5, // Optimize performance
+                                preferredCamera: cameraPreference,
+                                maxScansPerSecond: 5,
                                 calculateScanRegion: (video) => {
-                                    // Define scan region (center square)
                                     const smallestDimension = Math.min(video.videoWidth, video.videoHeight);
                                     const scanRegionSize = Math.round(0.7 * smallestDimension);
                                     
@@ -361,7 +473,7 @@
                             }
                         );
                         
-                        // If we have a specific camera ID, try to set it
+                        // Set specific camera if available
                         if (this.currentCameraId && backCamera) {
                             try {
                                 await this.scanner.setCamera(this.currentCameraId);
@@ -372,35 +484,18 @@
                         
                         // Start scanning
                         await this.scanner.start();
-                        
-                        console.log('QR Scanner initialized with back camera');
+                        console.log('QR Scanner initialized');
                         
                     } catch (error) {
                         console.error('Failed to initialize scanner:', error);
-                        
-                        // Fallback: try with basic settings
-                        try {
-                            const video = document.getElementById('qr-video');
-                            this.scanner = new QrScanner(
-                                video,
-                                result => this.onScanSuccess(result),
-                                {
-                                    preferredCamera: 'environment', // Still try back camera
-                                    onDecodeError: () => {} // Silent
-                                }
-                            );
-                            await this.scanner.start();
-                            console.log('QR Scanner initialized with fallback settings');
-                        } catch (fallbackError) {
-                            console.error('Fallback scanner initialization failed:', fallbackError);
-                            alert('Gagal menginisialisasi scanner. Pastikan browser mendukung kamera.');
-                        }
+                        alert('Gagal menginisialisasi scanner. Pastikan browser mendukung kamera.');
                     }
                 },
                 
                 async onScanSuccess(result) {
                     this.result = result.data;
                     this.loading = true;
+                    this.statusMessage = this.mode === 'monitoring' ? 'Memproses untuk monitoring...' : 'Memproses untuk pelaporan...';
                     
                     // Stop scanner temporarily
                     if (this.scanner) {
@@ -408,11 +503,10 @@
                     }
                     
                     try {
-                        // Process the QR code result
                         await this.processQRResult(result.data);
                     } catch (error) {
                         console.error('Failed to process QR result:', error);
-                        alert('Gagal memproses hasil scan QR code.');
+                        this.showError('Gagal memproses hasil scan QR code.');
                     } finally {
                         this.loading = false;
                     }
@@ -420,23 +514,42 @@
                 
                 async processQRResult(qrData) {
                     try {
-                        // Send QR data to backend for processing
-                        const response = await fetch('/qr/process', {
+                        const endpoint = this.mode === 'monitoring' ? '/public/qr/process' : '/qr/process';
+                        
+                        const response = await fetch(endpoint, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                'Accept': 'application/json'
                             },
                             body: JSON.stringify({ qr_data: qrData })
                         });
                         
-                        const data = await response.json();
+                        if (response.status === 419) {
+                            throw new Error('CSRF token expired. Silakan refresh halaman.');
+                        }
                         
-                        if (response.ok && data.success) {
-                            // Success - redirect to monitoring page
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
+                        const contentType = response.headers.get('content-type');
+                        if (!contentType || !contentType.includes('application/json')) {
+                            throw new Error('Server tidak mengembalikan JSON. Mungkin ada error di server.');
+                        }
+                        
+                        const data = await response.json();
+                        console.log('QR process response:', data);
+                        
+                        if (data.success) {
+                            this.showSuccess(data.message || 'QR code berhasil diproses!');
+                            
                             if (data.redirect_url) {
-                                this.closeScanner();
-                                window.location.href = data.redirect_url;
+                                setTimeout(() => {
+                                    this.closeScanner();
+                                    window.location.href = data.redirect_url;
+                                }, 1500);
                                 return;
                             }
                         } else {
@@ -444,33 +557,34 @@
                         }
                     } catch (error) {
                         console.error('QR processing error:', error);
+                        this.showError(error.message || 'Gagal memproses hasil scan QR code.');
                         
-                        // Fallback: try to determine if it's a room code or asset ID
-                        // Room codes typically follow XXXX-XXXX pattern (e.g., TULT-0901)
-                        const roomCodePattern = /^[A-Z]{3,}-\d{3,}$/i;
-                        // Asset IDs typically follow XXXX-XXX-XXX pattern (e.g., T0901-MEJ-001)
-                        const assetIdPattern = /^[A-Z]\d+-[A-Z]{3}-\d{3}$/i;
-                        
-                        if (roomCodePattern.test(qrData)) {
-                            // Looks like a room code
-                            this.closeScanner();
-                            window.location.href = `/pemantauan/monitoring/${qrData}`;
-                            return;
-                        } else if (assetIdPattern.test(qrData)) {
-                            // Looks like an asset ID - extract room code
-                            alert(`Asset ID detected: ${qrData}. Please scan the room QR code for monitoring.`);
-                        } else {
-                            // Unknown format
-                            alert('QR code tidak dikenali. Pastikan QR code valid untuk ruangan atau aset.');
-                        }
-                        
-                        // Restart scanner after a delay
+                        // Restart scanner after error
                         setTimeout(() => {
                             if (this.scanner) {
                                 this.scanner.start();
                             }
                             this.result = '';
+                            this.statusMessage = '';
                         }, 3000);
+                    }
+                },
+                
+                showSuccess(message) {
+                    this.statusMessage = message;
+                    // Update result display to green
+                    const resultElement = document.querySelector('.qr-result');
+                    if (resultElement) {
+                        resultElement.style.background = '#10b981';
+                    }
+                },
+                
+                showError(message) {
+                    this.statusMessage = message;
+                    // Update result display to red
+                    const resultElement = document.querySelector('.qr-result');
+                    if (resultElement) {
+                        resultElement.style.background = '#ef4444';
                     }
                 },
                 
@@ -484,6 +598,7 @@
                     document.getElementById('qr-scanner-modal').style.display = 'none';
                     this.result = '';
                     this.loading = false;
+                    this.statusMessage = '';
                 },
                 
                 async switchCamera() {
@@ -507,7 +622,6 @@
 
         // Testing mode and mobile detection
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if testing mode is enabled
             const urlParams = new URLSearchParams(window.location.search);
             const isTestingMode = urlParams.get('test') === 'mobile' || 
                                  window.localStorage.getItem('qr_testing') === 'true';
@@ -524,7 +638,7 @@
                 }
             }
             
-            // Add testing toggle for developers (double-click logo)
+            // Testing toggle (double-click logo)
             const logo = document.getElementById('logo-toggle');
             if (logo) {
                 let clickCount = 0;
@@ -551,6 +665,21 @@
                     const scannerComponent = modal._x_dataStack && modal._x_dataStack[0];
                     if (scannerComponent) {
                         scannerComponent.closeScanner();
+                    }
+                }
+            }
+        });
+
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', function() {
+            const modal = document.getElementById('qr-scanner-modal');
+            if (modal && modal.style.display !== 'none' && modal._x_dataStack && modal._x_dataStack[0]) {
+                const scannerComponent = modal._x_dataStack[0];
+                if (scannerComponent.scanner) {
+                    if (document.hidden) {
+                        scannerComponent.scanner.stop();
+                    } else {
+                        scannerComponent.scanner.start();
                     }
                 }
             }

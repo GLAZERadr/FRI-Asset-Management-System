@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\MaintenanceAsset;
+use App\Models\AssetMonitoring;
 use App\Models\DamagedAsset;
 use App\Models\Asset;
 use Illuminate\Support\Facades\Auth;
@@ -50,6 +51,13 @@ class DashboardController extends Controller
             'total_expenditure' => 0 // We'll calculate this separately
         ];
         
+        // ADD NEW: Role-specific statistics
+        if ($user->hasRole('staff_logistik')) {
+            $stats = array_merge($stats, $this->getStaffLogistikStats($request));
+        } elseif ($user->hasRole('staff_laboratorium')) {
+            $stats = array_merge($stats, $this->getStaffLaboratoriumStats($request));
+        }
+        
         // Calculate total expenditure safely
         try {
             $expenditureQuery = (clone $statsQuery)->where('status', 'Selesai');
@@ -61,9 +69,9 @@ class DashboardController extends Controller
             $stats['total_expenditure'] = 0;
         }
         
-        // Get recent maintenance requests based on user role
+        // Rest of your existing code...
         $recentRequests = collect();
-        $role = 'general'; // Default role
+        $role = 'general';
         
         // Check user roles and assign appropriate data
         if ($user->hasRole('staff_logistik')) {
@@ -146,6 +154,117 @@ class DashboardController extends Controller
         $totalMaintenanceAssets = MaintenanceAsset::count();
         
         return view('dashboard.dashboard', compact('stats', 'recentRequests', 'role'));
+    }
+
+    // ADD NEW: Staff Logistik specific statistics
+    private function getStaffLogistikStats(Request $request)
+    {
+        $today = Carbon::today();
+        $startDate = $request->filled('start_date') ? Carbon::parse($request->start_date) : $today;
+        $endDate = $request->filled('end_date') ? Carbon::parse($request->end_date) : $today;
+        
+        // Reports that need verification (not validated yet)
+        $reportsNeedVerification = AssetMonitoring::where('validated', false)
+            ->orWhereNull('validated')
+            ->whereBetween('tanggal_laporan', [$startDate, $endDate])
+            ->count();
+        
+        // Reports that need verification today specifically
+        $reportsNeedVerificationToday = AssetMonitoring::where('validated', false)
+            ->orWhereNull('validated')
+            ->whereDate('tanggal_laporan', $today)
+            ->count();
+        
+        // Daily breakdown for the selected period
+        $dailyVerificationNeeded = [];
+        $currentDate = $startDate->copy();
+        
+        while ($currentDate->lte($endDate)) {
+            $dailyCount = AssetMonitoring::where('validated', false)
+                ->orWhereNull('validated')
+                ->whereDate('tanggal_laporan', $currentDate)
+                ->count();
+            
+            $dailyVerificationNeeded[] = [
+                'date' => $currentDate->format('Y-m-d'),
+                'count' => $dailyCount
+            ];
+            
+            $currentDate->addDay();
+        }
+        
+        return [
+            'reports_need_verification' => $reportsNeedVerification,
+            'reports_need_verification_today' => $reportsNeedVerificationToday,
+            'daily_verification_needed' => $dailyVerificationNeeded
+        ];
+    }
+
+    // ADD NEW: Staff Laboratorium specific statistics  
+    private function getStaffLaboratoriumStats(Request $request)
+    {
+        $today = Carbon::today();
+        $startDate = $request->filled('start_date') ? Carbon::parse($request->start_date) : $today;
+        $endDate = $request->filled('end_date') ? Carbon::parse($request->end_date) : $today;
+        
+        // Assets monitored in the selected period
+        $assetsMonitoredQuery = AssetMonitoring::whereBetween('tanggal_laporan', [$startDate, $endDate]);
+        
+        // Get unique assets monitored (from monitoring_data JSON)
+        $monitoringReports = $assetsMonitoredQuery->get();
+        $uniqueAssetsMonitored = collect();
+        
+        foreach ($monitoringReports as $report) {
+            if ($report->monitoring_data) {
+                $assetIds = collect($report->monitoring_data)->pluck('asset_id');
+                $uniqueAssetsMonitored = $uniqueAssetsMonitored->concat($assetIds);
+            }
+        }
+        
+        $totalAssetsMonitored = $uniqueAssetsMonitored->unique()->count();
+        
+        // Assets monitored today
+        $assetsMonitoredToday = 0;
+        $todayReports = AssetMonitoring::whereDate('tanggal_laporan', $today)->get();
+        $todayAssetsMonitored = collect();
+        
+        foreach ($todayReports as $report) {
+            if ($report->monitoring_data) {
+                $assetIds = collect($report->monitoring_data)->pluck('asset_id');
+                $todayAssetsMonitored = $todayAssetsMonitored->concat($assetIds);
+            }
+        }
+        
+        $assetsMonitoredToday = $todayAssetsMonitored->unique()->count();
+        
+        // Daily breakdown for the selected period
+        $dailyAssetsMonitored = [];
+        $currentDate = $startDate->copy();
+        
+        while ($currentDate->lte($endDate)) {
+            $dayReports = AssetMonitoring::whereDate('tanggal_laporan', $currentDate)->get();
+            $dayAssetsMonitored = collect();
+            
+            foreach ($dayReports as $report) {
+                if ($report->monitoring_data) {
+                    $assetIds = collect($report->monitoring_data)->pluck('asset_id');
+                    $dayAssetsMonitored = $dayAssetsMonitored->concat($assetIds);
+                }
+            }
+            
+            $dailyAssetsMonitored[] = [
+                'date' => $currentDate->format('Y-m-d'),
+                'count' => $dayAssetsMonitored->unique()->count()
+            ];
+            
+            $currentDate->addDay();
+        }
+        
+        return [
+            'assets_monitored_total' => $totalAssetsMonitored,
+            'assets_monitored_today' => $assetsMonitoredToday,
+            'daily_assets_monitored' => $dailyAssetsMonitored
+        ];
     }
 
     /**

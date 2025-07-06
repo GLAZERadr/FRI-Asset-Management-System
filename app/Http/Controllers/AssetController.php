@@ -40,8 +40,14 @@ class AssetController extends Controller
                      ->orderBy('year', 'desc')
                      ->pluck('year')
                      ->filter();
+
+        $locations = Asset::select('kode_ruangan', 'lokasi')
+                        ->selectRaw('COUNT(*) as asset_count')
+                        ->groupBy('kode_ruangan', 'lokasi')
+                        ->orderBy('kode_ruangan')
+                        ->get();
         
-        return view('assets.index', compact('assets', 'categories', 'years'));
+        return view('assets.index', compact('assets', 'categories', 'years', 'locations'));
     }
     
     public function exportPdf(Request $request)
@@ -208,6 +214,123 @@ class AssetController extends Controller
             \Log::error('=== END ERROR DETAILS ===');
             
             abort(500, 'Gagal membuat QR Code: ' . $e->getMessage());
+        }
+    }
+
+    public function downloadLocationQrCode($kode_ruangan)
+    {
+        \Log::info('=== LOCATION QR CODE GENERATION START ===');
+        \Log::info('Location code requested: ' . $kode_ruangan);
+
+        // Validate that kode_ruangan is not empty
+        if (empty($kode_ruangan)) {
+            \Log::error('Location code is empty, aborting with 404');
+            abort(404, 'Kode ruangan tidak ditemukan');
+        }
+
+        try {
+            \Log::info('Searching for assets in location...');
+            
+            // Get assets in this location
+            $locationAssets = Asset::where('kode_ruangan', $kode_ruangan)->get();
+            
+            if ($locationAssets->isEmpty()) {
+                \Log::error('No assets found in location: ' . $kode_ruangan);
+                abort(404, 'Lokasi tidak ditemukan');
+            }
+
+            $locationName = $locationAssets->first()->lokasi ?? $kode_ruangan;
+            \Log::info('Location found: ' . $locationName . ' (' . $locationAssets->count() . ' assets)');
+            \Log::info('Starting QR code generation for location...');
+
+            // Generate QR code with kode_ruangan
+            $qrCode = QrCode::format('png')
+                        ->size(300)
+                        ->margin(10)
+                        ->generate($kode_ruangan);
+
+            \Log::info('QR code generated successfully');
+
+            // Create image canvas with text
+            $canvas = imagecreatetruecolor(400, 500);
+            if (!$canvas) {
+                throw new \Exception('Failed to create image canvas');
+            }
+
+            $white = imagecolorallocate($canvas, 255, 255, 255);
+            $black = imagecolorallocate($canvas, 0, 0, 0);
+            $blue = imagecolorallocate($canvas, 0, 102, 204);
+            $green = imagecolorallocate($canvas, 34, 139, 34);
+            
+            // Fill background with white
+            imagefill($canvas, 0, 0, $white);
+            
+            // Load QR code image from string
+            $qrImage = imagecreatefromstring($qrCode);
+            if (!$qrImage) {
+                throw new \Exception('Failed to create QR image from string');
+            }
+
+            // Center the QR code
+            imagecopy($canvas, $qrImage, 50, 20, 0, 0, 300, 300);
+            
+            // Add text below QR code
+            $font = 4; // Built-in font size
+            $textY = 340;
+            
+            // Location Code
+            $locationCodeText = "Kode Ruangan: " . $kode_ruangan;
+            $textWidth = strlen($locationCodeText) * imagefontwidth($font);
+            $textX = (400 - $textWidth) / 2;
+            imagestring($canvas, $font, $textX, $textY, $locationCodeText, $blue);
+            
+            // Location Name
+            $locationNameText = "Lokasi: " . (strlen($locationName) > 30 ? substr($locationName, 0, 27) . "..." : $locationName);
+            $textWidth = strlen($locationNameText) * imagefontwidth($font);
+            $textX = (400 - $textWidth) / 2;
+            imagestring($canvas, $font, $textX, $textY + 20, $locationNameText, $black);
+            
+            // Asset Count
+            $assetCountText = "Jumlah Aset: " . $locationAssets->count() . " unit";
+            $textWidth = strlen($assetCountText) * imagefontwidth($font);
+            $textX = (400 - $textWidth) / 2;
+            imagestring($canvas, $font, $textX, $textY + 40, $assetCountText, $green);
+            
+            // Instructions
+            $instructionText = "Scan untuk monitoring ruangan";
+            $textWidth = strlen($instructionText) * imagefontwidth($font);
+            $textX = (400 - $textWidth) / 2;
+            imagestring($canvas, $font, $textX, $textY + 70, $instructionText, $black);
+            
+            // Generate filename
+            $filename = "qr-location-" . str_replace(['/', '\\', '-'], '_', $kode_ruangan) . ".png";
+            
+            // Output image
+            ob_start();
+            $pngResult = imagepng($canvas);
+            if (!$pngResult) {
+                ob_end_clean();
+                throw new \Exception('Failed to generate PNG image');
+            }
+            
+            $imageData = ob_get_contents();
+            ob_end_clean();
+            
+            // Clean up memory
+            imagedestroy($canvas);
+            imagedestroy($qrImage);
+            
+            \Log::info('Location QR code generated successfully: ' . $filename);
+            \Log::info('=== LOCATION QR CODE GENERATION SUCCESS ===');
+            
+            return response($imageData)
+                ->header('Content-Type', 'image/png')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+                
+        } catch (\Exception $e) {
+            \Log::error('=== LOCATION QR CODE GENERATION FAILED ===');
+            \Log::error('Error: ' . $e->getMessage());
+            abort(500, 'Gagal membuat QR Code lokasi: ' . $e->getMessage());
         }
     }
     
@@ -628,5 +751,15 @@ class AssetController extends Controller
         
         // Fallback: if format is unexpected, use first 5 characters
         return strtoupper(substr(str_replace('-', '', $kodeRuangan), 0, 5));
+    }
+
+    public function destroy($id)
+    {
+        $asset = Asset::where('asset_id', $id)->firstOrFail();
+        
+        $asset->delete();
+        
+        return redirect()->route('pemantauan.index')
+            ->with('success', 'Kerusakan aset berhasil dihapus.');
     }
 }

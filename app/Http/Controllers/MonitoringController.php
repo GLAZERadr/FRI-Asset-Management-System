@@ -573,4 +573,97 @@ class MonitoringController extends Controller
             'locations'
         ));
     }
+
+    /**
+     * Delete entire monitoring report from verification history
+     */
+    public function destroyVerificationReport($id_laporan)
+    {
+        try {
+            // Find the monitoring report by id_laporan instead of primary key id
+            $monitoringReport = AssetMonitoring::where('id_laporan', $id_laporan)->firstOrFail();
+            
+            // Store report info for success message
+            $reportDate = $monitoringReport->tanggal_laporan;
+            $reportLocation = $monitoringReport->kode_ruangan;
+            
+            // Delete the monitoring report
+            $monitoringReport->delete();
+            
+            return redirect()->route('pemantauan.monitoring.index')
+                ->with('success', "Laporan verifikasi {$id_laporan} tanggal {$reportDate} untuk ruangan {$reportLocation} berhasil dihapus.");
+                
+        } catch (\Exception $e) {
+            \Log::error('Error deleting verification report: ' . $e->getMessage());
+            
+            return redirect()->route('pemantauan.monitoring.index')
+                ->with('error', 'Gagal menghapus laporan verifikasi. Silakan coba lagi.');
+        }
+    }
+
+    /**
+     * Delete specific asset verification from a monitoring report
+     */
+    public function destroyAssetVerification($reportId, $assetId)
+    {
+        try {
+            // Find the monitoring report
+            $monitoringReport = AssetMonitoring::findOrFail($reportId);
+            
+            // Get current monitoring data
+            $monitoringData = $monitoringReport->monitoring_data;
+            
+            // Find and remove the specific asset from monitoring data
+            $updatedData = array_filter($monitoringData, function($assetData) use ($assetId) {
+                return $assetData['asset_id'] !== $assetId;
+            });
+            
+            // If no assets left in the report, delete the entire report
+            if (empty($updatedData)) {
+                $monitoringReport->delete();
+                return redirect()->route('pemantauan.monitoring.verify')
+                    ->with('success', 'Asset terakhir dihapus. Laporan monitoring telah dihapus.');
+            }
+            
+            // Update the monitoring report with remaining assets
+            $monitoringReport->monitoring_data = array_values($updatedData); // Re-index array
+            $monitoringReport->save();
+            
+            return redirect()->route('pemantauan.monitoring.verify')
+                ->with('success', 'Verifikasi asset berhasil dihapus dari laporan.');
+                
+        } catch (\Exception $e) {
+            \Log::error('Error deleting asset verification: ' . $e->getMessage());
+            
+            return redirect()->route('pemantauan.monitoring.verify')
+                ->with('error', 'Gagal menghapus verifikasi asset. Silakan coba lagi.');
+        }
+    }
+
+    /**
+     * Bulk delete verified reports (for cleaning up history)
+     */
+    public function bulkDeleteVerified(Request $request)
+    {
+        try {
+            $reportIds = $request->input('report_ids', []);
+            
+            if (empty($reportIds)) {
+                return redirect()->route('pemantauan.monitoring.verify')
+                    ->with('error', 'Tidak ada laporan yang dipilih untuk dihapus.');
+            }
+            
+            // Delete selected reports
+            $deletedCount = AssetMonitoring::whereIn('id', $reportIds)->delete();
+            
+            return redirect()->route('pemantauan.monitoring.verify')
+                ->with('success', "{$deletedCount} laporan verifikasi berhasil dihapus.");
+                
+        } catch (\Exception $e) {
+            \Log::error('Error bulk deleting verification reports: ' . $e->getMessage());
+            
+            return redirect()->route('pemantauan.monitoring.verify')
+                ->with('error', 'Gagal menghapus laporan verifikasi. Silakan coba lagi.');
+        }
+    }
 }

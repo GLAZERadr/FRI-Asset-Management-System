@@ -72,15 +72,246 @@
     <!-- Data Aset Tab -->
     <div class="mb-4">
         <div class="border-b border-gray-200">
-            <nav class="-mb-px flex">
-                <a href="#" class="border-b-2 border-green-500 py-2 px-4 text-sm font-medium text-green-600">
+            <nav class="-mb-px flex" id="asset-tabs">
+                <a href="#" onclick="switchAssetTab('assets')" id="assets-tab" 
+                class="border-b-2 border-green-500 py-2 px-4 text-sm font-medium text-green-600">
                     Data Aset
+                </a>
+                <a href="#" onclick="switchAssetTab('locations')" id="locations-tab" 
+                class="border-b-2 border-gray-300 py-2 px-4 text-sm font-medium text-gray-600 hover:text-green-600 hover:border-green-300">
+                    Daftar Lokasi
                 </a>
             </nav>
         </div>
     </div>
 
     <!-- Assets Table - Mobile Cards / Desktop Table -->
+    <div id="assets-content" class="tab-content">
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <!-- Desktop Table View -->
+            <div class="hidden lg:block overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Aset</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Aset</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kode Ruangan</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Perolehan</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nilai Perolehan</th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        @forelse ($assets as $index => $asset)
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ $assets->firstItem() + $index }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {{ $asset->asset_id }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ $asset->nama_asset }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ $asset->kategori }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ $asset->kode_ruangan }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ \Carbon\Carbon::parse($asset->tgl_perolehan)->format('d-m-Y') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                Rp{{ number_format($asset->nilai_perolehan, 0, ',', '.') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                <div class="flex justify-center space-x-2">
+                                    <!-- View Button -->
+                                    <a href="{{ route('pemantauan.show', $asset->asset_id) }}" class="text-gray-600 hover:text-gray-900" title="Lihat Detail">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current">
+                                            <path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"/>
+                                        </svg>
+                                    </a>
+                                    
+                                    <!-- QR Code Download Button -->
+                                    @if($asset->asset_id)
+                                        <a href="{{ route('pemantauan.qr-download', ['asset_id' => $asset->asset_id]) }}" class="text-green-600 hover:text-green-900" title="Download QR Code">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                            </svg>
+                                        </a>
+                                    @else
+                                        <span class="text-gray-400" title="Kode ruangan tidak tersedia">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                                            </svg>
+                                        </span>
+                                    @endif
+
+                                    <form action="{{ route('pemantauan.destroy', $asset->asset_id) }}" 
+                                            method="POST" 
+                                            class="inline-block"
+                                            onsubmit="return confirm('Apakah Anda yakin ingin menghapus aset {{ $asset->nama_asset }}? Tindakan ini tidak dapat dibatalkan.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" 
+                                                class="text-red-600 hover:text-red-900" 
+                                                title="Hapus Aset">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="11" class="px-6 py-10 text-center">
+                                <div class="flex flex-col items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                    </svg>
+                                    <h3 class="text-lg font-medium text-gray-900">Tidak Ada Data</h3>
+                                    <p class="text-gray-500">Belum ada aset yang ditambahkan ke sistem.</p>
+                                    <a href="{{ route('pemantauan.create') }}" class="mt-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                                        Tambah Aset Baru
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile Card View -->
+            <div class="lg:hidden">
+                @forelse ($assets as $index => $asset)
+                <div class="border-b border-gray-200 p-4">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1 min-w-0">
+                            <!-- Asset ID and Name -->
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ $asset->asset_id }}
+                                </span>
+                                @if($asset->foto_asset)
+                                    <img src="{{ $asset->foto_asset }}" alt="Asset Image" class="h-8 w-8 rounded object-cover">
+                                @endif
+                            </div>
+                            
+                            <h3 class="text-sm font-medium text-gray-900 mb-1 truncate">
+                                {{ $asset->nama_asset }}
+                            </h3>
+                            
+                            <!-- Key Information -->
+                            <div class="space-y-1 text-xs text-gray-500">
+                                <div class="flex justify-between">
+                                    <span>Kategori:</span>
+                                    <span class="font-medium">{{ $asset->kategori }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Ruangan:</span>
+                                    <span class="font-medium">{{ $asset->kode_ruangan }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Tanggal:</span>
+                                    <span class="font-medium">{{ \Carbon\Carbon::parse($asset->tgl_perolehan)->format('d-m-Y') }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Nilai:</span>
+                                    <span class="font-medium text-green-600">Rp{{ number_format($asset->nilai_perolehan, 0, ',', '.') }}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Expandable Details -->
+                            <div class="mt-2" x-data="{ expanded: false }">
+                                <button @click="expanded = !expanded" class="text-xs text-blue-600 hover:text-blue-800">
+                                    <span x-text="expanded ? 'Sembunyikan Detail' : 'Lihat Detail'"></span>
+                                </button>
+                                <div x-show="expanded" x-transition class="mt-2 space-y-1 text-xs text-gray-500" style="display: none;">
+                                    <div><strong>Spesifikasi:</strong> {{ $asset->spesifikasi }}</div>
+                                    <div><strong>Sumber Perolehan:</strong> {{ $asset->sumber_perolehan }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex flex-col space-y-2 ml-4">
+                            <a href="{{ route('pemantauan.show', $asset->asset_id) }}" 
+                            class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md" 
+                            title="Lihat Detail">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-4 h-4 fill-current">
+                                    <path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"/>
+                                </svg>
+                            </a>
+                            
+                            @if($asset->asset_id)
+                                <a href="{{ route('pemantauan.qr-download', ['asset_id' => $asset->asset_id]) }}" 
+                                class="p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-md" 
+                                title="Download QR Code">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                    </svg>
+                                </a>
+                            @else
+                                <span class="p-2 text-gray-400" title="QR Code tidak tersedia">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                                    </svg>
+                                </span>
+                            @endif
+
+                            <form action="{{ route('pemantauan.destroy', $asset->asset_id) }}" 
+                                    method="POST" 
+                                    class="inline-block"
+                                    onsubmit="return confirm('Apakah Anda yakin ingin menghapus aset {{ $asset->nama_asset }}? Tindakan ini tidak dapat dibatalkan.')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" 
+                                        class="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-100 transition-colors" 
+                                        title="Hapus Aset">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                @empty
+                <div class="p-8 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak Ada Data</h3>
+                    <p class="text-gray-500 mb-4">Belum ada aset yang ditambahkan ke sistem.</p>
+                    <a href="{{ route('pemantauan.create') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Tambah Aset Baru
+                    </a>
+                </div>
+                @endforelse
+            </div>
+
+            <!-- Pagination -->
+            @if($assets->hasPages())
+            <div class="px-4 lg:px-6 py-3 border-t border-gray-200">
+                {{ $assets->appends(request()->query())->links() }}
+            </div>
+            @endif
+        </div>
+    </div>
+</div>
+
+<!-- Locations Tab Content -->
+<div id="locations-content" class="tab-content hidden">
     <div class="bg-white rounded-lg shadow overflow-hidden">
         <!-- Desktop Table View -->
         <div class="hidden lg:block overflow-x-auto">
@@ -88,77 +319,50 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID Aset</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Aset</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kode Ruangan</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Perolehan</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nilai Perolehan</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Lokasi</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah Aset</th>
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse ($assets as $index => $asset)
+                    @forelse ($locations as $index => $location)
                     <tr>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ $assets->firstItem() + $index }}
+                            {{ $index + 1 }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {{ $asset->asset_id }}
+                            {{ $location->kode_ruangan }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ $asset->nama_asset }}
+                            {{ $location->lokasi }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ $asset->kategori }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ $asset->kode_ruangan }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ \Carbon\Carbon::parse($asset->tgl_perolehan)->format('d-m-Y') }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            Rp{{ number_format($asset->nilai_perolehan, 0, ',', '.') }}
+                            {{ $location->asset_count }} unit
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                            <div class="flex justify-center space-x-2">
-                                <!-- View Button -->
-                                <a href="{{ route('pemantauan.show', $asset->asset_id) }}" class="text-gray-600 hover:text-gray-900" title="Lihat Detail">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-5 h-5 fill-current">
-                                        <path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"/>
+                            <div class="flex justify-center space-x-3">
+                                
+                                <!-- Download Location QR Code -->
+                                <a href="{{ route('pemantauan.qr-download-location', $location->kode_ruangan) }}" 
+                                   class="text-green-600 hover:text-green-900" 
+                                   title="Download QR Code Lokasi">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                                     </svg>
                                 </a>
-                                
-                                <!-- QR Code Download Button -->
-                                @if($asset->asset_id)
-                                    <a href="{{ route('pemantauan.qr-download', ['asset_id' => $asset->asset_id]) }}" class="text-green-600 hover:text-green-900" title="Download QR Code">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                                        </svg>
-                                    </a>
-                                @else
-                                    <span class="text-gray-400" title="Kode ruangan tidak tersedia">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
-                                        </svg>
-                                    </span>
-                                @endif
                             </div>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="11" class="px-6 py-10 text-center">
+                        <td colspan="5" class="px-6 py-10 text-center">
                             <div class="flex flex-col items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                 </svg>
-                                <h3 class="text-lg font-medium text-gray-900">Tidak Ada Data</h3>
-                                <p class="text-gray-500">Belum ada aset yang ditambahkan ke sistem.</p>
-                                <a href="{{ route('pemantauan.create') }}" class="mt-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-                                    Tambah Aset Baru
-                                </a>
+                                <h3 class="text-lg font-medium text-gray-900">Tidak Ada Lokasi</h3>
+                                <p class="text-gray-500">Belum ada lokasi yang terdaftar di sistem.</p>
                             </div>
                         </td>
                     </tr>
@@ -167,109 +371,86 @@
             </table>
         </div>
 
-        <!-- Mobile Card View -->
+        <!-- Mobile Card View for Locations -->
         <div class="lg:hidden">
-            @forelse ($assets as $index => $asset)
+            @forelse ($locations as $index => $location)
             <div class="border-b border-gray-200 p-4">
-                <div class="flex items-start justify-between">
-                    <div class="flex-1 min-w-0">
-                        <!-- Asset ID and Name -->
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
                         <div class="flex items-center space-x-2 mb-2">
                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {{ $asset->asset_id }}
+                                {{ $location->kode_ruangan }}
                             </span>
-                            @if($asset->foto_asset)
-                                <img src="{{ $asset->foto_asset }}" alt="Asset Image" class="h-8 w-8 rounded object-cover">
-                            @endif
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {{ $location->asset_count }} unit
+                            </span>
                         </div>
-                        
-                        <h3 class="text-sm font-medium text-gray-900 mb-1 truncate">
-                            {{ $asset->nama_asset }}
+                        <h3 class="text-sm font-medium text-gray-900">
+                            {{ $location->lokasi }}
                         </h3>
-                        
-                        <!-- Key Information -->
-                        <div class="space-y-1 text-xs text-gray-500">
-                            <div class="flex justify-between">
-                                <span>Kategori:</span>
-                                <span class="font-medium">{{ $asset->kategori }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Ruangan:</span>
-                                <span class="font-medium">{{ $asset->kode_ruangan }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Tanggal:</span>
-                                <span class="font-medium">{{ \Carbon\Carbon::parse($asset->tgl_perolehan)->format('d-m-Y') }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Nilai:</span>
-                                <span class="font-medium text-green-600">Rp{{ number_format($asset->nilai_perolehan, 0, ',', '.') }}</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Expandable Details -->
-                        <div class="mt-2" x-data="{ expanded: false }">
-                            <button @click="expanded = !expanded" class="text-xs text-blue-600 hover:text-blue-800">
-                                <span x-text="expanded ? 'Sembunyikan Detail' : 'Lihat Detail'"></span>
-                            </button>
-                            <div x-show="expanded" x-transition class="mt-2 space-y-1 text-xs text-gray-500" style="display: none;">
-                                <div><strong>Spesifikasi:</strong> {{ $asset->spesifikasi }}</div>
-                                <div><strong>Sumber Perolehan:</strong> {{ $asset->sumber_perolehan }}</div>
-                            </div>
-                        </div>
                     </div>
-                    
-                    <!-- Action Buttons -->
-                    <div class="flex flex-col space-y-2 ml-4">
-                        <a href="{{ route('pemantauan.show', $asset->asset_id) }}" 
-                           class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md" 
-                           title="Lihat Detail">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="w-4 h-4 fill-current">
-                                <path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"/>
+                    <div class="flex space-x-2">
+                        <a href="{{ route('pemantauan.index', ['kode_ruangan' => $location->kode_ruangan]) }}" 
+                           class="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-100 rounded-md" 
+                           title="Lihat Aset">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                         </a>
-                        
-                        @if($asset->asset_id)
-                            <a href="{{ route('pemantauan.qr-download', ['asset_id' => $asset->asset_id]) }}" 
-                               class="p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-md" 
-                               title="Download QR Code">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                                </svg>
-                            </a>
-                        @else
-                            <span class="p-2 text-gray-400" title="QR Code tidak tersedia">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
-                                </svg>
-                            </span>
-                        @endif
+                        <a href="{{ route('pemantauan.qr-download-location', $location->kode_ruangan) }}" 
+                           class="p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-md" 
+                           title="Download QR Code">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                            </svg>
+                        </a>
                     </div>
                 </div>
             </div>
             @empty
             <div class="p-8 text-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak Ada Data</h3>
-                <p class="text-gray-500 mb-4">Belum ada aset yang ditambahkan ke sistem.</p>
-                <a href="{{ route('pemantauan.create') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    Tambah Aset Baru
-                </a>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Tidak Ada Lokasi</h3>
+                <p class="text-gray-500">Belum ada lokasi yang terdaftar di sistem.</p>
             </div>
             @endforelse
         </div>
-
-        <!-- Pagination -->
-        @if($assets->hasPages())
-        <div class="px-4 lg:px-6 py-3 border-t border-gray-200">
-            {{ $assets->appends(request()->query())->links() }}
-        </div>
-        @endif
     </div>
 </div>
+
+<script>
+// Tab switching function for asset tabs
+function switchAssetTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    // Show selected tab content
+    document.getElementById(tabName + '-content').classList.remove('hidden');
+    
+    // Update tab styles
+    const assetTabsNav = document.getElementById('asset-tabs');
+    if (assetTabsNav) {
+        assetTabsNav.querySelectorAll('a').forEach(tab => {
+            tab.className = 'border-b-2 border-gray-300 py-2 px-4 text-sm font-medium text-gray-600 hover:text-green-600 hover:border-green-300';
+        });
+    }
+    
+    // Set active tab
+    if (tabName === 'assets') {
+        document.getElementById('assets-tab').className = 'border-b-2 border-green-500 py-2 px-4 text-sm font-medium text-green-600';
+    } else if (tabName === 'locations') {
+        document.getElementById('locations-tab').className = 'border-b-2 border-green-500 py-2 px-4 text-sm font-medium text-green-600';
+    }
+}
+
+// Initialize page - show assets tab by default
+document.addEventListener('DOMContentLoaded', function() {
+    switchAssetTab('assets');
+});
+</script>
 @endsection

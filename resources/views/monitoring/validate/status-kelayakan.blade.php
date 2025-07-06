@@ -73,6 +73,8 @@
                                         </svg>
                                     </button>
                                 </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Umur Aset (Tahun)</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max Umur (Tahun)</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200" id="assetsTableBody">
@@ -135,6 +137,22 @@
                                         <!-- Hidden inputs for condition and notes -->
                                         <input type="hidden" name="assets[{{ $asset->asset_id }}][condition]" value="{{ $condition }}">
                                         <input type="hidden" name="assets[{{ $asset->asset_id }}][notes]" value="{{ $notes }}">
+                                    </td>
+                                        <!-- NEW: Umur Aset Field -->
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <input type="text" 
+                                            name="assets[{{ $asset->asset_id }}][umur_aset]" 
+                                            value=""
+                                            class="w-24 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                                            placeholder="5 tahun">
+                                    </td>
+                                    <!-- NEW: Max Umur Field -->
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <input type="text" 
+                                            name="assets[{{ $asset->asset_id }}][max_umur]" 
+                                            value=""
+                                            class="w-24 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                                            placeholder="10 tahun">
                                     </td>
                                 </tr>
                             @empty

@@ -150,30 +150,33 @@ Route::middleware('auth')->group(function () {
     
     // Asset Management
     Route::prefix('pemantauan')->name('pemantauan.')->group(function () {
+        // Basic CRUD routes
         Route::get('/', [AssetController::class, 'index'])->name('index');
         Route::get('/create', [AssetController::class, 'create'])->name('create');
         Route::post('/', [AssetController::class, 'store'])->name('store');
         Route::get('/export-pdf', [AssetController::class, 'exportPdf'])->name('export-pdf');
-        Route::get('/qr-download/{asset_id}', [AssetController::class, 'downloadQrCode'])->name('qr-download');
         
-        // Monitoring routes - put these BEFORE the generic /{id} route
+        // Monitoring routes - MUST be before the {id} routes
         Route::get('/monitoring', [MonitoringController::class, 'index'])->name('monitoring.index');
         Route::get('/monitoring/print', [MonitoringController::class, 'printLaporan'])->name('monitoring.printLaporan');
         Route::get('/monitoring/verify', [MonitoringController::class, 'verify'])->name('monitoring.verify');
         Route::get('/monitoring/verification/{id_laporan}/{asset_id}', [MonitoringController::class, 'verifying'])->name('monitoring.verifying');
         Route::put('/monitoring/verification/{id_laporan}/{asset_id}', [MonitoringController::class, 'updateVerification'])->name('monitoring.updateVerification');
-
         Route::get('/monitoring/{kodeRuangan}', [MonitoringController::class, 'showMonitoring'])->name('monitoring.form');
         Route::post('/monitoring/store', [MonitoringController::class, 'storeMonitoring'])->name('monitoring.store');
-        
-        // Optional monitoring management routes
-        Route::get('/monitoring-history', [MonitoringController::class, 'index'])->name('monitoring.index');
+        Route::get('/monitoring-history', [MonitoringController::class, 'index'])->name('monitoring.history');
         Route::get('/monitoring-report/{id}', [MonitoringController::class, 'show'])->name('monitoring.show');
+        Route::delete('/monitoring/verification/report/{id_laporan}', [MonitoringController::class, 'destroyVerificationReport'])->name('monitoring.destroy-report');
+        Route::delete('/monitoring/verification/{reportId}/asset/{assetId}', [MonitoringController::class, 'destroyAssetVerification'])->name('monitoring.destroy-asset-verification');
+        Route::delete('/monitoring/verification/bulk-delete', [MonitoringController::class, 'bulkDeleteVerified'])->name('monitoring.bulk-delete-verified');
         
-        // Generic asset routes - put these LAST
+        // Asset-specific routes - MUST be at the end
         Route::get('/{id}', [AssetController::class, 'show'])->name('show');
-        Route::get('/{id}/edit', [AssetController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [AssetController::class, 'update'])->name('update');
+        Route::get('/{asset_id}/edit', [AssetController::class, 'edit'])->name('edit');
+        Route::put('/{asset_id}', [AssetController::class, 'update'])->name('update');
+        Route::get('/qr-download/{asset_id}', [AssetController::class, 'downloadQrCode'])->name('qr-download');
+        Route::get('/qr-download-location/{kode_ruangan}', [AssetController::class, 'downloadLocationQrCode'])->name('qr-download-location');
+        Route::delete('/{id}', [AssetController::class, 'destroy'])->name('destroy'); 
     });
 
     Route::prefix('perbaikan')->name('perbaikan.')->group(function () {

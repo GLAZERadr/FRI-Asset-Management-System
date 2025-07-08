@@ -139,14 +139,14 @@ class DamagedAssetController extends Controller
             $request->validate([
                 'qr_data' => 'required|string'
             ]);
-
+    
             $qrData = trim($request->input('qr_data'));
             
             Log::info('Processing QR for damage report', ['qr_data' => $qrData]);
             
             // Extract asset ID from QR data
             $assetId = $this->extractAssetIdFromQR($qrData);
-
+    
             if (!$assetId) {
                 Log::warning('No asset ID extracted from QR', ['qr_data' => $qrData]);
                 return response()->json([
@@ -155,12 +155,12 @@ class DamagedAssetController extends Controller
                     'qr_data' => $qrData
                 ], 404);
             }
-
+    
             // Search for the asset
             $asset = Asset::where('asset_id', $assetId)
                          ->select('asset_id', 'nama_asset', 'lokasi')
                          ->first();
-
+    
             if (!$asset) {
                 Log::warning('Asset not found', ['asset_id' => $assetId]);
                 return response()->json([
@@ -169,24 +169,25 @@ class DamagedAssetController extends Controller
                     'extracted_asset_id' => $assetId
                 ], 404);
             }
-
+    
             // Store asset data in session for the damage report form
             Session::put('damage_report_asset', [
                 'asset_id' => $asset->asset_id,
                 'nama_asset' => $asset->nama_asset,
                 'lokasi' => $asset->lokasi
             ]);
-
+    
             Log::info('Asset found for damage report', ['asset_id' => $asset->asset_id]);
-
+    
             return response()->json([
                 'success' => true,
                 'asset_id' => $asset->asset_id,
                 'nama_asset' => $asset->nama_asset,
                 'lokasi' => $asset->lokasi,
-                'message' => "Asset '{$asset->nama_asset}' ditemukan."
+                'message' => "Asset '{$asset->nama_asset}' ditemukan.",
+                'redirect_url' => route('damage-report.create') // ADD THIS LINE
             ]);
-
+    
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -199,7 +200,7 @@ class DamagedAssetController extends Controller
                 'trace' => $e->getTraceAsString(),
                 'qr_data' => $request->input('qr_data')
             ]);
-
+    
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat memproses QR code.'

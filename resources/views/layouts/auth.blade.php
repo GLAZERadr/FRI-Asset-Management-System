@@ -514,7 +514,7 @@
                 
                 async processQRResult(qrData) {
                     try {
-                        const endpoint = this.mode === 'monitoring' ? '/public/qr/process' : '/qr/process';
+                        const endpoint = this.mode === 'monitoring' ? '/public/qr/process' : '/damage-report/qr-process';
                         
                         const response = await fetch(endpoint, {
                             method: 'POST',

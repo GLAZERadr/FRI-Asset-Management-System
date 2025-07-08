@@ -170,6 +170,7 @@
                                     $statusClasses = [
                                         'belum_dibayar' => 'bg-yellow-100 text-yellow-800',
                                         'sudah_dibayar' => 'bg-green-100 text-green-800',
+                                        'menunggu_verifikasi' =>  'bg-yellow-100 text-yellow-800',
                                         'terlambat' => 'bg-red-100 text-red-800',
                                         'dibatalkan' => 'bg-gray-100 text-gray-800',
                                         'revisi' => 'bg-orange-100 text-orange-800'
@@ -178,6 +179,7 @@
                                     $statusLabels = [
                                         'belum_dibayar' => 'Belum dibayar',
                                         'sudah_dibayar' => 'Sudah dibayar',
+                                        'menunggu_verifikasi' => 'Menunggu Verifikasi',
                                         'terlambat' => 'Terlambat',
                                         'dibatalkan' => 'Dibatalkan',
                                         'revisi' => 'Revisi'

@@ -32,7 +32,7 @@ return new class extends Migration
                   ->default('setelah_perbaikan');
             
             // Payment status
-            $table->enum('status', ['belum_dibayar', 'sudah_dibayar', 'terlambat', 'dibatalkan', 'revisi'])
+            $table->enum('status', ['belum_dibayar', 'sudah_dibayar', 'terlambat', 'dibatalkan', 'revisi', 'menunggu_verifikasi'])
                   ->default('belum_dibayar')
                   ->comment('Payment status');
             

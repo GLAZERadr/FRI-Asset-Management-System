@@ -1406,20 +1406,16 @@ class PengajuanController extends Controller
             $stats['total_expenditure'] = Payment::where('status', 'sudah_dibayar')
                 ->sum('total_tagihan');
             
-            // Highest repair cost and asset
-            $highestCostMaintenance = (clone $allMaintenanceRequests)
-                ->whereHas('damagedAsset')
-                ->with(['damagedAsset', 'asset'])
-                ->get()
-                ->sortByDesc(function($maintenance) {
-                    return $maintenance->damagedAsset->estimasi_biaya ?? 0;
-                })
+            // CHANGED: Highest transaction cost instead of repair cost
+            $highestTransaction = Payment::orderBy('total_tagihan', 'desc')
                 ->first();
                 
-            $stats['highest_repair_cost'] = $highestCostMaintenance ? 
-                ($highestCostMaintenance->damagedAsset->estimasi_biaya ?? 0) : 0;
-            $stats['highest_cost_asset'] = $highestCostMaintenance ? 
-                $highestCostMaintenance->asset->nama_asset : '-';
+            $stats['highest_transaction_cost'] = $highestTransaction ? 
+                $highestTransaction->total_tagihan : 0;
+            $stats['highest_transaction_vendor'] = $highestTransaction ? 
+                $highestTransaction->vendor : '-';
+            $stats['highest_transaction_invoice'] = $highestTransaction ? 
+                $highestTransaction->no_invoice : '-';
             
             // Department-wise repair requests
             $stats['lab_requests'] = (clone $allMaintenanceRequests)
@@ -1846,23 +1842,42 @@ class PengajuanController extends Controller
                 'selected_assets.*' => 'integer',
                 'asset_type' => 'string|in:damaged_assets,maintenance_assets'
             ]);
-
+    
             $selectedAssets = $validated['selected_assets'] ?? [];
             $assetType = $validated['asset_type'] ?? 'damaged_assets';
+            $user = Auth::user();
             
-            // Determine filename based on selection
-            $filename = empty($selectedAssets) 
-                ? 'template_data_kerusakan_aset.xlsx'
-                : 'data_aset_terpilih_' . date('Y-m-d_H-i-s') . '.xlsx';
-
+            // Determine filename based on selection and user role
+            if (empty($selectedAssets)) {
+                $filename = 'template_kriteria_keuangan_logistik_' . date('Y-m-d') . '.xlsx';
+            } else {
+                $filename = 'data_aset_keuangan_logistik_' . date('Y-m-d_H-i-s') . '.xlsx';
+            }
+    
+            // Log the export activity for audit purposes
+            \Log::info('Kaur Keuangan Logistik SDM template export', [
+                'user' => $user->name,
+                'role' => $user->roles->first()->name ?? 'unknown',
+                'selected_assets_count' => count($selectedAssets),
+                'asset_type' => $assetType,
+                'filename' => $filename
+            ]);
+    
             return Excel::download(
                 new AssetTemplateExport($selectedAssets, $assetType), 
                 $filename
             );
+            
         } catch (\Exception $e) {
+            \Log::error('Kaur Keuangan Logistik SDM template export failed', [
+                'error' => $e->getMessage(),
+                'user' => Auth::user()->name ?? 'unknown',
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengunduh template: ' . $e->getMessage()
+                'message' => 'Gagal mengunduh template kriteria keuangan logistik: ' . $e->getMessage()
             ], 500);
         }
     }

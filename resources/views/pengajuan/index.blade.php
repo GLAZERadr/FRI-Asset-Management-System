@@ -87,13 +87,18 @@
             <div class="bg-white rounded-lg shadow p-6 flex items-center">
                 <div class="p-3 rounded-full bg-red-100 text-red-500 mr-4">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                 </div>
                 <div>
-                    <p class="text-gray-500 text-sm">Biaya Perbaikan Tertinggi</p>
-                    <p class="text-2xl font-bold text-red-600">Rp{{ number_format($stats['highest_repair_cost'] ?? 0, 0, ',', '.') }}</p>
-                    <p class="text-xs text-gray-400">{{ $stats['highest_cost_asset'] ?? '-' }}</p>
+                    <p class="text-gray-500 text-sm">Biaya Transaksi Tertinggi</p>
+                    <p class="text-2xl font-bold text-red-600">Rp{{ number_format($stats['highest_transaction_cost'] ?? 0, 0, ',', '.') }}</p>
+                    <div class="text-xs text-gray-400">
+                        <p class="truncate" title="{{ $stats['highest_transaction_vendor'] ?? '-' }}">{{ $stats['highest_transaction_vendor'] ?? '-' }}</p>
+                        @if(isset($stats['highest_transaction_invoice']) && $stats['highest_transaction_invoice'] !== '-')
+                            <p class="text-gray-500">{{ $stats['highest_transaction_invoice'] }}</p>
+                        @endif
+                    </div>
                 </div>
             </div>
             
@@ -123,10 +128,8 @@
                 <div>
                     <p class="text-gray-500 text-sm">Status Perbaikan</p>
                     <div class="grid grid-cols-2 gap-1 text-xs">
-                        <span class="text-green-600">Selesai ({{ $stats['completed'] ?? 0 }})</span>
                         <span class="text-yellow-600">Dikerjakan ({{ $stats['in_progress'] ?? 0 }})</span>
                         <span class="text-blue-600">Diterima ({{ $stats['received'] ?? 0 }})</span>
-                        <span class="text-red-600">Ditolak ({{ $stats['rejected'] ?? 0 }})</span>
                     </div>
                 </div>
             </div>

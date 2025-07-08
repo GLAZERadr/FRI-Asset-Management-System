@@ -1,10 +1,10 @@
 <?php
-
 namespace App\Modules\Exports;
 
 use App\Models\Criteria;
 use App\Models\DamagedAsset;
 use App\Models\MaintenanceAsset;
+use App\Models\AhpWeight;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
@@ -32,8 +32,8 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
      */
     public function collection()
     {
-        // Get dynamic criteria for columns
-        $criteria = Criteria::all();
+        // Get criteria specifically defined for keuangan_logistik department
+        $criteria = $this->getKeuanganLogistikCriteria();
         
         // If no assets selected, return sample/empty data
         if (empty($this->selectedAssets)) {
@@ -41,7 +41,6 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
         }
 
         $rows = collect();
-
         foreach ($this->selectedAssets as $assetId) {
             $row = $this->buildRowForAsset($assetId, $criteria);
             if ($row) {
@@ -53,25 +52,76 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
     }
 
     /**
+     * Get criteria specifically for Kaur Keuangan Logistik SDM
+     */
+    private function getKeuanganLogistikCriteria()
+    {
+        // First, try to get criteria from active AHP weights for keuangan_logistik department
+        $ahpCriteria = AhpWeight::where('department', 'keuangan_logistik')
+            ->where('is_active', true)
+            ->with('criteria')
+            ->get();
+
+        if ($ahpCriteria->isNotEmpty()) {
+            // Extract unique criteria from AHP weights
+            $criteriaIds = $ahpCriteria->pluck('criteria_id')->unique();
+            $criteria = Criteria::whereIn('kriteria_id', $criteriaIds)->get();
+            
+            \Log::info('Using AHP-based criteria for keuangan_logistik', [
+                'criteria_count' => $criteria->count(),
+                'criteria_ids' => $criteriaIds->toArray()
+            ]);
+            
+            return $criteria;
+        }
+
+        // Fallback: Get criteria that are commonly used for financial/logistic decisions
+        $criteria = Criteria::where(function($query) {
+            $query->where('department', 'keuangan_logistik')
+                  ->orWhere('department', 'all')
+                  ->orWhereNull('department');
+        })->get();
+
+        // If still empty, get default financial criteria
+        if ($criteria->isEmpty()) {
+            $criteria = Criteria::whereIn('nama_kriteria', [
+                'Tingkat Kerusakan',
+                'Estimasi Biaya Perbaikan', 
+                'Tingkat Kepentingan Asset',
+                'Estimasi Waktu Perbaikan',
+                'Kompleksitas Perbaikan',
+                'Dampak Operasional',
+                'Urgensi Perbaikan'
+            ])->get();
+        }
+
+        \Log::info('Using fallback criteria for keuangan_logistik', [
+            'criteria_count' => $criteria->count()
+        ]);
+
+        return $criteria;
+    }
+
+    /**
      * Generate sample data when no assets are selected
      */
     private function generateSampleData($criteria)
     {
         $sampleRows = collect();
         
-        // Create 1-2 sample rows to show the format
-        for ($i = 1; $i <= 2; $i++) {
+        // Create 2-3 sample rows to show the format for Kaur Keuangan Logistik SDM
+        for ($i = 1; $i <= 3; $i++) {
             $row = [
-                'ID Aset' => "SAMPLE-00{$i}",
-                'Nama Aset' => "Contoh Aset {$i}",
-                'Lokasi' => $i == 1 ? "Laboratorium Komputer" : "Ruang Administrasi",
+                'ID Aset' => "SAMPLE-KLS-00{$i}",
+                'Nama Aset' => "Contoh Aset Keuangan/Logistik {$i}",
+                'Lokasi' => $i == 1 ? "Ruang Keuangan" : ($i == 2 ? "Ruang Logistik" : "Ruang SDM"),
                 'Damage ID' => '', // Empty for new entries
-                'Deskripsi Kerusakan' => "Contoh deskripsi kerusakan aset {$i}",
+                'Deskripsi Kerusakan' => "Contoh kerusakan yang memerlukan persetujuan keuangan {$i}",
             ];
 
-            // Add sample values for dynamic criteria
+            // Add sample values for Kaur Keuangan Logistik criteria
             foreach ($criteria as $criterion) {
-                $row[$criterion->nama_kriteria] = $this->getSampleValueForCriteria($criterion);
+                $row[$criterion->nama_kriteria] = $this->getSampleValueForKeuanganLogistikCriteria($criterion);
             }
 
             $sampleRows->push($row);
@@ -81,50 +131,62 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
     }
 
     /**
-     * Get sample value for criteria
+     * Get sample value specifically for Kaur Keuangan Logistik criteria
      */
-    private function getSampleValueForCriteria($criterion)
+    private function getSampleValueForKeuanganLogistikCriteria($criterion)
     {
         $criteriaNameLower = strtolower($criterion->nama_kriteria);
         
-        if (str_contains($criteriaNameLower, 'kerusakan')) {
-            return 'Sedang';
-        }
-        
+        // Financial/Cost related criteria
         if (str_contains($criteriaNameLower, 'biaya') || str_contains($criteriaNameLower, 'cost')) {
-            return '500000';
+            return ['500000', '1000000', '250000'][rand(0, 2)];
         }
         
+        // Damage level criteria
+        if (str_contains($criteriaNameLower, 'kerusakan')) {
+            return ['Ringan', 'Sedang', 'Berat'][rand(0, 2)];
+        }
+        
+        // Asset importance criteria
         if (str_contains($criteriaNameLower, 'kepentingan') || str_contains($criteriaNameLower, 'prioritas')) {
-            return 'Tinggi';
+            return ['Rendah', 'Sedang', 'Tinggi'][rand(0, 2)];
         }
         
+        // Time estimation criteria
         if (str_contains($criteriaNameLower, 'waktu')) {
-            return '2 hari';
+            return ['1 hari', '3 hari', '1 minggu'][rand(0, 2)];
         }
         
+        // Complexity criteria for financial approval
         if (str_contains($criteriaNameLower, 'kompleksitas')) {
-            return 'Sedang';
+            return ['Rendah', 'Sedang', 'Tinggi'][rand(0, 2)];
         }
         
-        if (str_contains($criteriaNameLower, 'urgensi')) {
-            return 'Tinggi';
-        }
-        
+        // Operational impact criteria
         if (str_contains($criteriaNameLower, 'dampak')) {
-            return 'Sedang';
+            return ['Minimal', 'Sedang', 'Signifikan'][rand(0, 2)];
         }
         
-        // Default based on criteria type
+        // Urgency criteria for financial decision
+        if (str_contains($criteriaNameLower, 'urgensi')) {
+            return ['Normal', 'Mendesak', 'Sangat Mendesak'][rand(0, 2)];
+        }
+        
+        // Budget impact criteria
+        if (str_contains($criteriaNameLower, 'anggaran') || str_contains($criteriaNameLower, 'budget')) {
+            return ['Rendah', 'Sedang', 'Tinggi'][rand(0, 2)];
+        }
+        
+        // Default based on criteria type for financial context
         if ($criterion->tipe_kriteria === 'cost') {
-            return '100000';
+            return '750000';
         } else {
-            return 'Sedang';
+            return ['Rendah', 'Sedang', 'Tinggi'][rand(0, 2)];
         }
     }
 
     /**
-     * Build a row for a specific asset
+     * Build a row for a specific asset with Kaur Keuangan Logistik context
      */
     private function buildRowForAsset($assetId, $criteria)
     {
@@ -148,7 +210,7 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
             $damagedAsset = $maintenanceAsset->damagedAsset;
         }
 
-        // Build base row data
+        // Build base row data with financial context
         $row = [
             'ID Aset' => $asset->asset_id,
             'Nama Aset' => $asset->nama_asset,
@@ -157,9 +219,9 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
             'Deskripsi Kerusakan' => $damagedAsset ? $damagedAsset->deskripsi_kerusakan : '',
         ];
 
-        // Add dynamic criteria columns with actual values
+        // Add Kaur Keuangan Logistik specific criteria columns with actual values
         foreach ($criteria as $criterion) {
-            $value = $this->getActualValueForCriteria($criterion, $asset, $damagedAsset);
+            $value = $this->getActualValueForKeuanganLogistikCriteria($criterion, $asset, $damagedAsset);
             $row[$criterion->nama_kriteria] = $value;
         }
 
@@ -167,15 +229,15 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
     }
 
     /**
-     * Get actual value for criteria based on asset and damage data
+     * Get actual value for Kaur Keuangan Logistik criteria
      */
-    private function getActualValueForCriteria($criterion, $asset, $damagedAsset)
+    private function getActualValueForKeuanganLogistikCriteria($criterion, $asset, $damagedAsset)
     {
         $criteriaNameLower = strtolower($criterion->nama_kriteria);
         
-        // Map criteria to actual asset/damage data
+        // Priority mapping for financial approval context
         if (str_contains($criteriaNameLower, 'kerusakan') && $damagedAsset) {
-            return $damagedAsset->tingkat_kerusakan ?? '';
+            return $damagedAsset->tingkat_kerusakan ?? 'Sedang';
         }
         
         if (str_contains($criteriaNameLower, 'biaya') && $damagedAsset) {
@@ -183,22 +245,55 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
         }
         
         if (str_contains($criteriaNameLower, 'kepentingan') || str_contains($criteriaNameLower, 'prioritas')) {
-            return $asset->tingkat_kepentingan_asset ?? '';
+            return $asset->tingkat_kepentingan_asset ?? 'Sedang';
         }
         
         if (str_contains($criteriaNameLower, 'waktu') && $damagedAsset) {
-            return $damagedAsset->estimasi_waktu_perbaikan ?? '';
+            return $damagedAsset->estimasi_waktu_perbaikan ?? '3 hari';
         }
         
         if (str_contains($criteriaNameLower, 'vendor') && $damagedAsset) {
             return $damagedAsset->vendor ? 'Ya' : 'Tidak';
         }
 
-        if (str_contains($criteriaNameLower, 'kompleksitas') && $damagedAsset) {
-            return $damagedAsset->tingkat_kerusakan ?? '';
+        // Financial-specific criteria mappings
+        if (str_contains($criteriaNameLower, 'dampak')) {
+            // Map operational impact based on asset importance
+            $importance = $asset->tingkat_kepentingan_asset ?? '';
+            switch ($importance) {
+                case 'Tinggi': return 'Signifikan';
+                case 'Sedang': return 'Sedang';
+                case 'Rendah': return 'Minimal';
+                default: return 'Sedang';
+            }
         }
 
-        // **ENHANCED: Check additional criteria data (stored as JSON)**
+        if (str_contains($criteriaNameLower, 'urgensi')) {
+            // Map urgency based on damage level
+            $damageLevel = $damagedAsset->tingkat_kerusakan ?? '';
+            switch ($damageLevel) {
+                case 'Berat': return 'Sangat Mendesak';
+                case 'Sedang': return 'Mendesak';
+                case 'Ringan': return 'Normal';
+                default: return 'Normal';
+            }
+        }
+
+        if (str_contains($criteriaNameLower, 'kompleksitas')) {
+            // Map complexity based on damage level and cost
+            $damageLevel = $damagedAsset->tingkat_kerusakan ?? '';
+            $cost = $damagedAsset->estimasi_biaya ?? 0;
+            
+            if ($damageLevel === 'Berat' || $cost > 1000000) {
+                return 'Tinggi';
+            } elseif ($damageLevel === 'Sedang' || $cost > 500000) {
+                return 'Sedang';
+            } else {
+                return 'Rendah';
+            }
+        }
+
+        // Check additional criteria data (stored as JSON)
         if ($damagedAsset && $damagedAsset->additional_criteria) {
             $additionalData = json_decode($damagedAsset->additional_criteria, true);
             if (is_array($additionalData) && isset($additionalData[$criterion->kriteria_id])) {
@@ -207,13 +302,14 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
             }
         }
 
-        // Try to map to asset properties using property_exists or array access
-        $assetKeys = [
+        // Extended property mapping for financial context
+        $financialKeys = [
             'tingkat_kepentingan_asset', 'kategori', 'merk', 'tahun_perolehan', 
-            'kondisi', 'status_operasional', 'departemen'
+            'kondisi', 'status_operasional', 'departemen', 'nilai_perolehan',
+            'lokasi_detail', 'penanggung_jawab'
         ];
         
-        foreach ($assetKeys as $key) {
+        foreach ($financialKeys as $key) {
             if (str_contains($criteriaNameLower, str_replace('_', '', $key))) {
                 if (is_object($asset) && property_exists($asset, $key)) {
                     return $asset->{$key};
@@ -223,14 +319,15 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
             }
         }
 
-        // Try to map to damaged asset properties
+        // Financial-specific damaged asset properties
         if ($damagedAsset) {
-            $damagedKeys = [
+            $financialDamagedKeys = [
                 'petugas', 'status', 'reporter_name', 'reporter_role',
-                'complexity', 'urgency', 'impact', 'frequency'
+                'complexity', 'urgency', 'impact', 'frequency', 'budget_impact',
+                'approval_level_required', 'cost_center'
             ];
             
-            foreach ($damagedKeys as $key) {
+            foreach ($financialDamagedKeys as $key) {
                 if (str_contains($criteriaNameLower, str_replace('_', '', $key))) {
                     if (is_object($damagedAsset) && property_exists($damagedAsset, $key)) {
                         return $damagedAsset->{$key};
@@ -241,7 +338,7 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
             }
         }
 
-        // **NEW: Try direct property name matching (case-insensitive)**
+        // Direct property name matching for financial criteria
         $directKey = strtolower(str_replace(' ', '_', $criterion->nama_kriteria));
         
         // Check asset properties directly
@@ -262,7 +359,7 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
             }
         }
         
-        // Default empty value
+        // Default value for financial approval context
         return '';
     }
 
@@ -271,10 +368,10 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
      */
     public function headings(): array
     {
-        // Get dynamic criteria from database
-        $criteria = Criteria::all();
+        // Get Kaur Keuangan Logistik specific criteria from database
+        $criteria = $this->getKeuanganLogistikCriteria();
         
-        // Base required columns
+        // Base required columns for financial approval
         $headings = [
             'ID Aset',
             'Nama Aset', 
@@ -283,7 +380,7 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
             'Deskripsi Kerusakan',
         ];
         
-        // Add dynamic criteria columns
+        // Add Kaur Keuangan Logistik specific criteria columns
         foreach ($criteria as $criterion) {
             $headings[] = $criterion->nama_kriteria;
         }
@@ -296,17 +393,17 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
      */
     public function styles(Worksheet $sheet)
     {
-        $criteria = Criteria::all();
+        $criteria = $this->getKeuanganLogistikCriteria();
         $totalColumns = 5 + $criteria->count(); // 5 base columns
         $lastColumn = chr(64 + $totalColumns); // Convert to column letter
         
         $styles = [
-            // Style the first row (heading row) - bold
+            // Style the first row (heading row) - bold with financial theme
             1 => ['font' => ['bold' => true, 'size' => 11]],
             
-            // Base columns styling
+            // Base columns styling with financial color scheme
             'A1:E1' => [
-                'fill' => ['fillType' => 'solid', 'color' => ['rgb' => 'E3F2FD']], // Light blue
+                'fill' => ['fillType' => 'solid', 'color' => ['rgb' => 'E8F5E8']], // Light green for financial
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -326,13 +423,13 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
             ]
         ];
 
-        // Style criteria columns differently
+        // Style Kaur Keuangan Logistik criteria columns with distinctive color
         if ($criteria->count() > 0) {
             $startCol = 'F'; // After base columns (A-E)
             $endCol = chr(69 + $criteria->count()); // Calculate end column
             
             $styles["{$startCol}1:{$endCol}1"] = [
-                'fill' => ['fillType' => 'solid', 'color' => ['rgb' => 'F3E5F5']], // Light purple
+                'fill' => ['fillType' => 'solid', 'color' => ['rgb' => 'FFF3E0']], // Light orange for financial criteria
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -342,32 +439,41 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
             ];
         }
 
-        // Add comments/notes for important columns
-        $sheet->getComment('A1')->getText()->createTextRun('ID Aset harus unik dan sesuai dengan data sistem');
-        $sheet->getComment('D1')->getText()->createTextRun('Kosongkan jika membuat laporan baru. Isi jika update data existing.');
+        // Add financial-specific comments/notes
+        $sheet->getComment('A1')->getText()->createTextRun('ID Aset untuk persetujuan keuangan/logistik');
+        $sheet->getComment('D1')->getText()->createTextRun('Kosongkan untuk pengajuan baru. Isi untuk update data existing.');
+        $sheet->getComment('E1')->getText()->createTextRun('Deskripsi detail untuk justifikasi persetujuan keuangan');
         
-        // Set column widths for better readability
+        // Set column widths optimized for financial data
         $sheet->getColumnDimension('A')->setWidth(15); // ID Aset
-        $sheet->getColumnDimension('B')->setWidth(25); // Nama Aset
-        $sheet->getColumnDimension('C')->setWidth(20); // Lokasi
+        $sheet->getColumnDimension('B')->setWidth(30); // Nama Aset
+        $sheet->getColumnDimension('C')->setWidth(25); // Lokasi
         $sheet->getColumnDimension('D')->setWidth(15); // Damage ID
-        $sheet->getColumnDimension('E')->setWidth(30); // Deskripsi
+        $sheet->getColumnDimension('E')->setWidth(35); // Deskripsi
 
-        // Set criteria columns width
+        // Set Kaur Keuangan Logistik criteria columns width and add validation hints
         foreach ($criteria as $index => $criterion) {
             $colIndex = chr(70 + $index); // Start from F
-            $sheet->getColumnDimension($colIndex)->setWidth(18);
+            $sheet->getColumnDimension($colIndex)->setWidth(20);
             
-            // Add validation hints in comments
-            if (str_contains(strtolower($criterion->nama_kriteria), 'kerusakan')) {
+            // Add validation hints specific to financial approval
+            $criteriaNameLower = strtolower($criterion->nama_kriteria);
+            
+            if (str_contains($criteriaNameLower, 'kerusakan')) {
                 $sheet->getComment($colIndex . '1')->getText()
-                    ->createTextRun('Pilih: Ringan, Sedang, atau Berat');
-            } elseif (str_contains(strtolower($criterion->nama_kriteria), 'biaya')) {
+                    ->createTextRun('Pilih: Ringan, Sedang, atau Berat (untuk justifikasi biaya)');
+            } elseif (str_contains($criteriaNameLower, 'biaya') || str_contains($criteriaNameLower, 'cost')) {
                 $sheet->getComment($colIndex . '1')->getText()
-                    ->createTextRun('Masukkan angka tanpa titik atau koma (contoh: 500000)');
-            } elseif (str_contains(strtolower($criterion->nama_kriteria), 'kepentingan')) {
+                    ->createTextRun('Masukkan angka tanpa titik/koma. Contoh: 500000 (untuk persetujuan budget)');
+            } elseif (str_contains($criteriaNameLower, 'kepentingan') || str_contains($criteriaNameLower, 'prioritas')) {
                 $sheet->getComment($colIndex . '1')->getText()
-                    ->createTextRun('Pilih: Rendah, Sedang, atau Tinggi');
+                    ->createTextRun('Pilih: Rendah, Sedang, atau Tinggi (untuk prioritas budget)');
+            } elseif (str_contains($criteriaNameLower, 'urgensi')) {
+                $sheet->getComment($colIndex . '1')->getText()
+                    ->createTextRun('Pilih: Normal, Mendesak, atau Sangat Mendesak (untuk justifikasi keuangan)');
+            } elseif (str_contains($criteriaNameLower, 'dampak')) {
+                $sheet->getComment($colIndex . '1')->getText()
+                    ->createTextRun('Pilih: Minimal, Sedang, atau Signifikan (untuk analisis risiko keuangan)');
             }
         }
 
@@ -375,22 +481,22 @@ class AssetTemplateExport extends DefaultValueBinder implements FromCollection, 
     }
 
     /**
-     * Custom value binder to handle different data types properly
+     * Custom value binder to handle financial data types properly
      */
     public function bindValue(Cell $cell, $value)
     {
-        // Handle numeric values
+        // Handle financial/cost values as numeric
         if (is_numeric($value)) {
             $cell->setValueExplicit($value, DataType::TYPE_NUMERIC);
             return true;
         }
-
-        // Handle text values
+        
+        // Handle financial text values (like currency descriptions)
         if (is_string($value)) {
             $cell->setValueExplicit($value, DataType::TYPE_STRING);
             return true;
         }
-
+        
         // Default behavior for other types
         return parent::bindValue($cell, $value);
     }

@@ -53,6 +53,7 @@
                                         $statusClasses = [
                                             'belum_dibayar' => 'bg-yellow-100 text-yellow-800',
                                             'sudah_dibayar' => 'bg-green-100 text-green-800',
+                                            'menunggu_verifikasi' => 'bg-yellow-100 text-yellow-800',
                                             'terlambat' => 'bg-red-100 text-red-800',
                                             'dibatalkan' => 'bg-gray-100 text-gray-800',
                                             'revisi' => 'bg-orange-100 text-orange-800'
@@ -61,6 +62,7 @@
                                         $statusLabels = [
                                             'belum_dibayar' => 'Belum dibayar',
                                             'sudah_dibayar' => 'Sudah dibayar',
+                                            'menunggu_verifikasi' => 'Menunggu Verifikasi',
                                             'terlambat' => 'Terlambat',
                                             'dibatalkan' => 'Dibatalkan',
                                             'revisi' => 'Revisi'
@@ -263,7 +265,21 @@
                     @endif
 
                     @can('edit_payment')
-                        @if($payment->status !== 'sudah_dibayar')
+                        @if($payment->status == 'menunggu_verifikasi')
+                            <form action="{{ route('pembayaran.mark-paid', $payment) }}" method="POST" style="display: inline;">
+                                @csrf
+                                @method('PATCH')
+                                <button type="submit" 
+                                        onclick="return confirm('Apakah Anda yakin ingin menandai pembayaran ini sebagai sudah dibayar?')"
+                                        class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Verifikasi Bayar
+                                </button>
+                            </form>
+                        @endif
+                        @if($payment->status != 'sudah_dibayar')
                             <a href="{{ route('pembayaran.edit', $payment) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -314,7 +330,7 @@
                 <form id="paymentPhotoForm" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" id="paymentId" name="payment_id" value="">
-                    <input type="hidden" name="status" value="sudah_dibayar">
+                    <input type="hidden" name="status" value="menunggu_verifikasi">
                     
                     <!-- Drag and Drop Area -->
                     <div id="paymentDropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer">
@@ -629,7 +645,7 @@ paymentPhotoForm.addEventListener('submit', function(e) {
     
     const formData = new FormData();
     formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-    formData.append('status', 'sudah_dibayar');
+    formData.append('status', 'menunggu_verifikasi');
     formData.append('payment_photo', selectedPaymentFile);
     
     // Show progress

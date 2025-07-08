@@ -343,7 +343,7 @@ class PaymentController extends Controller
     {
         $validated = $request->validate([
             'payment_photo' => 'required|file|mimes:jpg,jpeg,png,gif,pdf|max:5120', // 5MB max
-            'status' => 'required|in:sudah_dibayar',
+            'status' => 'required|in:menunggu_verifikasi',
         ], [
             'payment_photo.required' => 'Bukti pembayaran diperlukan.',
             'payment_photo.mimes' => 'File harus berformat JPG, PNG, GIF, atau PDF.',
@@ -415,7 +415,7 @@ class PaymentController extends Controller
             // Update payment with photo and status
             $payment->update([
                 'photo_pembayaran' => $photoPath,
-                'status' => 'sudah_dibayar',
+                'status' => 'menunggu_verifikasi',
                 'tanggal_pembayaran' => now(),
             ]);
 
@@ -444,7 +444,6 @@ class PaymentController extends Controller
 
         $payment->update([
             'status' => 'sudah_dibayar',
-            'tanggal_pembayaran' => now(),
         ]);
 
         return redirect()->route('pembayaran.show', $payment->id)

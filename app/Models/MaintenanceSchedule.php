@@ -21,6 +21,7 @@ class MaintenanceSchedule extends Model
         'catatan_tambahan',
         'auto_generated',
         'deskripsi_pemeliharaan',
+        'catatan_tindak_lanjut',
         'created_by'
     ];
 

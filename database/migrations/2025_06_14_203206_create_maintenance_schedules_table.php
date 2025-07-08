@@ -20,6 +20,7 @@ return new class extends Migration
             $table->text('catatan_tambahan')->nullable(); // Catatan Tambahan
             $table->boolean('auto_generated')->default(false); // Flag untuk jadwal otomatis
             $table->text('deskripsi_pemeliharaan')->nullable(); // Deskripsi setelah pemeliharaan
+            $table->text('catatan_tindak_lanjut')->nullable();
             $table->string('created_by')->nullable();
             $table->timestamps();
 

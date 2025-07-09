@@ -112,14 +112,20 @@
                         
                         <div>
                             <label for="file_invoice" class="block text-sm font-medium text-gray-700">
-                                File Invoice
+                                File Invoice <span class="text-red-500">*</span>
                             </label>
                             <input type="file" 
                                 name="file_invoice" 
                                 id="file_invoice" 
-                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                accept=".pdf"
+                                required
                                 class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 @error('file_invoice') border-red-300 @enderror">
-                            <p class="mt-1 text-xs text-gray-500">Format yang didukung: PDF, JPG, PNG, DOC, DOCX (Max: 5MB)</p>
+                            <p class="mt-1 text-xs text-gray-500">
+                                <span class="font-medium">Wajib upload file invoice dalam format PDF</span><br>
+                                • Ukuran maksimal: 5MB<br>
+                                • Pastikan file dapat dibuka dan terbaca dengan jelas<br>
+                                • File harus berisi informasi lengkap tagihan
+                            </p>
                             @error('file_invoice')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror

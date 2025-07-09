@@ -220,16 +220,22 @@
                             
                             <!-- Navigation Arrows -->
                             @if(count($maintenanceAsset->photos) > 1)
-                            <button onclick="previousPhoto()" class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75 transition-all">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                                </svg>
-                            </button>
-                            <button onclick="nextPhoto()" class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75 transition-all">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                </svg>
-                            </button>
+                            <div class="p-4 bg-white">
+                                <div class="flex space-x-2 overflow-x-auto">
+                                    @foreach($maintenanceAsset->photos as $index => $photo)
+                                    <div class="flex-shrink-0">
+                                        <button onclick="showPhoto({{ $index }})" 
+                                                class="thumbnail-btn block w-20 h-20 rounded-lg overflow-hidden border-2 transition-all {{ $index === 0 ? 'border-blue-500' : 'border-gray-300 hover:border-gray-400' }}"
+                                                data-index="{{ $index }}">
+                                            <img src="{{ $photo['path'] }}" 
+                                                alt="Thumbnail {{ $index + 1 }}"
+                                                class="w-full h-full object-cover"
+                                                onerror="this.src='{{ asset('images/placeholder.jpg') }}'">
+                                        </button>
+                                    </div>
+                                    @endforeach
+                                </div>
+                            </div>
                             @endif
 
                             <!-- Photo Counter -->
@@ -348,9 +354,18 @@ function showPhoto(index) {
     currentPhotoIndex = index;
     const photo = photos[index];
     
+    // Fix: Use photo.path directly (it should be a full Cloudinary URL)
+    // Or construct it properly if it's a relative path
+    let photoPath = photo.path;
+    
+    // If photo.path is not a full URL (doesn't start with http), construct it
+    if (!photoPath.startsWith('http')) {
+        // If it's stored as a relative path, construct the full URL
+        photoPath = "{{ asset('storage/') }}/" + photo.path;
+    }
+    
     // Update main image
     const mainImage = document.getElementById('mainImage');
-    const photoPath = "{{ asset('storage/') }}/" + photo.path;
     mainImage.src = photoPath;
     mainImage.alt = photo.original_name || `foto-${index + 1}`;
     
@@ -447,6 +462,8 @@ function downloadAllPhotos() {
         }, 3000);
     }
 }
+
+
 function downloadFile(url, filename) {
     const link = document.createElement('a');
     link.href = url;

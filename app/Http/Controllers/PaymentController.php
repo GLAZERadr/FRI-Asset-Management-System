@@ -617,24 +617,75 @@ class PaymentController extends Controller
         }
     }
     
+    /**
+     * Download payment photo file from Cloudinary - CORRECTED VERSION
+     */
     public function downloadPaymentPhoto(Payment $payment)
     {
         if (!$payment->photo_pembayaran) {
             return redirect()->back()->with('error', 'Bukti pembayaran tidak ditemukan.');
         }
-    
+
         try {
-            // For payment photos, they should mostly be images
-            $downloadUrl = $payment->photo_pembayaran;
-            $separator = str_contains($downloadUrl, '?') ? '&' : '?';
-            $downloadUrl .= $separator . 'fl_attachment';
+            // Get the actual file content from Cloudinary
+            $response = Http::timeout(30)->get($payment->photo_pembayaran);
             
-            return redirect($downloadUrl);
+            if (!$response->successful()) {
+                throw new \Exception('Failed to fetch file from Cloudinary');
+            }
+
+            // Get original filename or create one
+            $filename = 'bukti_pembayaran_' . $payment->no_invoice;
             
+            // Determine content type and file extension based on the Cloudinary URL
+            $extension = pathinfo(parse_url($payment->photo_pembayaran, PHP_URL_PATH), PATHINFO_EXTENSION);
+            $contentType = 'application/octet-stream'; // Default
+            
+            switch (strtolower($extension)) {
+                case 'pdf':
+                    $contentType = 'application/pdf';
+                    $filename .= '.pdf';
+                    break;
+                case 'jpg':
+                case 'jpeg':
+                    $contentType = 'image/jpeg';
+                    $filename .= '.jpg';
+                    break;
+                case 'png':
+                    $contentType = 'image/png';
+                    $filename .= '.png';
+                    break;
+                case 'gif':
+                    $contentType = 'image/gif';
+                    $filename .= '.gif';
+                    break;
+                default:
+                    // Try to detect from response headers
+                    $contentType = $response->header('Content-Type') ?: 'application/octet-stream';
+                    $filename .= '.' . ($extension ?: 'file');
+            }
+            
+            Log::info('Payment photo download successful', [
+                'payment_id' => $payment->id,
+                'filename' => $filename,
+                'content_type' => $contentType,
+                'file_size' => strlen($response->body())
+            ]);
+            
+            // Return the file as a proper download
+            return response($response->body())
+                ->header('Content-Type', $contentType)
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Content-Length', strlen($response->body()))
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
+                
         } catch (\Exception $e) {
             Log::error('Payment photo download failed', [
                 'payment_id' => $payment->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'file_url' => $payment->photo_pembayaran
             ]);
             
             return redirect()->back()->with('error', 'Gagal mengunduh bukti pembayaran: ' . $e->getMessage());

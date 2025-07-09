@@ -20,6 +20,9 @@ use App\Modules\Imports\AssetDamageImport;
 use App\Modules\Exports\AssetTemplateExport;
 use Cloudinary\Configuration\Configuration;
 use Cloudinary\Api\Upload\UploadApi;
+use ZipArchive;
+use Illuminate\Support\Facades\Http; 
+
 
 class PengajuanController extends Controller
 {
@@ -2161,98 +2164,167 @@ class PengajuanController extends Controller
         }
     }
 
-    public function downloadPhoto(Request $request, $id, $photoIndex)
+    public function downloadPhoto($id, $photoIndex)
     {
         try {
             $maintenanceAsset = MaintenanceAsset::findOrFail($id);
             
-            // Check if user has permission to view this maintenance asset
-            $user = Auth::user();
-            if (!$this->canViewMaintenanceAsset($user, $maintenanceAsset)) {
-                abort(403, 'Unauthorized action.');
-            }
-            
-            // Check if photos exist
-            if (!$maintenanceAsset->photos || !is_array($maintenanceAsset->photos)) {
-                abort(404, 'No photos found.');
-            }
-            
-            // Check if photo index is valid
+            // Check if photo index exists
             if (!isset($maintenanceAsset->photos[$photoIndex])) {
-                abort(404, 'Photo not found.');
+                return redirect()->back()->with('error', 'Foto tidak ditemukan.');
             }
             
             $photo = $maintenanceAsset->photos[$photoIndex];
-            $photoUrl = $photo['path']; // Cloudinary URL
+            $photoUrl = $photo['path'];
             
-            // Check if it's a valid Cloudinary URL
-            if (!str_contains($photoUrl, 'cloudinary.com')) {
-                abort(404, 'Invalid photo URL.');
+            // Fetch photo from Cloudinary
+            $response = Http::timeout(30)->get($photoUrl);
+            
+            if (!$response->successful()) {
+                throw new \Exception('Failed to fetch photo from Cloudinary');
             }
             
-            // Redirect to Cloudinary URL for download
-            return redirect($photoUrl);
+            // Determine filename and content type
+            $originalName = $photo['original_name'] ?? 'foto-' . ($photoIndex + 1) . '.jpg';
+            $filename = 'foto_perbaikan_' . $maintenanceAsset->maintenance_id . '_' . ($photoIndex + 1) . '_' . $originalName;
             
+            // Get content type from response or determine from filename
+            $contentType = $response->header('Content-Type') ?: 'image/jpeg';
+            
+            Log::info('Photo download successful', [
+                'maintenance_id' => $maintenanceAsset->id,
+                'photo_index' => $photoIndex,
+                'filename' => $filename,
+                'content_type' => $contentType
+            ]);
+            
+            return response($response->body())
+                ->header('Content-Type', $contentType)
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Content-Length', strlen($response->body()));
+                
         } catch (\Exception $e) {
-            abort(404, 'Photo not found.');
+            Log::error('Photo download failed', [
+                'maintenance_id' => $id,
+                'photo_index' => $photoIndex,
+                'error' => $e->getMessage()
+            ]);
+            
+            return redirect()->back()->with('error', 'Gagal mengunduh foto: ' . $e->getMessage());
         }
     }
     
+    /**
+     * Download all photos as ZIP file
+     */
     public function downloadAllPhotos($id)
     {
         try {
             $maintenanceAsset = MaintenanceAsset::findOrFail($id);
             
-            // Check if user has permission to view this maintenance asset
-            $user = Auth::user();
-            if (!$this->canViewMaintenanceAsset($user, $maintenanceAsset)) {
-                abort(403, 'Unauthorized action.');
+            if (!$maintenanceAsset->photos || count($maintenanceAsset->photos) === 0) {
+                return redirect()->back()->with('error', 'Tidak ada foto untuk didownload.');
             }
             
-            // Check if photos exist
-            if (!$maintenanceAsset->photos || !is_array($maintenanceAsset->photos) || count($maintenanceAsset->photos) === 0) {
-                abort(404, 'No photos found.');
+            // Create temporary directory for ZIP
+            $tempDir = storage_path('app/temp/photos_' . $id . '_' . time());
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0777, true);
             }
             
-            // Create a ZIP file
-            $zip = new \ZipArchive();
-            $zipFileName = 'foto-perbaikan-' . $maintenanceAsset->maintenance_id . '.zip';
-            $zipFilePath = storage_path('app/temp/' . $zipFileName);
+            $zipFilename = 'foto_perbaikan_' . $maintenanceAsset->maintenance_id . '.zip';
+            $zipPath = $tempDir . '/' . $zipFilename;
             
-            // Create temp directory if it doesn't exist
-            if (!file_exists(storage_path('app/temp'))) {
-                mkdir(storage_path('app/temp'), 0755, true);
+            $zip = new ZipArchive();
+            if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== TRUE) {
+                throw new \Exception('Cannot create ZIP file');
             }
             
-            if ($zip->open($zipFilePath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== TRUE) {
-                abort(500, 'Could not create ZIP file.');
-            }
-            
-            // Download each photo from Cloudinary and add to ZIP
+            // Download each photo and add to ZIP
             foreach ($maintenanceAsset->photos as $index => $photo) {
-                $photoUrl = $photo['path']; // Cloudinary URL
-                
-                if (str_contains($photoUrl, 'cloudinary.com')) {
-                    try {
-                        $imageData = file_get_contents($photoUrl);
-                        if ($imageData !== false) {
-                            $filename = $photo['original_name'] ?? 'foto-perbaikan-' . ($index + 1) . '.jpg';
-                            $zip->addFromString($filename, $imageData);
-                        }
-                    } catch (\Exception $e) {
-                        Log::error('Failed to download photo for ZIP: ' . $e->getMessage());
-                        continue;
+                try {
+                    $photoUrl = $photo['path'];
+                    $response = Http::timeout(30)->get($photoUrl);
+                    
+                    if ($response->successful()) {
+                        $originalName = $photo['original_name'] ?? 'foto-' . ($index + 1) . '.jpg';
+                        $filename = sprintf('%02d_%s', $index + 1, $originalName);
+                        
+                        // Add photo to ZIP
+                        $zip->addFromString($filename, $response->body());
+                        
+                        Log::info('Photo added to ZIP', [
+                            'maintenance_id' => $id,
+                            'photo_index' => $index,
+                            'filename' => $filename
+                        ]);
+                    } else {
+                        Log::warning('Failed to download photo for ZIP', [
+                            'maintenance_id' => $id,
+                            'photo_index' => $index,
+                            'photo_url' => $photoUrl
+                        ]);
                     }
+                } catch (\Exception $e) {
+                    Log::error('Error processing photo for ZIP', [
+                        'maintenance_id' => $id,
+                        'photo_index' => $index,
+                        'error' => $e->getMessage()
+                    ]);
                 }
             }
             
             $zip->close();
             
-            // Return ZIP file download and then delete it
-            return response()->download($zipFilePath, $zipFileName)->deleteFileAfterSend(true);
+            // Check if ZIP file was created and has content
+            if (!file_exists($zipPath) || filesize($zipPath) === 0) {
+                throw new \Exception('ZIP file creation failed or is empty');
+            }
+            
+            Log::info('ZIP file created successfully', [
+                'maintenance_id' => $id,
+                'zip_path' => $zipPath,
+                'zip_size' => filesize($zipPath)
+            ]);
+            
+            // Return ZIP file as download and clean up
+            return response()->download($zipPath, $zipFilename)->deleteFileAfterSend(true);
             
         } catch (\Exception $e) {
-            abort(500, 'Could not create photo archive.');
+            Log::error('ZIP download failed', [
+                'maintenance_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Clean up temp directory if it exists
+            if (isset($tempDir) && file_exists($tempDir)) {
+                $this->cleanupTempDirectory($tempDir);
+            }
+            
+            return redirect()->back()->with('error', 'Gagal membuat file ZIP: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Clean up temporary directory
+     */
+    private function cleanupTempDirectory($tempDir)
+    {
+        try {
+            if (file_exists($tempDir)) {
+                $files = glob($tempDir . '/*');
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        unlink($file);
+                    }
+                }
+                rmdir($tempDir);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to cleanup temp directory', [
+                'temp_dir' => $tempDir,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 

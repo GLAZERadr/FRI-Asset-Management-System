@@ -7,6 +7,7 @@ use App\Models\MaintenanceAsset;
 use App\Models\AssetMonitoring;
 use App\Models\DamagedAsset;
 use App\Models\Asset;
+use App\Models\Payment; // ← Add Payment model import
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -48,7 +49,7 @@ class DashboardController extends Controller
             'completed' => (clone $statsQuery)->where('status', 'Selesai')->count(),
             'in_progress' => (clone $statsQuery)->where('status', 'Dikerjakan')->count(),
             'received' => (clone $statsQuery)->where('status', 'Diterima')->count(),
-            'total_expenditure' => 0 // We'll calculate this separately
+            'total_expenditure' => 0
         ];
         
         // ADD NEW: Role-specific statistics
@@ -58,42 +59,69 @@ class DashboardController extends Controller
             $stats = array_merge($stats, $this->getStaffLaboratoriumStats($request));
         }
         
-        // Calculate total expenditure safely
+        // Calculate total expenditure from Payment model
         try {
-            $expenditureQuery = (clone $statsQuery)->where('status', 'Selesai');
-            $stats['total_expenditure'] = $expenditureQuery
-                ->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
-                ->sum('damaged_assets.estimasi_biaya') ?? 0;
+            $paymentQuery = Payment::whereIn('status', ['sudah_dibayar', 'menunggu_verifikasi']);
+            
+            if ($request->filled('start_date')) {
+                $paymentQuery->whereDate('tanggal_pembayaran', '>=', $request->start_date);
+            }
+            
+            if ($request->filled('end_date')) {
+                $paymentQuery->whereDate('tanggal_pembayaran', '<=', $request->end_date);
+            }
+            
+            $stats['total_expenditure'] = $paymentQuery->sum('total_tagihan') ?? 0;
+            
         } catch (\Exception $e) {
-            Log::error('Error calculating expenditure: ' . $e->getMessage());
+            Log::error('Error calculating expenditure from payments: ' . $e->getMessage());
             $stats['total_expenditure'] = 0;
         }
         
-        // Rest of your existing code...
+        // ADD NEW: Payment-specific statistics
+        $stats = array_merge($stats, $this->getPaymentStats($request));
+        
+        // FIXED: Get role-specific data
         $recentRequests = collect();
         $role = 'general';
         
         // Check user roles and assign appropriate data
         if ($user->hasRole('staff_logistik')) {
-            Log::info('User has staff_logistik role, filtering by division: ' . $user->division);
+            Log::info('User has staff_logistik role, fetching AssetMonitoring data');
             
-            $recentRequests = MaintenanceAsset::with(['asset', 'damagedAsset'])
-                ->whereHas('damagedAsset', function($q) use ($user) {
-                    $q->where('pelapor', $user->division);
-                })
+            // FIXED: Fetch AssetMonitoring data instead of MaintenanceAsset
+            $recentRequests = AssetMonitoring::query()
                 ->when($request->filled('start_date'), function($q) use ($request) {
-                    $q->whereDate('tanggal_pengajuan', '>=', $request->start_date);
+                    $q->whereDate('tanggal_laporan', '>=', $request->start_date);
                 })
                 ->when($request->filled('end_date'), function($q) use ($request) {
-                    $q->whereDate('tanggal_pengajuan', '<=', $request->end_date);
+                    $q->whereDate('tanggal_laporan', '<=', $request->end_date);
                 })
-                ->latest('tanggal_pengajuan')
+                ->latest('tanggal_laporan')
                 ->take(10)
                 ->get();
             $role = 'staff_logistik';
             
-            Log::info('Found ' . $recentRequests->count() . ' requests for staff_logistik');
+            Log::info('Found ' . $recentRequests->count() . ' monitoring reports for staff_logistik');
         } 
+        elseif ($user->hasRole('staff_laboratorium')) {
+            Log::info('User has staff_laboratorium role, fetching AssetMonitoring data');
+            
+            // FIXED: Fetch AssetMonitoring data for staff_laboratorium too
+            $recentRequests = AssetMonitoring::query()
+                ->when($request->filled('start_date'), function($q) use ($request) {
+                    $q->whereDate('tanggal_laporan', '>=', $request->start_date);
+                })
+                ->when($request->filled('end_date'), function($q) use ($request) {
+                    $q->whereDate('tanggal_laporan', '<=', $request->end_date);
+                })
+                ->latest('tanggal_laporan')
+                ->take(10)
+                ->get();
+            $role = 'staff_laboratorium';
+            
+            Log::info('Found ' . $recentRequests->count() . ' monitoring reports for staff_laboratorium');
+        }
         elseif ($user->hasRole('kaur_laboratorium')) {
             $recentRequests = MaintenanceAsset::with(['asset', 'damagedAsset'])
                 ->where('status', 'Diterima')
@@ -150,10 +178,35 @@ class DashboardController extends Controller
             $role = 'general';
         }
         
-        // Check if we have any maintenance assets at all
-        $totalMaintenanceAssets = MaintenanceAsset::count();
-        
         return view('dashboard.dashboard', compact('stats', 'recentRequests', 'role'));
+    }
+
+    // ADD NEW: Payment-specific statistics
+    private function getPaymentStats(Request $request)
+    {
+        $query = Payment::query();
+        
+        // Apply date filters if provided
+        if ($request->filled('start_date')) {
+            $query->whereDate('tanggal_pembayaran', '>=', $request->start_date);
+        }
+        
+        if ($request->filled('end_date')) {
+            $query->whereDate('tanggal_pembayaran', '<=', $request->end_date);
+        }
+        
+        return [
+            'total_payments' => (clone $query)->count(),
+            'payments_paid' => (clone $query)->where('status', 'sudah_dibayar')->count(),
+            'payments_pending_verification' => (clone $query)->where('status', 'menunggu_verifikasi')->count(),
+            'payments_unpaid' => (clone $query)->where('status', 'belum_dibayar')->count(),
+            'payments_overdue' => (clone $query)->where('status', 'belum_dibayar')
+                ->where('jatuh_tempo', '<', now())->count(),
+            'total_paid_amount' => (clone $query)->whereIn('status', ['sudah_dibayar', 'menunggu_verifikasi'])
+                ->sum('total_tagihan') ?? 0,
+            'total_unpaid_amount' => (clone $query)->where('status', 'belum_dibayar')
+                ->sum('total_tagihan') ?? 0,
+        ];
     }
 
     // ADD NEW: Staff Logistik specific statistics
@@ -265,6 +318,107 @@ class DashboardController extends Controller
             'assets_monitored_today' => $assetsMonitoredToday,
             'daily_assets_monitored' => $dailyAssetsMonitored
         ];
+    }
+
+    /**
+     * UPDATED: Get monthly expenditure data from Payment model
+     */
+    public function getMonthlyExpenditure()
+    {
+        try {
+            $sixMonthsAgo = Carbon::now()->subMonths(6)->startOfMonth();
+            
+            // Get monthly payment data from Payment model
+            $monthlyData = Payment::whereIn('status', ['sudah_dibayar', 'menunggu_verifikasi'])
+                ->where('tanggal_pembayaran', '>=', $sixMonthsAgo)
+                ->whereNotNull('tanggal_pembayaran')
+                ->select(
+                    DB::raw('MONTH(tanggal_pembayaran) as month'),
+                    DB::raw('YEAR(tanggal_pembayaran) as year'),
+                    DB::raw('SUM(total_tagihan) as total')
+                )
+                ->groupBy('year', 'month')
+                ->orderBy('year')
+                ->orderBy('month')
+                ->get();
+            
+            $labels = [];
+            $values = [];
+            
+            // Create data for the last 6 months
+            for ($i = 0; $i < 6; $i++) {
+                $date = Carbon::now()->subMonths(5 - $i)->startOfMonth();
+                $monthYear = $date->format('M Y');
+                $labels[] = $monthYear;
+                
+                // Find if we have data for this month
+                $found = false;
+                foreach ($monthlyData as $data) {
+                    if ($data->month == $date->month && $data->year == $date->year) {
+                        $values[] = (float) $data->total;
+                        $found = true;
+                        break;
+                    }
+                }
+                
+                // If no data found for this month, add 0
+                if (!$found) {
+                    $values[] = 0;
+                }
+            }
+            
+            return response()->json([
+                'labels' => $labels,
+                'values' => $values
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error in getMonthlyExpenditure from Payment model: ' . $e->getMessage());
+            
+            // Return empty data on error
+            return response()->json([
+                'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                'values' => [0, 0, 0, 0, 0, 0]
+            ]);
+        }
+    }
+
+    /**
+     * NEW: Get payment statistics breakdown
+     */
+    public function getPaymentStatistics(Request $request)
+    {
+        try {
+            $query = Payment::query();
+            
+            // Apply date filters if provided
+            if ($request->filled('start_date')) {
+                $query->whereDate('tanggal_pembayaran', '>=', $request->start_date);
+            }
+            
+            if ($request->filled('end_date')) {
+                $query->whereDate('tanggal_pembayaran', '<=', $request->end_date);
+            }
+            
+            $stats = [
+                'total_payments' => (clone $query)->count(),
+                'paid_verified' => (clone $query)->where('status', 'sudah_dibayar')->count(),
+                'pending_verification' => (clone $query)->where('status', 'menunggu_verifikasi')->count(),
+                'unpaid' => (clone $query)->where('status', 'belum_dibayar')->count(),
+                'overdue' => (clone $query)->where('status', 'belum_dibayar')
+                    ->where('jatuh_tempo', '<', now())->count(),
+                'total_amount_paid' => (clone $query)->whereIn('status', ['sudah_dibayar', 'menunggu_verifikasi'])
+                    ->sum('total_tagihan'),
+                'total_amount_unpaid' => (clone $query)->where('status', 'belum_dibayar')
+                    ->sum('total_tagihan'),
+            ];
+            
+            return response()->json($stats);
+            
+        } catch (\Exception $e) {
+            Log::error('Error in getPaymentStatistics: ' . $e->getMessage());
+            return response()->json(['error' => 'Unable to fetch payment statistics'], 500);
+        }
     }
 
     /**
@@ -392,89 +546,5 @@ class DashboardController extends Controller
         ];
         
         return response()->json($stats);
-    }
-
-    /**
-     * Get monthly expenditure data for chart
-     */
-    public function getMonthlyExpenditure()
-    {
-        try {
-            $sixMonthsAgo = Carbon::now()->subMonths(6)->startOfMonth();
-            
-            // Check if we have completion dates in our data
-            $hasCompletionDates = MaintenanceAsset::where('status', 'Selesai')
-                ->whereNotNull('tanggal_selesai')
-                ->count();
-                
-            if ($hasCompletionDates == 0) {
-                // Fallback to using tanggal_pengajuan if no completion dates
-                $monthlyData = MaintenanceAsset::where('status', 'Selesai')
-                    ->where('tanggal_pengajuan', '>=', $sixMonthsAgo)
-                    ->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
-                    ->select(
-                        DB::raw('MONTH(tanggal_pengajuan) as month'),
-                        DB::raw('YEAR(tanggal_pengajuan) as year'),
-                        DB::raw('SUM(estimasi_biaya) as total')
-                    )
-                    ->groupBy('year', 'month')
-                    ->orderBy('year')
-                    ->orderBy('month')
-                    ->get();
-            } else {
-                // Use completion dates
-                $monthlyData = MaintenanceAsset::where('status', 'Selesai')
-                    ->where('tanggal_selesai', '>=', $sixMonthsAgo)
-                    ->join('damaged_assets', 'maintenance_assets.damage_id', '=', 'damaged_assets.damage_id')
-                    ->select(
-                        DB::raw('MONTH(tanggal_selesai) as month'),
-                        DB::raw('YEAR(tanggal_selesai) as year'),
-                        DB::raw('SUM(estimasi_biaya) as total')
-                    )
-                    ->groupBy('year', 'month')
-                    ->orderBy('year')
-                    ->orderBy('month')
-                    ->get();
-            }
-            
-            $labels = [];
-            $values = [];
-            
-            // Create data for the last 6 months
-            for ($i = 0; $i < 6; $i++) {
-                $date = Carbon::now()->subMonths(5 - $i)->startOfMonth();
-                $monthYear = $date->format('M Y');
-                $labels[] = $monthYear;
-                
-                // Find if we have data for this month
-                $found = false;
-                foreach ($monthlyData as $data) {
-                    if ($data->month == $date->month && $data->year == $date->year) {
-                        $values[] = (float) $data->total;
-                        $found = true;
-                        break;
-                    }
-                }
-                
-                // If no data found for this month, add 0
-                if (!$found) {
-                    $values[] = 0;
-                }
-            }
-            
-            return response()->json([
-                'labels' => $labels,
-                'values' => $values
-            ]);
-            
-        } catch (\Exception $e) {
-            Log::error('Error in getMonthlyExpenditure: ' . $e->getMessage());
-            
-            // Return empty data on error
-            return response()->json([
-                'labels' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                'values' => [0, 0, 0, 0, 0, 0]
-            ]);
-        }
     }
 }

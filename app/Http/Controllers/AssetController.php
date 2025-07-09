@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Cloudinary\Configuration\Configuration;
 use Cloudinary\Api\Upload\UploadApi;
 use Illuminate\Support\Facades\Log;
+use DB;
 
 class AssetController extends Controller
 {
@@ -757,9 +758,16 @@ class AssetController extends Controller
     {
         $asset = Asset::where('asset_id', $id)->firstOrFail();
         
+        // Delete all related damaged_assets records first
+        DB::table('damaged_assets')->where('asset_id', $id)->delete();
+        
+        // Add any other related tables that might reference this asset
+        // DB::table('other_related_table')->where('asset_id', $id)->delete();
+        
+        // Now delete the main asset
         $asset->delete();
         
         return redirect()->route('pemantauan.index')
-            ->with('success', 'Kerusakan aset berhasil dihapus.');
+            ->with('success', 'Aset dan semua data terkait berhasil dihapus.');
     }
 }

@@ -27,6 +27,8 @@
             <div class="criteria-row flex items-center space-x-4" data-criteria-id="{{ $criterion->kriteria_id }}">
                 <input type="text" value="{{ $criterion->nama_kriteria }}" 
                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-100" readonly>
+                <input class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-sm" 
+                    type="text" value="{{ $criterion->deskripsi_kriteria }}" placeholder="Deskripsi Kriteria" readonly></input>
                 <select class="px-3 py-2 border border-gray-300 rounded-md bg-gray-100 w-32" disabled>
                     <option value="benefit" {{ $criterion->tipe_kriteria == 'benefit' ? 'selected' : '' }}>Benefit</option>
                     <option value="cost" {{ $criterion->tipe_kriteria == 'cost' ? 'selected' : '' }}>Cost</option>
@@ -43,6 +45,8 @@
             <div id="newCriteriaRow" class="criteria-row flex items-center space-x-4" style="display: none;">
                 <input type="text" id="newCriteriaName" placeholder="Masukan Kriteria" 
                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="newCriteriaDescription" placeholder="Deskripsi kriteria (opsional)" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none" ></input>
                 <select id="newCriteriaType" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-32">
                     <option value="">Pilih Tipe Kriteria</option>
                     <option value="benefit">Benefit</option>
@@ -139,6 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveCriteriaBtn = document.getElementById('saveCriteriaBtn');
     const cancelCriteriaBtn = document.getElementById('cancelCriteriaBtn');
     const newCriteriaName = document.getElementById('newCriteriaName');
+    const newCriteriaDescription = document.getElementById('newCriteriaDescription');
     const newCriteriaType = document.getElementById('newCriteriaType');
 
     addCriteriaBtn.addEventListener('click', () => {
@@ -158,6 +163,7 @@ document.addEventListener('DOMContentLoaded', function() {
     saveCriteriaBtn.addEventListener('click', async () => {
         const nama = newCriteriaName.value.trim();
         const tipe = newCriteriaType.value;
+        const deskripsiKriteria = newCriteriaDescription.value;
 
         if (!nama) {
             alert('Nama kriteria harus diisi');
@@ -173,6 +179,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const formData = new FormData();
         formData.append('nama_kriteria', nama);
+        formData.append('deskripsi_kriteria', deskripsiKriteria);
         formData.append('tipe_kriteria', tipe);
         
         try {

@@ -57,6 +57,7 @@ class CriteriaController extends Controller
     {
         $request->validate([
             'nama_kriteria' => 'required|string|max:255',
+            'deskripsi_kriteria' => 'nullable|string|max:1000',
             'tipe_kriteria' => 'required|in:benefit,cost'
         ]);
 
@@ -70,6 +71,7 @@ class CriteriaController extends Controller
         $criteria = Criteria::create([
             'kriteria_id' => $kriteriaId,
             'nama_kriteria' => $request->nama_kriteria,
+            'deskripsi_kriteria' => $request->deskripsi_kriteria,
             'tipe_kriteria' => $request->tipe_kriteria,
             'department' => $department,
             'created_by' => $user->id
@@ -79,7 +81,8 @@ class CriteriaController extends Controller
             'user' => $user->name,
             'department' => $department,
             'criteria_id' => $kriteriaId,
-            'criteria_name' => $request->nama_kriteria
+            'criteria_name' => $request->nama_kriteria,
+            'criteria_description' => $request->deskripsi_kriteria
         ]);
 
         return response()->json([
@@ -94,12 +97,18 @@ class CriteriaController extends Controller
      */
     private function generateUniqueKriteriaId($department)
     {
-        // CHANGE: Only check existing IDs within the same department
-        $existingIds = Criteria::where('department', $department)->pluck('kriteria_id')->toArray();
+        // Create department prefix
+        $departmentPrefix = $this->getDepartmentPrefix($department);
+        
+        // Get existing IDs for this department
+        $existingIds = Criteria::where('department', $department)
+                              ->where('kriteria_id', 'LIKE', $departmentPrefix . '%')
+                              ->pluck('kriteria_id')
+                              ->toArray();
         
         // Extract numbers from existing IDs
-        $existingNumbers = array_map(function($id) {
-            return intval(substr($id, 1));
+        $existingNumbers = array_map(function($id) use ($departmentPrefix) {
+            return intval(substr($id, strlen($departmentPrefix)));
         }, $existingIds);
         
         // Find the first available number starting from 1
@@ -108,7 +117,20 @@ class CriteriaController extends Controller
             $nextNumber++;
         }
         
-        return 'C' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+        return $departmentPrefix . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+    }
+
+    private function getDepartmentPrefix($department)
+    {
+        $prefixes = [
+            'laboratorium' => 'LAB',
+            'keuangan_logistik' => 'KEU',
+            'keuangan' => 'KEU',
+            'logistik' => 'LOG',
+            'default' => 'GEN'
+        ];
+        
+        return $prefixes[$department] ?? $prefixes['default'];
     }
 
     public function calculate(Request $request)

@@ -115,7 +115,7 @@
                 'tableType' => 'laboratorium'
             ])
         </div>
-    @elseif(auth()->user()->hasRole('kaur_keuangan_logistik_sdm'))
+    @elseif(auth()->user()->hasRole(['kaur_keuangan_logistik_sdm', 'staff_logistik']))
         <div id="logistik-content" class="tab-content">
             @include('monitoring.partials.logistik-table', [
                 'monitoringReports' => $logistikReports ?? $monitoringReports,
@@ -123,7 +123,7 @@
                 'tableType' => 'logistik'
             ])
         </div>   
-    @elseif(auth()->user()->hasRole('kaur_laboratorium'))
+    @elseif(auth()->user()->hasRole(['kaur_laboratorium', 'staff_laboratorium']))
         <div id="laboratorium-content" class="tab-content">
             @include('monitoring.partials.laboratorium-table', [
                 'monitoringReports' => $laboratoriumReports ?? $monitoringReports,

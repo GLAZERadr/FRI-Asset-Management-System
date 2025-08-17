@@ -51,7 +51,7 @@ class RoleSeeder extends Seeder
         // Assign permissions to roles
         $staffLogistik->givePermissionTo([
             'show_asset',
-            'show_monitoring_verification_report',
+            'show_monitoring_report',
             'show_fix_verification_report',
             'show_fix_verification_history',
             'show_fix_periodic_maintenance',

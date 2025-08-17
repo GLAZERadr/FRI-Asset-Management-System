@@ -257,11 +257,11 @@
                     
                     <!-- Quick Access Buttons -->
                     <div class="space-y-2">
-                        <button onclick="openQRScanner('monitoring')" class="qr-quick-access bg-blue-600 hover:bg-blue-700">
+                        <button onclick="openQRScanner('perbaikan')" class="qr-quick-access bg-blue-600 hover:bg-blue-700">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
                             </svg>
-                            Scan Monitoring/Perbaikan Aset
+                            Scan Perbaikan Aset
                         </button>
                     </div>
                     
@@ -275,26 +275,6 @@
 
     <!-- QR Scanner Modal with Tabs -->
     <div id="qr-scanner-modal" class="qr-scanner-modal" style="display: none;" x-data="qrScanner()">
-        <!-- Tab Navigation -->
-        <div class="scanner-tabs">
-            <button @click="switchMode('monitoring')" 
-                    :class="{ 'active': mode === 'monitoring' }" 
-                    class="scanner-tab">
-                <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                </svg>
-                Monitoring
-            </button>
-            <button @click="switchMode('perbaikan')" 
-                    :class="{ 'active': mode === 'perbaikan' }" 
-                    class="scanner-tab">
-                <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                </svg>
-                Perbaikan
-            </button>
-        </div>
-
         <!-- Header -->
         <div class="qr-scanner-header">
             <div class="flex-1">
@@ -330,10 +310,6 @@
 
         <!-- Footer -->
         <div class="qr-scanner-footer">
-            <div x-show="mode === 'monitoring'">
-                <p class="text-sm mb-2">Mode: <strong>Monitoring Aset</strong></p>
-                <p class="text-xs opacity-75 mb-4">Arahkan kamera ke QR code ruangan atau aset untuk monitoring</p>
-            </div>
             <div x-show="mode === 'perbaikan'">
                 <p class="text-sm mb-2">Mode: <strong>Pelaporan Kerusakan</strong></p>
                 <p class="text-xs opacity-75 mb-4">Arahkan kamera ke QR code aset yang mengalami kerusakan</p>

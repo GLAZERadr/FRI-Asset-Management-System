@@ -98,6 +98,12 @@
                         $goodAssets = collect($monitoring->monitoring_data ?? [])->where('status', 'baik')->count();
                         $needMaintenance = $totalAssets - $goodAssets;
                         $goodPercentage = $totalAssets > 0 ? round(($goodAssets / $totalAssets) * 100, 1) : 0;
+                        
+                        // Count verified assets
+                        $verifiedAssets = collect($monitoring->monitoring_data ?? [])->filter(function($item) {
+                            return isset($item['verification']) && $item['verification'] === 'verified';
+                        })->count();
+                        $verificationPercentage = $totalAssets > 0 ? round(($verifiedAssets / $totalAssets) * 100, 1) : 0;
                     @endphp
                     
                     <div class="grid grid-cols-2 gap-4">
@@ -114,8 +120,8 @@
                             <div class="text-sm text-red-800">Perlu Perawatan</div>
                         </div>
                         <div class="text-center p-4 bg-purple-50 rounded-lg">
-                            <div class="text-2xl font-bold text-purple-600">{{ $goodPercentage }}%</div>
-                            <div class="text-sm text-purple-800">Kondisi Baik</div>
+                            <div class="text-2xl font-bold text-purple-600">{{ $verifiedAssets }}/{{ $totalAssets }}</div>
+                            <div class="text-sm text-purple-800">Terverifikasi</div>
                         </div>
                     </div>
                 </div>
@@ -134,6 +140,18 @@
                         @foreach($monitoring->monitoring_data as $index => $monitoringItem)
                             @php
                                 $asset = $assets->firstWhere('asset_id', $monitoringItem['asset_id']);
+                                $isVerified = isset($monitoringItem['verification']) && $monitoringItem['verification'] === 'verified';
+                                $canVerify = auth()->user()->hasRole(['staff_laboratorium', 'staff_logistik']) && !$isVerified;
+                                
+                                // Check if user can verify this specific type of report
+                                if ($canVerify) {
+                                    if (auth()->user()->hasRole('staff_laboratorium') && strpos($monitoring->id_laporan, '-LAB-') === false) {
+                                        $canVerify = false;
+                                    }
+                                    if (auth()->user()->hasRole('staff_logistik') && strpos($monitoring->id_laporan, '-LOG-') === false) {
+                                        $canVerify = false;
+                                    }
+                                }
                             @endphp
                             
                             @if($asset)
@@ -151,10 +169,43 @@
                                                     ⚠ Butuh Perawatan
                                                 </span>
                                             @endif
+                                            
+                                            <!-- Verification Status Badge -->
+                                            @if($isVerified)
+                                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                    ✓ Terverifikasi
+                                                </span>
+                                            @else
+                                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                    ⏳ Belum Verifikasi
+                                                </span>
+                                            @endif
                                         </div>
                                         <p class="text-sm font-mono text-gray-600 mb-3">{{ $asset->asset_id }}</p>
                                     </div>
-                                    <span class="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">#{{ $index + 1 }}</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">#{{ $index + 1 }}</span>
+                                        
+                                        <!-- Individual Verification Form -->
+                                        @if($canVerify)
+                                            <form action="{{ route('pemantauan.monitoring.updateVerification', [$monitoring->id_laporan, $monitoringItem['asset_id']]) }}" 
+                                                  method="POST" 
+                                                  class="inline-block"
+                                                  onsubmit="return confirm('Apakah Anda yakin ingin memverifikasi aset {{ $asset->nama_asset }}?')">
+                                                @csrf
+                                                @method('PUT')
+                                                <input type="hidden" name="verification_status" value="verified">
+                                                <button type="submit"
+                                                        class="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors verification-btn"
+                                                        title="Setujui Verifikasi">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Verifikasi
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
                                 </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -218,13 +269,30 @@
                                         
                                         <div>
                                             <span class="text-sm text-gray-600">Status Verifikasi:</span>
-                                            <p class="text-sm">
-                                                @if(isset($monitoringItem['verification']) && $monitoringItem['verification'] === 'verified')
-                                                    <span class="text-green-600 font-medium">✓ Terverifikasi</span>
+                                            <div class="mt-1">
+                                                @if($isVerified)
+                                                    <div class="flex items-center space-x-2">
+                                                        <span class="text-green-600 font-medium text-sm">✓ Terverifikasi</span>
+                                                        @if(isset($monitoringItem['verification_id']))
+                                                            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                                                {{ $monitoringItem['verification_id'] }}
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                    @if(isset($monitoringItem['verification_date']))
+                                                        <p class="text-xs text-gray-500 mt-1">
+                                                            {{ \Carbon\Carbon::parse($monitoringItem['verification_date'])->format('d/m/Y H:i') }}
+                                                        </p>
+                                                    @endif
+                                                    @if(isset($monitoringItem['verifier_name']))
+                                                        <p class="text-xs text-gray-500">
+                                                            oleh: {{ $monitoringItem['verifier_name'] }}
+                                                        </p>
+                                                    @endif
                                                 @else
-                                                    <span class="text-orange-600 font-medium">⏳ Belum Diverifikasi</span>
+                                                    <span class="text-orange-600 font-medium text-sm">⏳ Belum Diverifikasi</span>
                                                 @endif
-                                            </p>
+                                            </div>
                                         </div>
                                         
                                         @if(isset($monitoringItem['foto_path']) && $monitoringItem['foto_path'])
@@ -299,6 +367,7 @@
 </div>
 
 <script>
+// Image Modal Functions
 function showImageModal(imageSrc, assetName) {
     document.getElementById('modalImage').src = imageSrc;
     document.getElementById('modalTitle').textContent = 'Dokumentasi - ' + assetName;
@@ -324,23 +393,11 @@ document.addEventListener('keydown', function(e) {
         closeImageModal();
     }
 });
-
-// Print functionality
-@media print {
-    .no-print {
-        display: none !important;
-    }
-    
-    body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-}
 </script>
 
 <style>
 @media print {
-    .no-print {
+    .no-print, .verification-btn {
         display: none !important;
     }
     

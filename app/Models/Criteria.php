@@ -15,6 +15,7 @@ class Criteria extends Model
         'nama_kriteria',
         'tipe_kriteria',
         'department',
+        'deskripsi_kriteria',
         'created_by'
     ];
 

@@ -21,23 +21,25 @@ class MonitoringController extends Controller
         // Base query
         $query = AssetMonitoring::with('user');
         
-        // Role-based filtering
-        if ($user->hasRole(['kaur_laboratorium'])) {
-            // Show only lab assets
+        // Role-based filtering with improved logic
+        if ($user->hasRole(['kaur_laboratorium', 'staff_laboratorium'])) {
+            // Show only lab assets (LAB reports)
             $query->where('id_laporan', 'LIKE', '%-LAB-%');
-            // Don't automatically filter by validation status for lab managers - let them see all
-        } elseif ($user->hasRole(['kaur_keuangan_logistik_sdm'])) {
-            // Show only logistic assets
-            $query->where('id_laporan', 'LIKE', '%-LOG-%');
-            // Don't automatically filter by validation status for logistic managers - let them see all
-        } elseif ($user->hasRole(['staff_laboratorium'])) {
-            // Staff lab can only see their own lab reports
-            $query->where('id_laporan', 'LIKE', '%-LAB-%')
-                  ->where('user_id', $user->id);
+        } elseif ($user->hasRole(['kaur_keuangan_logistik_sdm', 'staff_logistik'])) {
+            // Show only logistic assets (LOG reports) - exclude LAB reports
+            $query->where('id_laporan', 'LIKE', '%-LOG-%')
+                  ->where('id_laporan', 'NOT LIKE', '%-LAB-%');
         } elseif ($user->hasRole(['wakil_dekan_2'])) {
-            // Wakil Dekan 2 sees all reports - no additional filtering needed
+            // Wakil Dekan 2 sees all reports - no filtering needed here
             // The view will handle the tabbed display
         }
+        
+        // FIXED: Only restrict logistic staff to their own reports
+        // Laboratory staff should see all LAB reports, not just their own
+        if ($user->hasRole(['staff_logistik'])) {
+            $query->where('user_id', $user->id);
+        }
+        // Remove the staff_laboratorium restriction to allow them to see all LAB reports
         
         // Apply validation status filter
         if ($request->has('validation_status') && $request->validation_status !== '') {
@@ -62,9 +64,6 @@ class MonitoringController extends Controller
             $query->whereYear('tanggal_laporan', $request->year);
         }
         
-        // Get all reports
-        $allReports = $query->orderBy('tanggal_laporan', 'desc')->get();
-        
         // Prepare data based on user role
         $data = [
             'assets' => Asset::all(),
@@ -72,14 +71,27 @@ class MonitoringController extends Controller
         ];
         
         if ($user->hasRole(['wakil_dekan_2'])) {
-            // For Wakil Dekan 2, separate logistik and laboratorium reports
-            $logistikReports = $allReports->filter(function ($report) {
-                return strpos($report->id_laporan, '-LOG-') !== false;
-            });
+            // For Wakil Dekan 2, get separate logistik and laboratorium reports
+            $logistikQuery = AssetMonitoring::with('user')
+                ->where('id_laporan', 'LIKE', '%-LOG-%')
+                ->where('id_laporan', 'NOT LIKE', '%-LAB-%');
             
-            $laboratoriumReports = $allReports->filter(function ($report) {
-                return strpos($report->id_laporan, '-LAB-') !== false;
-            });
+            $laboratoriumQuery = AssetMonitoring::with('user')
+                ->where('id_laporan', 'LIKE', '%-LAB-%');
+            
+            // Apply filters to both queries
+            if ($request->has('validation_status') && $request->validation_status !== '') {
+                $logistikQuery->where('validated', $request->validation_status);
+                $laboratoriumQuery->where('validated', $request->validation_status);
+            }
+            
+            if ($request->has('year') && $request->year) {
+                $logistikQuery->whereYear('tanggal_laporan', $request->year);
+                $laboratoriumQuery->whereYear('tanggal_laporan', $request->year);
+            }
+            
+            $logistikReports = $logistikQuery->orderBy('tanggal_laporan', 'desc')->get();
+            $laboratoriumReports = $laboratoriumQuery->orderBy('tanggal_laporan', 'desc')->get();
             
             // Paginate manually for each type
             $currentPage = $request->get('page', 1);
@@ -92,36 +104,6 @@ class MonitoringController extends Controller
             
         } else {
             // For other roles, use standard pagination
-            $query = AssetMonitoring::with('user');
-            
-            // Re-apply role-based filtering
-            if ($user->hasRole(['kaur_laboratorium'])) {
-                $query->where('id_laporan', 'LIKE', '%-LAB-%');
-            } elseif ($user->hasRole(['kaur_keuangan_logistik_sdm'])) {
-                $query->where('id_laporan', 'LIKE', '%-LOG-%');
-            } elseif ($user->hasRole(['staff_laboratorium'])) {
-                $query->where('id_laporan', 'LIKE', '%-LAB-%')
-                      ->where('user_id', $user->id);
-            }
-            
-            // Re-apply validation status filter
-            if ($request->has('validation_status') && $request->validation_status !== '') {
-                $query->where('validated', $request->validation_status);
-            }
-            
-            // Re-apply other filters
-            if ($request->has('kode_ruangan') && $request->kode_ruangan) {
-                $query->where('kode_ruangan', 'like', '%' . $request->kode_ruangan . '%');
-            }
-            
-            if ($request->has('pelapor') && $request->pelapor) {
-                $query->where('nama_pelapor', 'like', '%' . $request->pelapor . '%');
-            }
-            
-            if ($request->has('tanggal_laporan') && $request->tanggal_laporan) {
-                $query->whereDate('tanggal_laporan', $request->tanggal_laporan);
-            }
-            
             $data['monitoringReports'] = $query->orderBy('tanggal_laporan', 'desc')->paginate(15);
         }
         
@@ -515,8 +497,8 @@ class MonitoringController extends Controller
             $message .= " Verification ID: {$verificationId}";
         }
         
-        return redirect()->route('pemantauan.monitoring.verify')
-                       ->with('success', $message);
+        return redirect()->route('pemantauan.monitoring.show', $id_laporan)
+            ->with('success', $message);
     }
 
     // Optional: Method to view specific monitoring report
